@@ -407,6 +407,23 @@ function Shell({ config, title, subtitle, onBack, children }) {
 
 // ── NOTIFICATION CARD ─────────────────────────────────────────────────────
 function NotifCard({ notification, onDismiss }) {
+  // Handle error notifications
+  if (notification.error) {
+    return (
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c4714f"}}>Error</div>
+          <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{background:"#fff5f2",border:"1px solid #f0c8b8",borderRadius:8,padding:"11px 13px"}}>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#4a2010",marginBottom:4}}>⚠ Failed</div>
+          <div style={{fontSize:12,color:"#7a4030",lineHeight:1.5}}>{notification.error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle success notifications
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -758,33 +775,96 @@ function MonthlyPage({ config, onBack }) {
 
   // Scan weekly folder for each week's invoice when month changes
   useEffect(()=>{
-    setWeekHours(weeks.map(()=>0));
+    const currentWeeks = getWeeksForMonth(year, month);
+    setWeekHours(currentWeeks.map(()=>0));
     setNotification(null); setAlreadySaved(false); setScanPopup(null);
-    const t = setTimeout(()=>{
-      // Simulate: in real app, Flask GET /api/scan-month?year=&month=
-      // Returns per-week found/notfound + hours if found.
-      // Here: randomly found 0 of N to show realistic UX.
-      const results = weeks.map(w=>({
-        label: w.label,
-        invNum: w.invNum,
-        found: false,   // ← real app returns true when file exists + parsed hours
-        hours: 0,
-      }));
-      // Uncomment to simulate some found weeks:
-      // if (results.length > 0) { results[0].found=true; results[0].hours=40; }
-      const newHours = results.map(r=>r.hours);
-      setWeekHours(newHours);
-      setScanPopup(results);
-    }, 900);
-    return ()=>clearTimeout(t);
-  },[year,month]);
+
+    const abortController = new AbortController();
+
+    // Fetch scan results from backend API
+    fetch(`/api/scan-month?year=${year}&month=${month+1}&folder=${encodeURIComponent(config.saveFolder)}`, {
+      signal: abortController.signal
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Failed to scan monthly invoices`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        // data.weeks: [{ label, invNum, found, hours }]
+        const results = data.weeks || [];
+        const newHours = results.map(r => r.hours || 0);
+        setWeekHours(newHours);
+        setScanPopup(results);
+
+        // Check if monthly report already exists to set alreadySaved flag
+        if (data.monthlyExists) {
+          setAlreadySaved(true);
+        }
+      })
+      .catch(error => {
+        // Ignore abort errors - component unmounted or month changed before fetch completed
+        if (error.name === 'AbortError') return;
+        console.error('Monthly scan failed:', error);
+        // Show error notification to user
+        setNotification({
+          error: error.message || 'Failed to scan weekly invoices. You can still manually enter hours.'
+        });
+        // Set empty results on error - user can still manually enter hours
+        // Use currentWeeks captured at effect start to avoid stale closure
+        setScanPopup(currentWeeks.map(w => ({ label: w.label, invNum: w.invNum, found: false, hours: 0 })));
+      });
+
+    return () => abortController.abort();
+  },[year,month,config.saveFolder]);
 
   const weeksWithData = useMemo(()=>weeks.map((w,i)=>({...w,hours:weekHours[i]||0})),[weeks,weekHours]);
   const totalHours = weeksWithData.reduce((s,w)=>s+w.hours,0);
   const totalPay   = (totalHours*config.rate).toFixed(2);
   const setWeekHour = (i,v) => setWeekHours(h=>{ const n=[...h]; n[i]=v; return n; });
 
-  const doSend = () => { setNotification(null); setShowConfirm(false); setTimeout(()=>{ setNotification({sent:[config.accountantEmail],saved:savedPath}); setAlreadySaved(true); },500); };
+  const doSend = async () => {
+    setNotification(null);
+    setShowConfirm(false);
+
+    try {
+      // Prepare payload for monthly submit endpoint
+      const payload = {
+        weekData: weeksWithData.map(w => ({ label: w.label, hours: w.hours })),
+        year: year,
+        month: month + 1, // Backend expects 1-indexed month
+        accountantEmail: config.accountantEmail
+      };
+
+      const response = await fetch('/api/submit/monthly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to submit monthly report`);
+      }
+
+      const data = await response.json();
+
+      // Update UI with actual response data
+      setNotification({
+        sent: data.sent || [config.accountantEmail],
+        saved: data.saved || savedPath
+      });
+      setAlreadySaved(true);
+
+    } catch (error) {
+      console.error('Monthly submit failed:', error);
+      setNotification({
+        error: error.message || 'Failed to submit monthly report. Please try again.'
+      });
+    }
+  };
+
   const handleSubmit = () => { if(alreadySaved){setShowConfirm(true);return;} doSend(); };
   const prevMonth = () => { setNotification(null); if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1); };
   const nextMonth = () => { setNotification(null); if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1); };
