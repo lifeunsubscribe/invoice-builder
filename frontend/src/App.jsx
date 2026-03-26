@@ -858,6 +858,7 @@ function MonthlyPage({ config, onBack }) {
   const [zoom,  setZoom]  = useState(0.75);
   const [notification, setNotification] = useState(null);
   const [alreadySaved, setAlreadySaved] = useState(false);
+  const [savedDate,    setSavedDate]    = useState(null);
   const [showConfirm,  setShowConfirm]  = useState(false);
   const [scanPopup,    setScanPopup]    = useState(null); // null | results[]
   const acc = config.accent;
@@ -944,6 +945,9 @@ function MonthlyPage({ config, onBack }) {
 
       const data = await response.json();
 
+      // Update UI with actual response data
+      const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+
       // Check for partial success: PDF saved but email failed
       if (data.saved && data.emailError) {
         setNotification({
@@ -951,6 +955,7 @@ function MonthlyPage({ config, onBack }) {
           emailError: data.emailError
         });
         setAlreadySaved(true);
+        setSavedDate(dateStr);
       } else {
         // Full success - update UI with actual response data
         setNotification({
@@ -958,6 +963,7 @@ function MonthlyPage({ config, onBack }) {
           saved: data.saved || savedPath
         });
         setAlreadySaved(true);
+        setSavedDate(dateStr);
       }
 
     } catch (error) {
@@ -1013,6 +1019,21 @@ function MonthlyPage({ config, onBack }) {
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,color:"#2c1810",lineHeight:1.1}}>{totalHours}</div></div>
               <div style={{textAlign:"right"}}><div style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Total</div>
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:21,color:acc,fontWeight:700,lineHeight:1.1}}>${totalPay}</div></div>
+            </div>
+            {/* Saved status pill */}
+            <div style={{flexShrink:0,marginBottom:6}}>
+              {alreadySaved ? (
+                <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#4a7a50",maxWidth:"100%",overflow:"hidden"}}>
+                  <span>💾</span>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    Saved · {monthLabel} · {savedDate}
+                  </span>
+                </div>
+              ) : (
+                <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f5f0eb",border:"1px solid #e0d4cc",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#9a8070"}}>
+                  <span style={{fontSize:9}}>○</span> Not yet saved for this month
+                </div>
+              )}
             </div>
             <div style={{flexShrink:0}}>
               {notification ? (
