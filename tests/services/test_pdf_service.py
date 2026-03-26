@@ -5,13 +5,8 @@ These tests verify that required template variables are properly validated
 before rendering, preventing cryptic Jinja2 errors in production.
 """
 
-import os
-import sys
 import pytest
 from unittest.mock import patch, MagicMock
-
-# Import path setup
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 from app.services.pdf_service import (
     _validate_config,
