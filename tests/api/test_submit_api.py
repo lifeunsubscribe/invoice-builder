@@ -345,6 +345,7 @@ class TestSubmitMonthlyEndpoint:
                     assert data['success'] is True
                     assert 'saved' in data
                     assert data['sent'] == ["accountant@example.com"]
+                    assert data['overwrite'] is False  # First save
 
                     # Verify PDF was saved
                     pdf_path = os.path.join(tmpdir, 'monthly', 'RPT-2026-03.pdf')
@@ -355,6 +356,39 @@ class TestSubmitMonthlyEndpoint:
                     call_args = mock_pdf.call_args[1]
                     assert call_args['month_label'] == 'March 2026'
                     assert call_args['week_data'] == payload['weekData']
+
+    def test_submit_monthly_overwrite_detection(self, client, temp_config):
+        """Test that overwrite flag is set when monthly PDF already exists."""
+        tmpdir, config_path, config_data = temp_config
+
+        payload = {
+            "weekData": [{"label": "Mar 3 – Mar 9", "hours": 40}],
+            "year": 2026,
+            "month": 3,
+            "accountantEmail": "accountant@example.com"
+        }
+
+        # Create existing monthly PDF
+        monthly_dir = os.path.join(tmpdir, 'monthly')
+        os.makedirs(monthly_dir, exist_ok=True)
+        existing_pdf = os.path.join(monthly_dir, 'RPT-2026-03.pdf')
+        Path(existing_pdf).write_bytes(b'existing monthly content')
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_monthly_pdf') as mock_pdf:
+                with patch('app.api.submit_api.send_invoice_email') as mock_email:
+                    mock_pdf.return_value = b'%PDF-1.4 new monthly content'
+                    mock_email.return_value = {"success": True}
+
+                    response = client.post(
+                        '/api/submit/monthly',
+                        json=payload,
+                        content_type='application/json'
+                    )
+
+                    assert response.status_code == 200
+                    data = response.get_json()
+                    assert data['overwrite'] is True  # PDF existed before
 
     def test_submit_monthly_missing_required_fields(self, client):
         """Test validation for missing required fields."""
@@ -401,6 +435,7 @@ class TestSubmitMonthlyEndpoint:
                     assert data['success'] is True
                     assert data['sent'] == []
                     assert 'emailError' in data
+                    assert data['overwrite'] is False  # First save
 
 
 class TestEmailValidation:
