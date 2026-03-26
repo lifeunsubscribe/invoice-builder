@@ -407,34 +407,55 @@ function Shell({ config, title, subtitle, onBack, children }) {
 
 // ── NOTIFICATION CARD ─────────────────────────────────────────────────────
 function NotifCard({ notification, onDismiss }) {
-  // Handle error notifications
-  if (notification.error) {
+  // Handle partial success: PDF saved but email failed
+  if (notification.saved && notification.emailError) {
     return (
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-          <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c4714f"}}>Error</div>
-          <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+          <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c9972a"}}>Partial Success</div>
+          <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
         </div>
-        <div style={{background:"#fff5f2",border:"1px solid #f0c8b8",borderRadius:8,padding:"11px 13px"}}>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#4a2010",marginBottom:4}}>⚠ Failed</div>
-          <div style={{fontSize:12,color:"#7a4030",lineHeight:1.5}}>{notification.error}</div>
+        <div style={{background:"#fefaf2",border:"1px solid #ead8a8",borderRadius:8,padding:"11px 13px"}}>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#6a5010",marginBottom:7}}>⚠ Saved but Email Failed</div>
+          <div style={{fontSize:12,color:"#4a7a50",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #e8e0c8",display:"flex",alignItems:"center",gap:5}}>
+            <span>💾</span> <span style={{wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.saved}</span>
+          </div>
+          <div style={{fontSize:12,color:"#8a6020",lineHeight:1.5,wordBreak:"break-word",overflowWrap:"break-word"}}>
+            <strong>Email error:</strong> {notification.emailError}
+          </div>
         </div>
       </div>
     );
   }
 
-  // Handle success notifications
+  // Handle full error notifications
+  if (notification.error) {
+    return (
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c4714f"}}>Error</div>
+          <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{background:"#fff5f2",border:"1px solid #f0c8b8",borderRadius:8,padding:"11px 13px"}}>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#4a2010",marginBottom:4}}>⚠ Failed</div>
+          <div style={{fontSize:12,color:"#7a4030",lineHeight:1.5,wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle full success notifications
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
         <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#6a9a70"}}>Sent</div>
-        <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+        <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
       </div>
       <div style={{background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:8,padding:"11px 13px"}}>
         <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#2d4a2d",marginBottom:7}}>✓ Sent!</div>
-        {notification.sent.map(e=><div key={e} style={{fontSize:12,color:"#4a7a50",marginBottom:3}}>✉ {e}</div>)}
+        {notification.sent.map(e=><div key={e} style={{fontSize:12,color:"#4a7a50",marginBottom:3,wordBreak:"break-word",overflowWrap:"break-word"}}>✉ {e}</div>)}
         <div style={{fontSize:12,color:"#4a7a50",marginTop:4,paddingTop:6,borderTop:"1px solid #c8e8c8",display:"flex",alignItems:"center",gap:5}}>
-          <span>💾</span> {notification.saved}
+          <span>💾</span> <span style={{wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.saved}</span>
         </div>
       </div>
     </div>
@@ -643,16 +664,89 @@ function WeeklyPage({ config, onBack }) {
   const totalPay   = (totalHours*config.rate).toFixed(2);
   const setHour    = (day,v) => setHours(h=>({...h,[day]:v}));
 
-  const doSend = () => {
+  const doSend = async () => {
     setNotification(null); setShowConfirm(false);
-    setTimeout(()=>{
+
+    try {
+      // Build payload for weekly submit API
+      const payload = {
+        hours,
+        clientEmail,
+        accountantEmail,
+        week: {
+          start: week.start,
+          end: week.end,
+          invNum: week.invNum
+        },
+        template: activeTemplate
+      };
+
+      const response = await fetch('/api/submit/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to submit weekly invoice`);
+      }
+
+      const data = await response.json();
+
+      // Update UI with actual response data
       const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-      setNotification({sent:[clientEmail,accountantEmail],saved:savedPath});
-      setAlreadySaved(true);
-      setSavedDate(dateStr);
-    },500);
+
+      // Check for partial success: PDF saved but email failed
+      if (data.saved && data.emailError) {
+        setNotification({
+          saved: data.saved,
+          emailError: data.emailError
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      } else {
+        // Full success
+        setNotification({
+          sent: data.sent || [clientEmail, accountantEmail],
+          saved: data.saved || savedPath
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      }
+
+    } catch (error) {
+      console.error('Weekly submit failed:', error);
+      setNotification({
+        error: error.message || 'Failed to submit weekly invoice. Please try again.'
+      });
+    }
   };
-  const handleSubmit = () => { if(alreadySaved){setShowConfirm(true);return;} doSend(); };
+
+  const handleSubmit = async () => {
+    // Pre-flight check: does this invoice already exist?
+    try {
+      const scanResponse = await fetch(`/api/scan?folder=${encodeURIComponent(config.saveFolder)}&invNum=${week.invNum}`);
+
+      if (scanResponse.ok) {
+        const scanData = await scanResponse.json();
+
+        // If PDF already exists, show confirmation dialog before overwriting
+        if (scanData.found) {
+          setShowConfirm(true);
+          return;
+        }
+      }
+
+      // No existing PDF or scan failed - proceed with submit
+      await doSend();
+
+    } catch (error) {
+      console.error('Pre-flight scan failed:', error);
+      // If scan fails, proceed anyway (don't block the user)
+      await doSend();
+    }
+  };
 
   const PreviewComponent = activeTemplate==="morning-light"?TemplateMorningLight:activeTemplate==="caring-hands"?TemplateCaringHands:TemplateGarden;
   const LETTER_W=680, LETTER_H=Math.round(LETTER_W*(11/8.5));
@@ -764,6 +858,7 @@ function MonthlyPage({ config, onBack }) {
   const [zoom,  setZoom]  = useState(0.75);
   const [notification, setNotification] = useState(null);
   const [alreadySaved, setAlreadySaved] = useState(false);
+  const [savedDate,    setSavedDate]    = useState(null);
   const [showConfirm,  setShowConfirm]  = useState(false);
   const [scanPopup,    setScanPopup]    = useState(null); // null | results[]
   const acc = config.accent;
@@ -851,11 +946,25 @@ function MonthlyPage({ config, onBack }) {
       const data = await response.json();
 
       // Update UI with actual response data
-      setNotification({
-        sent: data.sent || [config.accountantEmail],
-        saved: data.saved || savedPath
-      });
-      setAlreadySaved(true);
+      const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+
+      // Check for partial success: PDF saved but email failed
+      if (data.saved && data.emailError) {
+        setNotification({
+          saved: data.saved,
+          emailError: data.emailError
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      } else {
+        // Full success - update UI with actual response data
+        setNotification({
+          sent: data.sent || [config.accountantEmail],
+          saved: data.saved || savedPath
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      }
 
     } catch (error) {
       console.error('Monthly submit failed:', error);
@@ -865,7 +974,7 @@ function MonthlyPage({ config, onBack }) {
     }
   };
 
-  const handleSubmit = () => { if(alreadySaved){setShowConfirm(true);return;} doSend(); };
+  const handleSubmit = async () => { if(alreadySaved){setShowConfirm(true);return;} await doSend(); };
   const prevMonth = () => { setNotification(null); if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1); };
   const nextMonth = () => { setNotification(null); if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1); };
 
@@ -910,6 +1019,21 @@ function MonthlyPage({ config, onBack }) {
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,color:"#2c1810",lineHeight:1.1}}>{totalHours}</div></div>
               <div style={{textAlign:"right"}}><div style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Total</div>
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:21,color:acc,fontWeight:700,lineHeight:1.1}}>${totalPay}</div></div>
+            </div>
+            {/* Saved status pill */}
+            <div style={{flexShrink:0,marginBottom:6}}>
+              {alreadySaved ? (
+                <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#4a7a50",maxWidth:"100%",overflow:"hidden"}}>
+                  <span>💾</span>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    Saved · {monthLabel}{savedDate ? ` · ${savedDate}` : ''}
+                  </span>
+                </div>
+              ) : (
+                <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f5f0eb",border:"1px solid #e0d4cc",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#9a8070"}}>
+                  <span style={{fontSize:9}}>○</span> Not yet saved for this month
+                </div>
+              )}
             </div>
             <div style={{flexShrink:0}}>
               {notification ? (
@@ -992,7 +1116,7 @@ export default function App() {
         <div style={{fontSize:12,fontWeight:700,color:"#8a5010"}}>Could not load saved profile</div>
         <div style={{fontSize:11,color:"#a87020"}}>Using default settings. You can save your profile to persist changes.</div>
       </div>
-      <button onClick={()=>setConfigError(null)} style={{fontSize:11,color:"#8a5010",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+      <button onClick={()=>setConfigError(null)} aria-label="Dismiss error" style={{fontSize:11,color:"#8a5010",background:"none",border:"none",cursor:"pointer"}}>✕</button>
     </div>
   ) : null;
 
