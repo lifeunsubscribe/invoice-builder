@@ -81,7 +81,7 @@
       <div>
         <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 7px;">Rate</div>
         <div style="font-size: 16px; font-weight: 700; color: #1a2a3a;">
-          ${{ "%.2f"|format(config.rate) }}<span style="font-size: 11px; font-weight: 400; color: #5a8090;">/hr</span>
+          ${{ "%.2f"|format(config.rate|default(0)) }}<span style="font-size: 11px; font-weight: 400; color: #5a8090;">/hr</span>
         </div>
       </div>
     </div>
@@ -104,9 +104,9 @@
             <td style="padding: 12px 38px; color: #1a2a3a; font-weight: 600;">Week {{ loop.index }}</td>
             <td style="padding: 12px 0; color: #4a6a70; font-size: 12px;">{{ week.label }}</td>
             <td style="padding: 12px 0; text-align: right; color: #1a2a3a;">{{ week.hours }}</td>
-            <td style="padding: 12px 0; text-align: right; color: #5a90a8; opacity: 0.8;">${{ "%.2f"|format(config.rate) }}</td>
+            <td style="padding: 12px 0; text-align: right; color: #5a90a8; opacity: 0.8;">${{ "%.2f"|format(config.rate|default(0)) }}</td>
             <td style="padding: 12px 38px 12px 0; text-align: right; color: {% if week.hours > 0 %}#1a2a3a{% else %}#aaa{% endif %}; font-weight: {% if week.hours > 0 %}600{% else %}400{% endif %};">
-              {% if week.hours > 0 %}${{ "%.2f"|format(week.hours * config.rate) }}{% else %}—{% endif %}
+              {% if week.hours > 0 %}${{ "%.2f"|format(week.hours * config.rate|default(0)) }}{% else %}—{% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -117,7 +117,7 @@
     <!-- Summary section (weeks worked + total) -->
     <div style="margin: 20px 38px 18px; display: flex; justify-content: space-between; align-items: flex-end;">
       <div style="font-size: 13px; color: #7a9aaa;">
-        {{ weeks_worked }} week{% if weeks_worked != 1 %}s{% endif %} worked · ${{ "%.2f"|format(config.rate) }}/hr
+        {{ weeks_worked }} week{% if weeks_worked != 1 %}s{% endif %} worked · ${{ "%.2f"|format(config.rate|default(0)) }}/hr
       </div>
       <div style="background: #2c3e50; border-radius: 10px; padding: 16px 28px; text-align: right;">
         <div style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #a8c8d8; margin-bottom: 6px;">
