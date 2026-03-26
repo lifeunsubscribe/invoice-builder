@@ -807,6 +807,10 @@ function MonthlyPage({ config, onBack }) {
         // Ignore abort errors - component unmounted or month changed before fetch completed
         if (error.name === 'AbortError') return;
         console.error('Monthly scan failed:', error);
+        // Show error notification to user
+        setNotification({
+          error: error.message || 'Failed to scan weekly invoices. You can still manually enter hours.'
+        });
         // Set empty results on error - user can still manually enter hours
         // Use currentWeeks captured at effect start to avoid stale closure
         setScanPopup(currentWeeks.map(w => ({ label: w.label, invNum: w.invNum, found: false, hours: 0 })));
