@@ -3,6 +3,12 @@ REM build.bat - One-command build script for LisaInvoice desktop app
 REM Builds frontend with Vite and packages everything into a Windows .exe with PyInstaller
 
 echo Building frontend...
+if not exist frontend\ (
+    echo ERROR: frontend directory not found!
+    echo Please ensure you are running build.bat from the project root.
+    pause
+    exit /b 1
+)
 cd frontend
 call npm run build
 if errorlevel 1 (
