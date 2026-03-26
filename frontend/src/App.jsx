@@ -508,6 +508,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
       }
       // Update local state only after successful save (pessimistic update for data integrity)
       onSave(draft);
+      setSaving(false);
       onBack();
     } catch (error) {
       console.error('Save failed:', error);
@@ -865,7 +866,8 @@ export default function App() {
 
   // Fetch config from API on app mount
   useEffect(() => {
-    fetch('/api/config')
+    const abortController = new AbortController();
+    fetch('/api/config', { signal: abortController.signal })
       .then(response => {
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: Failed to load configuration`);
@@ -877,11 +879,14 @@ export default function App() {
         setLoading(false);
       })
       .catch(error => {
+        // Ignore abort errors - component unmounted before fetch completed
+        if (error.name === 'AbortError') return;
         console.error('Config fetch failed, using defaults:', error);
         setConfigError(error.message);
         setLoading(false);
         // Keep defaultConfig as fallback
       });
+    return () => abortController.abort();
   }, []);
 
   const handleNav = (dest) => {
