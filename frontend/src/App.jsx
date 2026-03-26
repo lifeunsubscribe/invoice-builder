@@ -413,7 +413,7 @@ function NotifCard({ notification, onDismiss }) {
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c9972a"}}>Partial Success</div>
-          <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+          <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
         </div>
         <div style={{background:"#fefaf2",border:"1px solid #ead8a8",borderRadius:8,padding:"11px 13px"}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#6a5010",marginBottom:7}}>⚠ Saved but Email Failed</div>
@@ -434,7 +434,7 @@ function NotifCard({ notification, onDismiss }) {
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c4714f"}}>Error</div>
-          <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+          <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
         </div>
         <div style={{background:"#fff5f2",border:"1px solid #f0c8b8",borderRadius:8,padding:"11px 13px"}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#4a2010",marginBottom:4}}>⚠ Failed</div>
@@ -449,7 +449,7 @@ function NotifCard({ notification, onDismiss }) {
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
         <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#6a9a70"}}>Sent</div>
-        <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+        <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
       </div>
       <div style={{background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:8,padding:"11px 13px"}}>
         <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#2d4a2d",marginBottom:7}}>✓ Sent!</div>
@@ -1116,7 +1116,7 @@ export default function App() {
         <div style={{fontSize:12,fontWeight:700,color:"#8a5010"}}>Could not load saved profile</div>
         <div style={{fontSize:11,color:"#a87020"}}>Using default settings. You can save your profile to persist changes.</div>
       </div>
-      <button onClick={()=>setConfigError(null)} style={{fontSize:11,color:"#8a5010",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+      <button onClick={()=>setConfigError(null)} aria-label="Dismiss error" style={{fontSize:11,color:"#8a5010",background:"none",border:"none",cursor:"pointer"}}>✕</button>
     </div>
   ) : null;
 

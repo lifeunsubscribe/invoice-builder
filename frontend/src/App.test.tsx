@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import App from './App'
 
 // Example test demonstrating the test infrastructure setup
@@ -39,5 +39,32 @@ describe('App', () => {
     // The landing page should display the current save folder path
     const folderText = screen.getByText(/Saving to/i)
     expect(folderText).toBeInTheDocument()
+  })
+})
+
+describe('Accessibility - Error Banner', () => {
+  // Mock fetch to trigger config error for error banner display
+  beforeEach(() => {
+    global.fetch = vi.fn(() =>
+      Promise.reject(new Error('Network error'))
+    ) as any
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('error banner dismiss button has accessible label', async () => {
+    render(<App />)
+
+    // Wait for error banner to appear after failed config fetch
+    await waitFor(() => {
+      expect(screen.getByText(/Could not load saved profile/i)).toBeInTheDocument()
+    })
+
+    // Verify the dismiss button has an accessible label
+    const dismissButton = screen.getByRole('button', { name: /dismiss error/i })
+    expect(dismissButton).toBeInTheDocument()
+    expect(dismissButton).toHaveAttribute('aria-label', 'Dismiss error')
   })
 })
