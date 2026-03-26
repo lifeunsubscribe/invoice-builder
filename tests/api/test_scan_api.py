@@ -218,6 +218,62 @@ class TestScanEndpoint:
                 data = response.get_json()
                 assert 'found' in data
 
+    def test_scan_invalid_calendar_dates(self, client, temp_invoice_folder):
+        """Test that invalid calendar dates are rejected (month 13, day 32, etc.)."""
+        invalid_dates = [
+            'INV-20261300',  # Month 13
+            'INV-20260032',  # Day 32
+            'INV-20260230',  # February 30th (non-existent)
+            'INV-20260431',  # April 31st (April has 30 days)
+            'INV-20260631',  # June 31st (June has 30 days)
+            'INV-20260931',  # September 31st (September has 30 days)
+            'INV-20261131',  # November 31st (November has 30 days)
+            'INV-20260000',  # Day 0
+            'INV-20260100',  # Month 0
+            'INV-20230229',  # Feb 29 in non-leap year (2023)
+        ]
+
+        for invalid_inv in invalid_dates:
+            response = client.get(
+                '/api/scan',
+                query_string={
+                    'folder': temp_invoice_folder,
+                    'invNum': invalid_inv
+                }
+            )
+
+            assert response.status_code == 400, \
+                f"Expected 400 for invalid date: {invalid_inv}, got {response.status_code}"
+            data = response.get_json()
+            assert 'error' in data
+            assert 'invNum' in data['message']
+
+    def test_scan_valid_leap_year_dates(self, client, temp_invoice_folder):
+        """Test that Feb 29 is accepted in leap years and rejected in non-leap years."""
+        # Feb 29 in leap year (2024) - should be accepted
+        response = client.get(
+            '/api/scan',
+            query_string={
+                'folder': temp_invoice_folder,
+                'invNum': 'INV-20240229'
+            }
+        )
+        assert response.status_code == 200, "Feb 29, 2024 (leap year) should be valid"
+        data = response.get_json()
+        assert 'found' in data
+
+        # Feb 29 in non-leap year (2023) - should be rejected
+        response = client.get(
+            '/api/scan',
+            query_string={
+                'folder': temp_invoice_folder,
+                'invNum': 'INV-20230229'
+            }
+        )
+        assert response.status_code == 400, "Feb 29, 2023 (non-leap year) should be invalid"
+        data = response.get_json()
+        assert 'error' in data
+
 
 class TestScanMonthEndpoint:
     """Tests for GET /api/scan-month endpoint."""
