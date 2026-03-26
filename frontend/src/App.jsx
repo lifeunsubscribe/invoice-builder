@@ -875,7 +875,7 @@ export default function App() {
         return response.json();
       })
       .then(data => {
-        setConfig(data);
+        setConfig({ ...defaultConfig, ...data });
         setLoading(false);
       })
       .catch(error => {
