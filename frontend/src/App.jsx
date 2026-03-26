@@ -472,6 +472,8 @@ function LandingPage({ config, onNav }) {
 function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
   const [draft, setDraft] = useState(config);
   const [folderOverridden, setFolderOverridden] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
   const folderRef = useRef(null);
   const acc = draft.accent;
 
@@ -488,6 +490,31 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
       if (key==="name" && !folderOverridden) next.saveFolder = deriveSaveFolder(value);
       return next;
     });
+  };
+
+  // Save profile changes to persistent storage via API
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      // POST updated config to backend for persistence
+      const response = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draft)
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to save configuration`);
+      }
+      // Update local state only after successful save (pessimistic update for data integrity)
+      onSave(draft);
+      setSaving(false);
+      onBack();
+    } catch (error) {
+      console.error('Save failed:', error);
+      setSaveError(error.message);
+      setSaving(false);
+    }
   };
 
   return (
@@ -551,10 +578,20 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
             </div>
           </div>
 
+          {/* Error message if save failed */}
+          {saveError && (
+            <div style={{background:"#fef3e8",border:"1.5px solid #e8b060",borderRadius:10,padding:"12px 16px",marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#8a5010",marginBottom:3}}>⚠️ Save Failed</div>
+              <div style={{fontSize:11,color:"#a87020"}}>{saveError}</div>
+            </div>
+          )}
+
           {/* Buttons — inside scroll area so they're never clipped */}
           <div style={{display:"flex",gap:10}}>
-            <button onClick={onBack} style={{flex:1,fontSize:13,fontWeight:700,padding:"12px 0",borderRadius:10,border:"1.5px solid #e8ddd8",background:"white",color:"#9a8070",cursor:"pointer"}}>Cancel</button>
-            <button onClick={()=>{onSave(draft);onBack();}} style={{flex:2,fontSize:13,fontWeight:700,padding:"12px 0",borderRadius:10,border:"none",background:acc,color:"white",cursor:"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`}}>Save Profile</button>
+            <button onClick={onBack} disabled={saving} style={{flex:1,fontSize:13,fontWeight:700,padding:"12px 0",borderRadius:10,border:"1.5px solid #e8ddd8",background:"white",color:"#9a8070",cursor:saving?"not-allowed":"pointer",opacity:saving?0.5:1}}>Cancel</button>
+            <button onClick={handleSave} disabled={saving} style={{flex:2,fontSize:13,fontWeight:700,padding:"12px 0",borderRadius:10,border:"none",background:acc,color:"white",cursor:saving?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:saving?0.7:1}}>
+              {saving ? "Saving..." : "Save Profile"}
+            </button>
           </div>
         </div>
       </div>
@@ -824,14 +861,63 @@ export default function App() {
   const [config, setConfig] = useState(defaultConfig);
   const [page,   setPage]   = useState("menu");
   const [scrollToFolder, setScrollToFolder] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [configError, setConfigError] = useState(null);
+
+  // Fetch config from API on app mount
+  useEffect(() => {
+    const abortController = new AbortController();
+    fetch('/api/config', { signal: abortController.signal })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Failed to load configuration`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        setConfig({ ...defaultConfig, ...data });
+        setLoading(false);
+      })
+      .catch(error => {
+        // Ignore abort errors - component unmounted before fetch completed
+        if (error.name === 'AbortError') return;
+        console.error('Config fetch failed, using defaults:', error);
+        setConfigError(error.message);
+        setLoading(false);
+        // Keep defaultConfig as fallback
+      });
+    return () => abortController.abort();
+  }, []);
 
   const handleNav = (dest) => {
     if (dest==="profile-folder") { setScrollToFolder(true); setPage("profile"); }
     else { setScrollToFolder(false); setPage(dest); }
   };
 
-  if (page==="weekly")  return <WeeklyPage  config={config} onBack={()=>setPage("menu")}/>;
-  if (page==="monthly") return <MonthlyPage config={config} onBack={()=>setPage("menu")}/>;
-  if (page==="profile") return <ProfilePage config={config} onSave={setConfig} onBack={()=>setPage("menu")} scrollToFolder={scrollToFolder}/>;
-  return <LandingPage config={config} onNav={handleNav}/>;
+  // Show loading state while fetching config
+  if (loading) {
+    return (
+      <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f9f3ee",flexDirection:"column",gap:16}}>
+        <div style={{fontSize:32}}>⏳</div>
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:"#2c1810"}}>Loading your profile...</div>
+      </div>
+    );
+  }
+
+  // Show error banner if config fetch failed (but continue with defaults)
+  const ErrorBanner = configError ? (
+    <div style={{position:"fixed",top:0,left:0,right:0,background:"#fef3e8",borderBottom:"2px solid #e8b060",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
+      <span style={{fontSize:16}}>⚠️</span>
+      <div style={{flex:1}}>
+        <div style={{fontSize:12,fontWeight:700,color:"#8a5010"}}>Could not load saved profile</div>
+        <div style={{fontSize:11,color:"#a87020"}}>Using default settings. You can save your profile to persist changes.</div>
+      </div>
+      <button onClick={()=>setConfigError(null)} style={{fontSize:11,color:"#8a5010",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+    </div>
+  ) : null;
+
+  if (page==="weekly")  return <>{ErrorBanner}<WeeklyPage  config={config} onBack={()=>setPage("menu")}/></>;
+  if (page==="monthly") return <>{ErrorBanner}<MonthlyPage config={config} onBack={()=>setPage("menu")}/></>;
+  if (page==="profile") return <>{ErrorBanner}<ProfilePage config={config} onSave={setConfig} onBack={()=>setPage("menu")} scrollToFolder={scrollToFolder}/></>;
+  return <>{ErrorBanner}<LandingPage config={config} onNav={handleNav}/></>;
 }
