@@ -36,17 +36,20 @@ The app needs a special password to send your invoices via email. This is NOT yo
 
 ### Creating Your Gmail App Password:
 
-1. Go to your Google Account settings: **https://myaccount.google.com**
-2. Click **Security** in the left menu
-3. Scroll down to **"How you sign in to Google"** section
-4. Click **"2-Step Verification"** (if not already enabled, follow the prompts to turn it on)
-5. Scroll to the bottom and click **"App passwords"**
-6. You may need to sign in again
-7. Under "Select app," choose **Mail**
-8. Under "Select device," choose **Windows Computer**
-9. Click **Generate**
-10. Google will show you a 16-character password that looks like: **xxxx xxxx xxxx xxxx**
-11. **Write this down** or keep this window open - you'll need it in the next step
+1. First, make sure **2-Step Verification** is turned on:
+   - Go to **https://myaccount.google.com**
+   - Click **Security** in the left menu
+   - Scroll to **"How you sign in to Google"** section
+   - Click **"2-Step Verification"** (if not already enabled, follow the prompts to turn it on)
+
+2. Create your App Password:
+   - Go directly to: **https://myaccount.google.com/apppasswords**
+   - You may need to sign in again
+   - In the text box, type a name to help you remember (for example: **Invoice App**)
+   - Click the **"Create"** button
+   - Google will show you a 16-character password that looks like: **xxxx xxxx xxxx xxxx**
+   - **Copy this password immediately** - you won't be able to see it again once you close the window
+   - Keep this window open or paste it somewhere safe - you'll need it in the next step
 
 ### Important Notes:
 - You only need to do this once
