@@ -111,7 +111,12 @@ The app is now installed and ready to use. Here's what you can do:
 
 ### Need Help?
 
-If you have any questions or something isn't working, contact Sarah and we'll get it sorted out.
+If you have any questions or something isn't working:
+
+- **Call or text:** [Your phone number]
+- **Email:** [Your email address]
+
+Sarah will help you get it sorted out.
 
 ---
 
