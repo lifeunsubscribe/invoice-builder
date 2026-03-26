@@ -24,6 +24,7 @@ echo.
 REM Step 2: Package with PyInstaller
 echo [2/2] Packaging executable with PyInstaller...
 pyinstaller --onefile --windowed ^
+  --icon=frontend/public/icon.ico ^
   --name="LisaInvoice" ^
   --add-data "frontend/dist;dist" ^
   app/main.py
