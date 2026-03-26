@@ -100,12 +100,13 @@ def index():
 
 # Blueprint registration
 from app.api.config_api import config_bp
-app.register_blueprint(config_bp)
+from app.api.scan_api import scan_bp
 
-# Phase 2-3 blueprints (to be added later)
-# from app.api.scan_api import scan_bp
+app.register_blueprint(config_bp)
+app.register_blueprint(scan_bp)
+
+# Phase 3 blueprints (to be added later)
 # from app.api.submit_api import submit_bp
-# app.register_blueprint(scan_bp)
 # app.register_blueprint(submit_bp)
 
 if __name__ == "__main__":
