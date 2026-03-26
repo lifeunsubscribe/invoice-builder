@@ -775,7 +775,8 @@ function MonthlyPage({ config, onBack }) {
 
   // Scan weekly folder for each week's invoice when month changes
   useEffect(()=>{
-    setWeekHours(weeks.map(()=>0));
+    const currentWeeks = getWeeksForMonth(year, month);
+    setWeekHours(currentWeeks.map(()=>0));
     setNotification(null); setAlreadySaved(false); setScanPopup(null);
 
     const abortController = new AbortController();
@@ -807,11 +808,12 @@ function MonthlyPage({ config, onBack }) {
         if (error.name === 'AbortError') return;
         console.error('Monthly scan failed:', error);
         // Set empty results on error - user can still manually enter hours
-        setScanPopup(weeks.map(w => ({ label: w.label, invNum: w.invNum, found: false, hours: 0 })));
+        // Use currentWeeks captured at effect start to avoid stale closure
+        setScanPopup(currentWeeks.map(w => ({ label: w.label, invNum: w.invNum, found: false, hours: 0 })));
       });
 
     return () => abortController.abort();
-  },[year,month,config.saveFolder,weeks]);
+  },[year,month,config.saveFolder]);
 
   const weeksWithData = useMemo(()=>weeks.map((w,i)=>({...w,hours:weekHours[i]||0})),[weeks,weekHours]);
   const totalHours = weeksWithData.reduce((s,w)=>s+w.hours,0);
