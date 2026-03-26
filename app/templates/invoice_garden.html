@@ -1,0 +1,109 @@
+{% extends "invoice_base.html" %}
+<!--
+  Garden Invoice Template
+
+  Color scheme (FIXED - does not respond to user palette setting):
+  - Primary accent: #5a8a5a (forest green)
+  - Header background: linear-gradient(135deg, #2d4a2d, #3d6b3d) (dark green gradient)
+  - Text colors: #2d4a2d (dark green), #6a8a60 (medium green), #7a9a70 (light green)
+  - Background: #fffef8 (cream) with green tints (#f4f8f0 for alternating rows)
+  - Typography: sans-serif throughout
+
+  Special features:
+  - Botanical divider (✦ ✦ ✦) below header
+  - Dashed border (2px dashed #b8d8b0) above total section
+
+  Layout structure:
+  1. Header (dark green gradient with invoice info in frosted box)
+  2. Botanical divider (✦ symbols on green background)
+  3. Client info section (light green background)
+  4. Invoice table (filters to show only days with hours > 0)
+  5. Total section (with dashed border separator)
+  6. Footer (invoice note in italic)
+-->
+
+{% block title %}Invoice {{ week.invNum }} - {{ config.name }}{% endblock %}
+
+{% block content %}
+<div style="font-family: sans-serif; background: #fffef8; width: 100%; min-height: 100%;">
+  <!-- Dark green gradient header -->
+  <div style="background: linear-gradient(135deg, #2d4a2d, #3d6b3d); padding: 34px 38px 28px; position: relative;">
+    <div style="font-size: 13px; color: #a8d8a0; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 7px;">
+      <span style="font-size: 15px;">🌿</span> Home Health Invoice
+    </div>
+    <div style="font-size: 27px; font-weight: 400; color: #e8f5e4; letter-spacing: 0.5px;">{{ config.name }}</div>
+    <div style="font-size: 13px; color: #a8c8a0; margin-top: 6px;">{{ config.address }}</div>
+    <div style="font-size: 13px; color: #a8c8a0; margin-top: 2px;">{{ config.personalEmail }}</div>
+    <div style="position: absolute; right: 38px; top: 34px; background: rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 13px 20px; text-align: right;">
+      <div style="font-size: 10px; color: #a8d8a0; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px;">Invoice</div>
+      <div style="font-size: 16px; color: white; font-weight: 700; font-family: monospace;">{{ week.invNum }}</div>
+      <div style="font-size: 13px; color: #a8c8a0; margin-top: 4px;">{{ week.end }}</div>
+    </div>
+  </div>
+
+  <!-- Botanical divider -->
+  <div style="background: #5a8a5a; padding: 6px 38px; font-size: 11px; color: #c8e8c0; letter-spacing: 4px;">✦ ✦ ✦</div>
+
+  <!-- Client info section -->
+  <div style="background: #f6fbf4; padding: 24px 38px 22px; border-bottom: 1px solid #d0e8c8; display: flex; gap: 52px;">
+    <div>
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a8a5a; margin-bottom: 7px;">Billed To</div>
+      <div style="font-size: 15px; font-weight: 700; color: #2d4a2d;">{{ config.clientName }}</div>
+      <div style="font-size: 13px; color: #6a8a60; margin-top: 3px;">{{ config.clientEmail }}</div>
+    </div>
+    <div>
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a8a5a; margin-bottom: 7px;">Service Week</div>
+      <div style="font-size: 14px; color: #2d4a2d;">{{ week.start }} – {{ week.end }}</div>
+    </div>
+  </div>
+
+  <!-- Invoice table -->
+  <div style="padding-top: 6px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-family: sans-serif;">
+      <thead>
+        <tr>
+          {% for header in ['Day', 'Hours', 'Rate', 'Amount'] %}
+          <th style="padding: 11px {% if header == 'Day' %}38px 11px 38px{% else %}0{% endif %}; text-align: {% if header == 'Day' %}left{% else %}right{% endif %}; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a8a5a; font-weight: 700; border-bottom: 1.5px solid #e0e8e0;">
+            {{ header }}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% set days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+        {% set ns = namespace(visible_row=0) %}
+        {% for day in days %}
+          {% if hours[day] > 0 %}
+            <tr style="background: {% if ns.visible_row % 2 == 0 %}#fffef8{% else %}#f4f8f0{% endif %};">
+              <td style="padding: 12px 38px; color: #2d4a2d; font-size: 14px;">
+                <span>{{ day }}</span>
+                {% if week.dayDates and week.dayDates[day] %}
+                <span style="font-size: 11px; color: #5a8a5a; opacity: 0.7; margin-left: 8px;">{{ week.dayDates[day] }}</span>
+                {% endif %}
+              </td>
+              <td style="padding: 12px 0; text-align: right; color: #2d4a2d; font-size: 14px;">{{ hours[day] }}</td>
+              <td style="padding: 12px 0; text-align: right; color: #5a8a5a; font-size: 14px; opacity: 0.7;">${{ "%.2f"|format(config.rate) }}</td>
+              <td style="padding: 12px 38px 12px 0; text-align: right; color: #2d4a2d; font-weight: 600; font-size: 14px;">${{ "%.2f"|format(hours[day] * config.rate) }}</td>
+            </tr>
+            {% set ns.visible_row = ns.visible_row + 1 %}
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Total section with dashed border -->
+  <div style="margin: 0 38px; border-top: 2px dashed #b8d8b0; margin-top: 8px; padding-top: 20px; padding-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="font-size: 13px; color: #7a9a70;">{{ total_hours }} hrs · ${{ "%.2f"|format(config.rate) }}/hr</div>
+    <div style="text-align: right;">
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a8a5a; margin-bottom: 4px;">Total Due</div>
+      <div style="font-size: 30px; font-weight: 700; color: #2d4a2d;">${{ total_pay }}</div>
+    </div>
+  </div>
+
+  <!-- Footer note -->
+  <div style="background: #f0f8ec; border-top: 1px solid #c0d8b8; padding: 15px 38px; font-size: 12px; color: #7a9a70; font-style: italic; text-align: center;">
+    {{ config.invoiceNote }}
+  </div>
+</div>
+{% endblock %}
