@@ -133,10 +133,12 @@ describe('Profile Save - Race Condition Prevention', () => {
     fireEvent.click(saveButton)
     fireEvent.click(saveButton)
 
-    // Wait for any pending async operations
+    // Wait for the save operation to complete
     await waitFor(() => {
-      // The button should have been called multiple times
-      expect(saveButton).toBeInTheDocument()
+      const postCalls = (global.fetch as any).mock.calls.filter(
+        (call: any[]) => call[1]?.method === 'POST'
+      )
+      expect(postCalls.length).toBeGreaterThan(0)
     })
 
     // Verify that fetch was called only ONCE for POST (plus initial GET)
