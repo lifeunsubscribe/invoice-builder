@@ -7,6 +7,9 @@ dist/
 build/
 *.exe
 
+# Test artifacts
+test_invoice.pdf
+
 # Python
 __pycache__/
 *.pyc
