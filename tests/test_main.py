@@ -131,7 +131,8 @@ class TestErrorHandlers:
         assert response.status_code == 404
         data = response.get_json()
         assert data['error'] == 'Not found'
-        assert 'not found' in data['message'].lower()
+        # Verify generic message is returned (not raw exception details)
+        assert data['message'] == 'The requested resource was not found'
 
     def test_404_static_file(self, client):
         """Test that 404 handler works for missing static files."""
@@ -182,8 +183,8 @@ class TestErrorHandlers:
         """Test that HTTP exceptions are handled properly."""
         from werkzeug.exceptions import BadRequest
 
-        # Mock send_static_file to raise HTTPException
-        mock_send_static.side_effect = BadRequest("Invalid request")
+        # Mock send_static_file to raise HTTPException with potentially sensitive details
+        mock_send_static.side_effect = BadRequest("Invalid request: /internal/path/details.txt missing")
 
         with patch('app.main.os.path.exists', return_value=True):
             response = client.get('/')
@@ -191,6 +192,9 @@ class TestErrorHandlers:
             assert response.status_code == 400
             data = response.get_json()
             assert 'error' in data
+            # Verify generic message is returned, not the sensitive exception details
+            assert data['message'] == 'The request could not be processed'
+            assert '/internal/path' not in data['message']
 
 
 class TestStaticFileServing:
