@@ -591,3 +591,67 @@ class TestScanMonthEndpoint:
             # First week should be found but hours=null (missing totalHours)
             assert weeks[0]['found'] is True
             assert weeks[0]['hours'] is None
+
+    def test_scan_month_path_traversal_protection(self, client):
+        """Test that path traversal attempts are detected and skipped in scan-month."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            weekly_dir = os.path.join(tmpdir, 'weekly')
+            os.makedirs(weekly_dir)
+
+            # Create a legitimate PDF in the weekly folder
+            pdf = os.path.join(weekly_dir, 'INV-20260303.pdf')
+            Path(pdf).touch()
+
+            # Mock the weekly_path function to simulate path traversal
+            # by temporarily modifying the folder structure
+            import app.api.scan_api as scan_api
+            original_weekly_path = scan_api.weekly_path
+
+            def mock_weekly_path(base_folder, inv_num):
+                # For the second week (INV-20260310), simulate path traversal
+                if inv_num == 'INV-20260310':
+                    # Return a path outside the base folder
+                    return '/etc/passwd'
+                return original_weekly_path(base_folder, inv_num)
+
+            # Temporarily replace weekly_path
+            scan_api.weekly_path = mock_weekly_path
+
+            try:
+                response = client.get(
+                    '/api/scan-month',
+                    query_string={
+                        'year': 2026,
+                        'month': 3,
+                        'folder': tmpdir
+                    }
+                )
+
+                assert response.status_code == 200
+                data = response.get_json()
+                weeks = data['weeks']
+
+                # March 2026 normally has 5 weeks, but one will be skipped
+                # due to path traversal detection, leaving 4 weeks
+                assert len(weeks) == 4
+
+                # Week 1 (INV-20260303) should be found normally
+                assert weeks[0]['invNum'] == 'INV-20260303'
+                assert weeks[0]['found'] is True
+
+                # Count invoice numbers returned
+                inv_nums = [w['invNum'] for w in weeks]
+
+                # The traversal attempt (INV-20260310) should be excluded
+                # The endpoint uses 'continue' which skips adding it to the result
+                assert 'INV-20260310' not in inv_nums
+
+                # Other weeks should be present
+                assert 'INV-20260303' in inv_nums
+                assert 'INV-20260317' in inv_nums
+                assert 'INV-20260324' in inv_nums
+                assert 'INV-20260331' in inv_nums
+
+            finally:
+                # Restore original function
+                scan_api.weekly_path = original_weekly_path
