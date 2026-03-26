@@ -513,6 +513,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const folderRef = useRef(null);
+  const saveInProgressRef = useRef(false);
   const acc = draft.accent;
 
   // Scroll to folder section if requested
@@ -532,6 +533,12 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
 
   // Save profile changes to persistent storage via API
   const handleSave = async () => {
+    // Prevent race condition from rapid clicks - ref updates synchronously
+    if (saveInProgressRef.current) {
+      return;
+    }
+
+    saveInProgressRef.current = true;
     setSaving(true);
     setSaveError(null);
     try {
@@ -546,12 +553,14 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
       }
       // Update local state only after successful save (pessimistic update for data integrity)
       onSave(draft);
-      setSaving(false);
       onBack();
     } catch (error) {
       console.error('Save failed:', error);
       setSaveError(error.message);
+    } finally {
+      // Always reset saving state and ref in all code paths (success, error, or early return)
       setSaving(false);
+      saveInProgressRef.current = false;
     }
   };
 
