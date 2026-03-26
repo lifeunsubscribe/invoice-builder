@@ -164,6 +164,7 @@ def send_invoice_email(recipients, pdf_bytes, filename, subject, body):
             "error": f"Connection timeout: {str(e)}"
         }
     except Exception as e:
+        logger.exception("Unexpected error sending email: %s", e)
         return {
             "success": False,
             "error": f"Unexpected error sending email: {str(e)}"
