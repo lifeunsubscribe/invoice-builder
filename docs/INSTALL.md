@@ -77,17 +77,19 @@ The app will show you where your invoices will be saved (usually in your Documen
 
 ---
 
-## Step 5: Create a Desktop Shortcut
+## Step 5: Organize Your Installation (Optional)
 
-To make it easy to open the app in the future:
+Since **LisaInvoice.exe** is already on your Desktop, you can start using it right away by double-clicking it.
 
-1. Find **LisaInvoice.exe** on your Desktop
-2. Right-click on it
-3. Choose **"Create shortcut"**
-4. A new icon will appear - you can now use this to open the app anytime
+**Optional: If you want to move or rename:**
 
-**Optional:** You can rename the shortcut to just "Invoices" if you prefer:
-- Right-click the shortcut → **Rename** → Type "Invoices" → Press Enter
+- **Move the file to another location** (like a Programs folder) and create a Desktop shortcut:
+  1. Move **LisaInvoice.exe** to your preferred location
+  2. Right-click the file → **Create shortcut**
+  3. Move the shortcut to your Desktop
+
+- **Rename for easier identification:**
+  - Right-click **LisaInvoice.exe** → **Rename** → Type "Invoices" or your preferred name → Press Enter
 
 ---
 
