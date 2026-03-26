@@ -69,9 +69,9 @@ def weekly_path(base: str, inv_num: str) -> str:
     Raises:
         ValueError: If the generated path would escape the base directory
     """
-    # Security: Check for absolute paths or path traversal components in inv_num
-    # before constructing the path
-    if os.path.isabs(inv_num) or '/..' in inv_num or '\\..' in inv_num or inv_num == '..' or inv_num.startswith('../') or inv_num.startswith('..\\'):
+    # Security: Check for path traversal components in inv_num before processing
+    # This detects both parent directory references (..) and absolute paths
+    if '..' in inv_num or os.path.isabs(inv_num):
         raise ValueError(
             f"Path traversal detected: inv_num '{inv_num}' contains "
             f"invalid path components"
@@ -80,7 +80,7 @@ def weekly_path(base: str, inv_num: str) -> str:
     path = f"{base}/weekly/{inv_num}.pdf"
 
     # Security: Validate that the constructed path stays within base
-    # This prevents path traversal if inv_num contains malicious components
+    # Defense-in-depth to handle edge cases (symlinks, etc.)
     validate_safe_path(base, path)
 
     return path
