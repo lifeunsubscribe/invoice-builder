@@ -35,6 +35,24 @@ def _get_jinja_env():
     )
 
 
+def _validate_config(config, required_keys):
+    """
+    Validate that all required keys are present in config dictionary.
+
+    Args:
+        config: dict, configuration dictionary to validate
+        required_keys: list of str, required key names
+
+    Raises:
+        ValueError: if any required key is missing
+    """
+    missing_keys = [key for key in required_keys if key not in config]
+    if missing_keys:
+        raise ValueError(
+            f"Missing required config keys: {', '.join(missing_keys)}"
+        )
+
+
 def _calculate_weekly_totals(hours, rate):
     """
     Calculate total hours and total pay from hours dictionary.
@@ -95,10 +113,15 @@ def render_weekly_pdf(config, hours, week, template_id):
         bytes: PDF file contents
 
     Raises:
-        ValueError: if template_id is invalid
+        ValueError: if template_id is invalid or required config keys are missing
         FileNotFoundError: if template file is missing
         RuntimeError: if PDF rendering fails
     """
+    # Validate required config keys
+    required_keys = ['name', 'address', 'personalEmail', 'rate',
+                     'clientName', 'clientEmail', 'invoiceNote']
+    _validate_config(config, required_keys)
+
     # Validate template ID
     if template_id not in WEEKLY_TEMPLATES:
         raise ValueError(
@@ -161,9 +184,15 @@ def render_monthly_pdf(config, week_data, month_label):
         bytes: PDF file contents
 
     Raises:
+        ValueError: if required config keys are missing
         FileNotFoundError: if template file is missing
         RuntimeError: if PDF rendering fails
     """
+    # Validate required config keys
+    required_keys = ['name', 'address', 'personalEmail', 'rate',
+                     'clientName', 'clientEmail', 'accountantEmail']
+    _validate_config(config, required_keys)
+
     # Calculate totals
     total_hours, total_pay, weeks_worked = _calculate_monthly_totals(
         week_data, config['rate']
