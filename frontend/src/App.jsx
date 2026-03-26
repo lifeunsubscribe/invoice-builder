@@ -407,7 +407,28 @@ function Shell({ config, title, subtitle, onBack, children }) {
 
 // ── NOTIFICATION CARD ─────────────────────────────────────────────────────
 function NotifCard({ notification, onDismiss }) {
-  // Handle error notifications
+  // Handle partial success: PDF saved but email failed
+  if (notification.saved && notification.emailError) {
+    return (
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c9972a"}}>Partial Success</div>
+          <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{background:"#fefaf2",border:"1px solid #ead8a8",borderRadius:8,padding:"11px 13px"}}>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#6a5010",marginBottom:7}}>⚠ Saved but Email Failed</div>
+          <div style={{fontSize:12,color:"#4a7a50",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #e8e0c8",display:"flex",alignItems:"center",gap:5}}>
+            <span>💾</span> <span style={{wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.saved}</span>
+          </div>
+          <div style={{fontSize:12,color:"#8a6020",lineHeight:1.5,wordBreak:"break-word",overflowWrap:"break-word"}}>
+            <strong>Email error:</strong> {notification.emailError}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle full error notifications
   if (notification.error) {
     return (
       <div>
@@ -417,13 +438,13 @@ function NotifCard({ notification, onDismiss }) {
         </div>
         <div style={{background:"#fff5f2",border:"1px solid #f0c8b8",borderRadius:8,padding:"11px 13px"}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#4a2010",marginBottom:4}}>⚠ Failed</div>
-          <div style={{fontSize:12,color:"#7a4030",lineHeight:1.5}}>{notification.error}</div>
+          <div style={{fontSize:12,color:"#7a4030",lineHeight:1.5,wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.error}</div>
         </div>
       </div>
     );
   }
 
-  // Handle success notifications
+  // Handle full success notifications
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -432,9 +453,9 @@ function NotifCard({ notification, onDismiss }) {
       </div>
       <div style={{background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:8,padding:"11px 13px"}}>
         <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#2d4a2d",marginBottom:7}}>✓ Sent!</div>
-        {notification.sent.map(e=><div key={e} style={{fontSize:12,color:"#4a7a50",marginBottom:3}}>✉ {e}</div>)}
+        {notification.sent.map(e=><div key={e} style={{fontSize:12,color:"#4a7a50",marginBottom:3,wordBreak:"break-word",overflowWrap:"break-word"}}>✉ {e}</div>)}
         <div style={{fontSize:12,color:"#4a7a50",marginTop:4,paddingTop:6,borderTop:"1px solid #c8e8c8",display:"flex",alignItems:"center",gap:5}}>
-          <span>💾</span> {notification.saved}
+          <span>💾</span> <span style={{wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.saved}</span>
         </div>
       </div>
     </div>
@@ -675,12 +696,24 @@ function WeeklyPage({ config, onBack }) {
 
       // Update UI with actual response data
       const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-      setNotification({
-        sent: data.sent || [clientEmail, accountantEmail],
-        saved: data.saved || savedPath
-      });
-      setAlreadySaved(true);
-      setSavedDate(dateStr);
+
+      // Check for partial success: PDF saved but email failed
+      if (data.saved && data.emailError) {
+        setNotification({
+          saved: data.saved,
+          emailError: data.emailError
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      } else {
+        // Full success
+        setNotification({
+          sent: data.sent || [clientEmail, accountantEmail],
+          saved: data.saved || savedPath
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      }
 
     } catch (error) {
       console.error('Weekly submit failed:', error);
@@ -825,6 +858,7 @@ function MonthlyPage({ config, onBack }) {
   const [zoom,  setZoom]  = useState(0.75);
   const [notification, setNotification] = useState(null);
   const [alreadySaved, setAlreadySaved] = useState(false);
+  const [savedDate,    setSavedDate]    = useState(null);
   const [showConfirm,  setShowConfirm]  = useState(false);
   const [scanPopup,    setScanPopup]    = useState(null); // null | results[]
   const acc = config.accent;
@@ -912,11 +946,25 @@ function MonthlyPage({ config, onBack }) {
       const data = await response.json();
 
       // Update UI with actual response data
-      setNotification({
-        sent: data.sent || [config.accountantEmail],
-        saved: data.saved || savedPath
-      });
-      setAlreadySaved(true);
+      const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+
+      // Check for partial success: PDF saved but email failed
+      if (data.saved && data.emailError) {
+        setNotification({
+          saved: data.saved,
+          emailError: data.emailError
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      } else {
+        // Full success - update UI with actual response data
+        setNotification({
+          sent: data.sent || [config.accountantEmail],
+          saved: data.saved || savedPath
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      }
 
     } catch (error) {
       console.error('Monthly submit failed:', error);
@@ -971,6 +1019,21 @@ function MonthlyPage({ config, onBack }) {
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,color:"#2c1810",lineHeight:1.1}}>{totalHours}</div></div>
               <div style={{textAlign:"right"}}><div style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Total</div>
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:21,color:acc,fontWeight:700,lineHeight:1.1}}>${totalPay}</div></div>
+            </div>
+            {/* Saved status pill */}
+            <div style={{flexShrink:0,marginBottom:6}}>
+              {alreadySaved ? (
+                <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#4a7a50",maxWidth:"100%",overflow:"hidden"}}>
+                  <span>💾</span>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    Saved · {monthLabel}{savedDate ? ` · ${savedDate}` : ''}
+                  </span>
+                </div>
+              ) : (
+                <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f5f0eb",border:"1px solid #e0d4cc",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#9a8070"}}>
+                  <span style={{fontSize:9}}>○</span> Not yet saved for this month
+                </div>
+              )}
             </div>
             <div style={{flexShrink:0}}>
               {notification ? (
