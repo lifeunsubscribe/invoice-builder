@@ -100,14 +100,24 @@ app.jinja_env.autoescape = True
 @app.errorhandler(HTTPException)
 def handle_http_exception(e):
     """Handle all HTTP exceptions with JSON response."""
+    # Log full exception details for debugging
     logger.warning("HTTP %d: %s", e.code, e)
-    return jsonify({"error": e.name, "message": str(e)}), e.code
+
+    # Return generic message to avoid leaking internal details
+    if 400 <= e.code < 500:
+        generic_message = "The request could not be processed"
+    else:
+        generic_message = "An error occurred while processing your request"
+
+    return jsonify({"error": e.name, "message": generic_message}), e.code
 
 @app.errorhandler(404)
 def not_found(e):
     """Handle 404 errors with JSON response."""
+    # Log full exception details for debugging
     logger.warning("404: %s", e)
-    return jsonify({"error": "Not found", "message": str(e)}), 404
+    # Return generic message to avoid leaking internal routing details
+    return jsonify({"error": "Not found", "message": "The requested resource was not found"}), 404
 
 @app.errorhandler(500)
 def internal_error(e):
