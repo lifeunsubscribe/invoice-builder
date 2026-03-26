@@ -95,11 +95,13 @@ def index():
     """Serve the React app's index.html as the entry point."""
     return app.send_static_file("index.html")
 
-# Blueprint registration placeholders (Phase 1-3)
-# from app.api.config_api import config_bp
+# Blueprint registration
+from app.api.config_api import config_bp
+app.register_blueprint(config_bp)
+
+# Phase 2-3 blueprints (to be added later)
 # from app.api.scan_api import scan_bp
 # from app.api.submit_api import submit_bp
-# app.register_blueprint(config_bp)
 # app.register_blueprint(scan_bp)
 # app.register_blueprint(submit_bp)
 
