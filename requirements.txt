@@ -1,4 +1,5 @@
 Flask==3.0.0
+Flask-Limiter==3.5.0
 python-dotenv==1.0.0
 pyinstaller==6.19.0
 weasyprint==60.2

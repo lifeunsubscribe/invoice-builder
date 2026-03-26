@@ -10,6 +10,9 @@ import urllib.error
 from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
 
+from app.middleware.rate_limiter import get_rate_limiter
+from app.middleware.request_validator import MAX_CONTENT_LENGTH_BYTES
+
 logger = logging.getLogger(__name__)
 
 def get_base_paths():
@@ -97,6 +100,13 @@ app = Flask(__name__, static_folder=DIST_FOLDER, static_url_path="")
 # Configure Jinja2 to explicitly enable autoescape for XSS protection
 app.jinja_env.autoescape = True
 
+# Configure request size limits to prevent DoS attacks
+app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH_BYTES
+
+# Initialize rate limiter to prevent DoS attacks
+limiter = get_rate_limiter()
+limiter.init_app(app)
+
 @app.errorhandler(HTTPException)
 def handle_http_exception(e):
     """Handle all HTTP exceptions with JSON response."""
@@ -124,6 +134,24 @@ def internal_error(e):
     """Handle 500 errors with JSON response."""
     logger.error("500: %s", e)
     return jsonify({"error": "Server error", "message": "An internal server error occurred"}), 500
+
+@app.errorhandler(429)
+def rate_limit_exceeded(e):
+    """Handle 429 rate limit exceeded errors with JSON response."""
+    logger.warning("Rate limit exceeded: %s", e)
+    return jsonify({
+        "error": "Rate limit exceeded",
+        "message": "Too many requests. Please try again later."
+    }), 429
+
+@app.errorhandler(413)
+def request_entity_too_large(e):
+    """Handle 413 payload too large errors with JSON response."""
+    logger.warning("Request too large: %s", e)
+    return jsonify({
+        "error": "Payload too large",
+        "message": "Request body exceeds maximum allowed size"
+    }), 413
 
 @app.route("/")
 def index():

@@ -591,3 +591,155 @@ class TestEmailValidation:
             data = response.get_json()
             assert data['success'] is False
             assert 'email' in data['error'].lower() or 'email' in data['message'].lower()
+
+
+class TestSubmitArraySizeValidation:
+    """Tests for array size validation to prevent DoS attacks."""
+
+    def test_submit_weekly_with_oversized_hours_dict(self, client, temp_config):
+        """Test that weekly endpoint rejects oversized hours dictionary."""
+        from app.middleware.request_validator import MAX_ARRAY_SIZE
+
+        tmpdir, config_path, config_data = temp_config
+
+        # Create hours dict exceeding MAX_ARRAY_SIZE
+        oversized_hours = {f"Day_{i}": 8 for i in range(MAX_ARRAY_SIZE + 1)}
+
+        payload = {
+            "hours": oversized_hours,
+            "clientEmail": "client@example.com",
+            "accountantEmail": "accountant@example.com",
+            "week": {
+                "start": "March 24",
+                "end": "March 30, 2026",
+                "invNum": "INV-20260324"
+            },
+            "template": "morning-light"
+        }
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            response = client.post(
+                '/api/submit/weekly',
+                json=payload,
+                content_type='application/json'
+            )
+
+            # Should reject with 400
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'hours' in data['message']
+            assert 'exceeds maximum allowed size' in data['message']
+
+    def test_submit_weekly_with_valid_hours_size(self, client, temp_config):
+        """Test that weekly endpoint accepts hours dict within size limit."""
+        tmpdir, config_path, config_data = temp_config
+
+        # Normal sized hours dict (7 days)
+        normal_hours = {
+            "Monday": 8,
+            "Tuesday": 8,
+            "Wednesday": 8,
+            "Thursday": 8,
+            "Friday": 8,
+            "Saturday": 0,
+            "Sunday": 0
+        }
+
+        payload = {
+            "hours": normal_hours,
+            "clientEmail": "client@example.com",
+            "accountantEmail": "accountant@example.com",
+            "week": {
+                "start": "March 24",
+                "end": "March 30, 2026",
+                "invNum": "INV-20260324"
+            },
+            "template": "morning-light"
+        }
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_weekly_pdf') as mock_pdf:
+                with patch('app.api.submit_api.send_invoice_email') as mock_email:
+                    mock_pdf.return_value = b'%PDF-1.4 fake pdf'
+                    mock_email.return_value = {"success": True}
+
+                    response = client.post(
+                        '/api/submit/weekly',
+                        json=payload,
+                        content_type='application/json'
+                    )
+
+                    # Should succeed
+                    assert response.status_code == 200
+                    data = response.get_json()
+                    assert data['success'] is True
+
+    def test_submit_monthly_with_oversized_week_data(self, client, temp_config):
+        """Test that monthly endpoint rejects oversized weekData array."""
+        from app.middleware.request_validator import MAX_ARRAY_SIZE
+
+        tmpdir, config_path, config_data = temp_config
+
+        # Create weekData array exceeding MAX_ARRAY_SIZE
+        oversized_week_data = [
+            {"label": f"Week {i}", "hours": 40}
+            for i in range(MAX_ARRAY_SIZE + 1)
+        ]
+
+        payload = {
+            "weekData": oversized_week_data,
+            "year": 2026,
+            "month": 3,
+            "accountantEmail": "accountant@example.com"
+        }
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            response = client.post(
+                '/api/submit/monthly',
+                json=payload,
+                content_type='application/json'
+            )
+
+            # Should reject with 400
+            assert response.status_code == 400
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'weekData' in data['message']
+            assert 'exceeds maximum allowed size' in data['message']
+
+    def test_submit_monthly_with_valid_week_data_size(self, client, temp_config):
+        """Test that monthly endpoint accepts weekData within size limit."""
+        tmpdir, config_path, config_data = temp_config
+
+        # Normal sized weekData (4-5 weeks per month)
+        normal_week_data = [
+            {"label": "Mar 3 – Mar 9, 2026", "hours": 40},
+            {"label": "Mar 10 – Mar 16, 2026", "hours": 40},
+            {"label": "Mar 17 – Mar 23, 2026", "hours": 40},
+            {"label": "Mar 24 – Mar 30, 2026", "hours": 40}
+        ]
+
+        payload = {
+            "weekData": normal_week_data,
+            "year": 2026,
+            "month": 3,
+            "accountantEmail": "accountant@example.com"
+        }
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_monthly_pdf') as mock_pdf:
+                with patch('app.api.submit_api.send_invoice_email') as mock_email:
+                    mock_pdf.return_value = b'%PDF-1.4 fake pdf'
+                    mock_email.return_value = {"success": True}
+
+                    response = client.post(
+                        '/api/submit/monthly',
+                        json=payload,
+                        content_type='application/json'
+                    )
+
+                    # Should succeed
+                    assert response.status_code == 200
+                    data = response.get_json()
+                    assert data['success'] is True

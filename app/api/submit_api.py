@@ -26,6 +26,7 @@ from app.services.folder_service import (
     monthly_path,
     write_sidecar
 )
+from app.middleware.request_validator import validate_array_size
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,16 @@ def submit_weekly():
                 "success": False,
                 "error": "Invalid hours data",
                 "message": "hours must be a dictionary"
+            }), 400
+
+        # Validate hours dict size to prevent DoS attacks
+        try:
+            validate_array_size(payload['hours'], 'hours')
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "error": "Invalid hours data",
+                "message": str(e)
             }), 400
 
         for day, hours in payload['hours'].items():
@@ -429,6 +440,16 @@ def submit_monthly():
                 "success": False,
                 "error": "Invalid weekData",
                 "message": "weekData must be an array"
+            }), 400
+
+        # Validate weekData array size to prevent DoS attacks
+        try:
+            validate_array_size(payload['weekData'], 'weekData')
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "error": "Invalid weekData",
+                "message": str(e)
             }), 400
 
         # Validate weekData array elements
