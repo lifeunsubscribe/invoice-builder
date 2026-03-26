@@ -87,7 +87,7 @@ def write_sidecar(pdf_path: str, data: dict) -> None:
         (e.g., "/path/to/INV-20260324.json")
     """
     # Replace .pdf extension with .json
-    json_path = pdf_path.rsplit('.pdf', 1)[0] + '.json'
+    json_path = os.path.splitext(pdf_path)[0] + '.json'
 
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
@@ -105,7 +105,7 @@ def read_sidecar(pdf_path: str) -> Optional[dict]:
         or cannot be parsed
     """
     # Replace .pdf extension with .json
-    json_path = pdf_path.rsplit('.pdf', 1)[0] + '.json'
+    json_path = os.path.splitext(pdf_path)[0] + '.json'
 
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
