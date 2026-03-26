@@ -193,11 +193,32 @@ if errorlevel 1 (
     type build_output.log >> %LOG_FILE%
     set /a FAIL_COUNT+=1
     goto :test_summary
-) else (
-    echo   [PASS] Build completed successfully
-    echo   PASS - Build completed successfully >> %LOG_FILE%
-    set /a PASS_COUNT+=1
 )
+
+REM Validate build artifacts were actually created
+if not exist dist\LisaInvoice.exe (
+    echo   [FAIL] Build completed but dist\LisaInvoice.exe was not created
+    echo   FAIL - Build completed but dist\LisaInvoice.exe was not created >> %LOG_FILE%
+    echo. >> %LOG_FILE%
+    echo   Build output: >> %LOG_FILE%
+    type build_output.log >> %LOG_FILE%
+    set /a FAIL_COUNT+=1
+    goto :test_summary
+)
+
+if not exist frontend\dist\index.html (
+    echo   [FAIL] Build completed but frontend\dist\index.html was not created
+    echo   FAIL - Build completed but frontend\dist\index.html was not created >> %LOG_FILE%
+    echo. >> %LOG_FILE%
+    echo   Build output: >> %LOG_FILE%
+    type build_output.log >> %LOG_FILE%
+    set /a FAIL_COUNT+=1
+    goto :test_summary
+)
+
+echo   [PASS] Build completed successfully and artifacts created
+echo   PASS - Build completed successfully and artifacts created >> %LOG_FILE%
+set /a PASS_COUNT+=1
 
 echo. >> %LOG_FILE%
 
