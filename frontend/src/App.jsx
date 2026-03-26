@@ -706,12 +706,12 @@ function WeeklyPage({ config, onBack }) {
       }
 
       // No existing PDF or scan failed - proceed with submit
-      doSend();
+      await doSend();
 
     } catch (error) {
       console.error('Pre-flight scan failed:', error);
       // If scan fails, proceed anyway (don't block the user)
-      doSend();
+      await doSend();
     }
   };
 
@@ -926,7 +926,7 @@ function MonthlyPage({ config, onBack }) {
     }
   };
 
-  const handleSubmit = () => { if(alreadySaved){setShowConfirm(true);return;} doSend(); };
+  const handleSubmit = async () => { if(alreadySaved){setShowConfirm(true);return;} await doSend(); };
   const prevMonth = () => { setNotification(null); if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1); };
   const nextMonth = () => { setNotification(null); if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1); };
 
