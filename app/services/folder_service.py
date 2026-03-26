@@ -71,7 +71,7 @@ def weekly_path(base: str, inv_num: str) -> str:
     """
     # Security: Check for absolute paths or path traversal components in inv_num
     # before constructing the path
-    if os.path.isabs(inv_num) or '..' in inv_num or inv_num.startswith('/') or inv_num.startswith('\\'):
+    if os.path.isabs(inv_num) or '/..' in inv_num or '\\..' in inv_num or inv_num == '..' or inv_num.startswith('../') or inv_num.startswith('..\\'):
         raise ValueError(
             f"Path traversal detected: inv_num '{inv_num}' contains "
             f"invalid path components"
