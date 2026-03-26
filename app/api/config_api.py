@@ -64,17 +64,17 @@ def get_config():
     except FileNotFoundError:
         return jsonify({
             "error": "Configuration file not found",
-            "message": f"config.json does not exist at {config_path}"
+            "message": "config.json does not exist"
         }), 500
-    except json.JSONDecodeError as e:
+    except json.JSONDecodeError:
         return jsonify({
             "error": "Invalid JSON in configuration file",
-            "message": str(e)
+            "message": "The configuration file contains malformed JSON"
         }), 500
-    except Exception as e:
+    except Exception:
         return jsonify({
             "error": "Failed to read configuration",
-            "message": str(e)
+            "message": "An error occurred while reading the configuration file"
         }), 500
 
 @config_bp.route('/config', methods=['POST'])
@@ -98,6 +98,21 @@ def update_config():
                 "message": "Request body must be valid JSON"
             }), 400
 
+        # Validate that config is a dict (not array or primitive)
+        if not isinstance(config_data, dict):
+            return jsonify({
+                "error": "Invalid configuration format",
+                "message": "Configuration must be a JSON object"
+            }), 400
+
+        # Add size limit (1MB) to prevent abuse
+        config_json = json.dumps(config_data)
+        if len(config_json.encode('utf-8')) > 1024 * 1024:
+            return jsonify({
+                "error": "Configuration too large",
+                "message": "Configuration must be less than 1MB"
+            }), 400
+
         # Write to config.json
         with open(config_path, 'w', encoding='utf-8') as f:
             json.dump(config_data, f, indent=2, ensure_ascii=False)
@@ -107,8 +122,8 @@ def update_config():
             "message": "Configuration saved successfully"
         }), 200
 
-    except Exception as e:
+    except Exception:
         return jsonify({
             "error": "Failed to write configuration",
-            "message": str(e)
+            "message": "An error occurred while saving the configuration"
         }), 500
