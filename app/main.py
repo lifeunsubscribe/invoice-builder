@@ -90,6 +90,9 @@ BASE_DIR, DIST_FOLDER = get_base_paths()
 # Create Flask app with static file serving from dist/
 app = Flask(__name__, static_folder=DIST_FOLDER, static_url_path="")
 
+# Configure Jinja2 to explicitly enable autoescape for XSS protection
+app.jinja_env.autoescape = True
+
 @app.route("/")
 def index():
     """Serve the React app's index.html as the entry point."""
