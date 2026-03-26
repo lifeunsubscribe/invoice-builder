@@ -217,6 +217,14 @@ LisaInvoice.spec            ← PyInstaller spec file (gitignored)
    ```
    - Place `.env` next to `LisaInvoice.exe` (same directory)
    - Use Gmail App Password (not regular password): https://myaccount.google.com/apppasswords
+
+   **SECURITY WARNING:** The `.env` file contains sensitive credentials. Follow these security practices:
+   - Never commit `.env` to version control (already in `.gitignore`)
+   - Store `.env` in a secure location with restricted file permissions
+   - Do not share `.env` via email, cloud storage, or messaging apps
+   - Use Gmail App Passwords (limited scope) instead of your main account password
+   - If credentials are compromised, immediately revoke the App Password at https://myaccount.google.com/apppasswords
+   - Consider encrypting the folder containing `LisaInvoice.exe` and `.env` if on a shared computer
 2. Launch LisaInvoice.exe
 3. Configure Profile with valid client and accountant emails
 4. Submit a weekly invoice
