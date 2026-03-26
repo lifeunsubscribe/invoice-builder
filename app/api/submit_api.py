@@ -431,6 +431,43 @@ def submit_monthly():
                 "message": "weekData must be an array"
             }), 400
 
+        # Validate weekData array elements
+        for i, week in enumerate(payload['weekData']):
+            if not isinstance(week, dict):
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid weekData element",
+                    "message": f"weekData[{i}] must be an object"
+                }), 400
+
+            if 'label' not in week:
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid weekData element",
+                    "message": f"weekData[{i}] missing required field 'label'"
+                }), 400
+
+            if 'hours' not in week:
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid weekData element",
+                    "message": f"weekData[{i}] missing required field 'hours'"
+                }), 400
+
+            if not isinstance(week['hours'], (int, float)):
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid weekData element",
+                    "message": f"weekData[{i}].hours must be a number"
+                }), 400
+
+            if not isinstance(week['label'], str):
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid weekData element",
+                    "message": f"weekData[{i}].label must be a string"
+                }), 400
+
         # Validate year
         if not isinstance(payload['year'], int) or payload['year'] < 1900 or payload['year'] > 2200:
             return jsonify({
