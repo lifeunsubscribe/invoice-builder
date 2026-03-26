@@ -643,16 +643,77 @@ function WeeklyPage({ config, onBack }) {
   const totalPay   = (totalHours*config.rate).toFixed(2);
   const setHour    = (day,v) => setHours(h=>({...h,[day]:v}));
 
-  const doSend = () => {
+  const doSend = async () => {
     setNotification(null); setShowConfirm(false);
-    setTimeout(()=>{
+
+    try {
+      // Build payload for weekly submit API
+      const payload = {
+        hours,
+        clientEmail,
+        accountantEmail,
+        week: {
+          start: week.start,
+          end: week.end,
+          invNum: week.invNum
+        },
+        template: activeTemplate
+      };
+
+      const response = await fetch('/api/submit/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to submit weekly invoice`);
+      }
+
+      const data = await response.json();
+
+      // Update UI with actual response data
       const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-      setNotification({sent:[clientEmail,accountantEmail],saved:savedPath});
+      setNotification({
+        sent: data.sent || [clientEmail, accountantEmail],
+        saved: data.saved || savedPath
+      });
       setAlreadySaved(true);
       setSavedDate(dateStr);
-    },500);
+
+    } catch (error) {
+      console.error('Weekly submit failed:', error);
+      setNotification({
+        error: error.message || 'Failed to submit weekly invoice. Please try again.'
+      });
+    }
   };
-  const handleSubmit = () => { if(alreadySaved){setShowConfirm(true);return;} doSend(); };
+
+  const handleSubmit = async () => {
+    // Pre-flight check: does this invoice already exist?
+    try {
+      const scanResponse = await fetch(`/api/scan?folder=${encodeURIComponent(config.saveFolder)}&invNum=${week.invNum}`);
+
+      if (scanResponse.ok) {
+        const scanData = await scanResponse.json();
+
+        // If PDF already exists, show confirmation dialog before overwriting
+        if (scanData.found) {
+          setShowConfirm(true);
+          return;
+        }
+      }
+
+      // No existing PDF or scan failed - proceed with submit
+      doSend();
+
+    } catch (error) {
+      console.error('Pre-flight scan failed:', error);
+      // If scan fails, proceed anyway (don't block the user)
+      doSend();
+    }
+  };
 
   const PreviewComponent = activeTemplate==="morning-light"?TemplateMorningLight:activeTemplate==="caring-hands"?TemplateCaringHands:TemplateGarden;
   const LETTER_W=680, LETTER_H=Math.round(LETTER_W*(11/8.5));
