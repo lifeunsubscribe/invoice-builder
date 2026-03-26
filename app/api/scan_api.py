@@ -302,7 +302,13 @@ def scan_month():
                 # PDF exists, check for sidecar JSON
                 sidecar = read_sidecar(pdf_path)
                 if sidecar and 'totalHours' in sidecar:
-                    hours = sidecar['totalHours']
+                    total = sidecar['totalHours']
+                    # Validate that totalHours is a number (int or float)
+                    if isinstance(total, (int, float)):
+                        hours = total
+                    else:
+                        # Invalid type in sidecar - treat as if no sidecar exists
+                        hours = None
                 else:
                     # Pre-existing invoice without sidecar - user enters manually
                     hours = None
