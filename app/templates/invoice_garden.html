@@ -71,10 +71,10 @@
       </thead>
       <tbody>
         {% set days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+        {% set ns = namespace(visible_row=0) %}
         {% for day in days %}
           {% if hours[day] > 0 %}
-            {% set row_num = loop.index0 %}
-            <tr style="background: {% if row_num % 2 == 0 %}#fffef8{% else %}#f4f8f0{% endif %};">
+            <tr style="background: {% if ns.visible_row % 2 == 0 %}#fffef8{% else %}#f4f8f0{% endif %};">
               <td style="padding: 12px 38px; color: #2d4a2d; font-size: 14px;">
                 <span>{{ day }}</span>
                 {% if week.dayDates and week.dayDates[day] %}
@@ -85,6 +85,7 @@
               <td style="padding: 12px 0; text-align: right; color: #5a8a5a; font-size: 14px; opacity: 0.7;">${{ "%.2f"|format(config.rate) }}</td>
               <td style="padding: 12px 38px 12px 0; text-align: right; color: #2d4a2d; font-weight: 600; font-size: 14px;">${{ "%.2f"|format(hours[day] * config.rate) }}</td>
             </tr>
+            {% set ns.visible_row = ns.visible_row + 1 %}
           {% endif %}
         {% endfor %}
       </tbody>
