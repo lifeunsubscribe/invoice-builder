@@ -1,0 +1,28 @@
+# Sensitive config (contains personal info, credentials)
+config.json
+.env
+
+# Build outputs
+dist/
+build/
+*.exe
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.spec
+*.egg-info/
+venv/
+.venv/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
