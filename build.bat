@@ -5,6 +5,12 @@ REM Builds frontend with Vite and packages everything into a Windows .exe with P
 echo Building frontend...
 cd frontend
 call npm run build
+if errorlevel 1 (
+    echo Frontend build failed!
+    cd ..
+    pause
+    exit /b 1
+)
 cd ..
 
 echo Packaging executable...
@@ -13,6 +19,11 @@ pyinstaller --onefile --windowed ^
   --name="LisaInvoice" ^
   --add-data "frontend/dist;dist" ^
   app/main.py
+if errorlevel 1 (
+    echo Packaging failed!
+    pause
+    exit /b 1
+)
 
 echo Done. Executable is in dist/LisaInvoice.exe
 pause
