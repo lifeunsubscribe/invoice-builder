@@ -10,6 +10,7 @@ Functions:
     create_monthly_email_body(name, month_label, total_hours, total_pay) -> str
 """
 
+import logging
 import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -18,6 +19,7 @@ from email.mime.text import MIMEText
 from email import encoders
 from dotenv import load_dotenv
 
+logger = logging.getLogger(__name__)
 
 # Gmail SMTP settings
 SMTP_HOST = "smtp.gmail.com"
@@ -120,6 +122,7 @@ def send_invoice_email(recipients, pdf_bytes, filename, subject, body):
         msg.attach(pdf_attachment)
 
     except UnicodeEncodeError as e:
+        logger.exception("Encoding error in email content: %s", e)
         return {
             "success": False,
             "error": f"Encoding error in email content: {str(e)}"
@@ -155,6 +158,7 @@ def send_invoice_email(recipients, pdf_bytes, filename, subject, body):
             "error": f"Connection error: {str(e)}"
         }
     except TimeoutError as e:
+        logger.exception("Connection timeout: %s", e)
         return {
             "success": False,
             "error": f"Connection timeout: {str(e)}"
