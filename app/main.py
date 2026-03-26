@@ -108,8 +108,9 @@ if __name__ == "__main__":
     if not is_port_available(5000):
         if is_this_app_running_on_port(5000):
             print("Lisa Invoice Builder is already running on port 5000.")
-            print("Opening browser to existing instance...")
-            webbrowser.open("http://localhost:5000")
+            if not os.getenv('NO_BROWSER'):
+                print("Opening browser to existing instance...")
+                webbrowser.open("http://localhost:5000")
             print("Exiting.")
             sys.exit(0)
         else:
@@ -123,8 +124,9 @@ if __name__ == "__main__":
         print("ERROR: No available ports in range 5000-5010. Please close other applications.")
         sys.exit(1)
 
-    # Launch browser in background thread
-    threading.Thread(target=open_browser, args=(port,), daemon=True).start()
+    # Launch browser in background thread (unless NO_BROWSER env var is set)
+    if not os.getenv('NO_BROWSER'):
+        threading.Thread(target=open_browser, args=(port,), daemon=True).start()
 
     # Start Flask server
     print(f"Starting Lisa Invoice Builder on port {port}...")
