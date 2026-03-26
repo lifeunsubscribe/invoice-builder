@@ -532,6 +532,9 @@ def submit_monthly():
         # Generate PDF path
         pdf_path = monthly_path(save_folder, payload['year'], payload['month'])
 
+        # Check if PDF already exists (for overwrite flag)
+        overwrite = os.path.exists(pdf_path)
+
         # Generate PDF
         try:
             pdf_bytes = render_monthly_pdf(
@@ -594,7 +597,8 @@ def submit_monthly():
             return jsonify({
                 "success": True,
                 "saved": pdf_path,
-                "sent": recipients
+                "sent": recipients,
+                "overwrite": overwrite
             }), 200
         else:
             # Partial success - PDF saved but email failed
@@ -602,7 +606,8 @@ def submit_monthly():
                 "success": True,
                 "saved": pdf_path,
                 "sent": [],
-                "emailError": email_result.get('error', 'Unknown email error')
+                "emailError": email_result.get('error', 'Unknown email error'),
+                "overwrite": overwrite
             }), 200
 
     except Exception as e:
