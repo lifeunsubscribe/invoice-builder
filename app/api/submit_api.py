@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import logging
+import re
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import BadRequest
 
@@ -29,6 +30,52 @@ from app.services.folder_service import (
 logger = logging.getLogger(__name__)
 
 submit_bp = Blueprint('submit', __name__, url_prefix='/api/submit')
+
+# Basic email validation pattern
+EMAIL_PATTERN = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+
+
+def is_valid_email(email):
+    """
+    Validate email address format.
+
+    Args:
+        email: Email address to validate
+
+    Returns:
+        bool: True if email format is valid, False otherwise
+    """
+    if not isinstance(email, str):
+        return False
+    return EMAIL_PATTERN.match(email) is not None
+
+
+def sanitize_filename(filename):
+    """
+    Sanitize filename to prevent path traversal attacks.
+
+    Args:
+        filename: The filename to sanitize
+
+    Returns:
+        str: Sanitized filename with path separators and parent references removed
+
+    Raises:
+        ValueError: If the filename is empty after sanitization
+    """
+    if not isinstance(filename, str):
+        raise ValueError("Filename must be a string")
+
+    # Remove any path separators and parent directory references
+    sanitized = filename.replace('/', '').replace('\\', '').replace('..', '')
+
+    # Remove any other potentially dangerous characters
+    sanitized = re.sub(r'[^\w\-.]', '', sanitized)
+
+    if not sanitized:
+        raise ValueError("Invalid filename: filename is empty after sanitization")
+
+    return sanitized
 
 
 def get_config_path():
@@ -131,6 +178,37 @@ def submit_weekly():
                 "message": f"Missing week fields: {', '.join(missing_week_fields)}"
             }), 400
 
+        # Validate email addresses
+        if not is_valid_email(payload['clientEmail']):
+            return jsonify({
+                "success": False,
+                "error": "Invalid email",
+                "message": "clientEmail must be a valid email address"
+            }), 400
+
+        if not is_valid_email(payload['accountantEmail']):
+            return jsonify({
+                "success": False,
+                "error": "Invalid email",
+                "message": "accountantEmail must be a valid email address"
+            }), 400
+
+        # Validate hours values are numeric
+        if not isinstance(payload['hours'], dict):
+            return jsonify({
+                "success": False,
+                "error": "Invalid hours data",
+                "message": "hours must be a dictionary"
+            }), 400
+
+        for day, hours in payload['hours'].items():
+            if not isinstance(hours, (int, float)):
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid hours value",
+                    "message": f"hours value for {day} must be a number"
+                }), 400
+
         # Load config
         try:
             config = load_config()
@@ -169,8 +247,17 @@ def submit_weekly():
                 "message": f"Could not create invoice folders: {str(e)}"
             }), 500
 
+        # Sanitize and validate invoice number to prevent path traversal
+        try:
+            inv_num = sanitize_filename(week['invNum'])
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "error": "Invalid invoice number",
+                "message": str(e)
+            }), 400
+
         # Generate PDF path
-        inv_num = week['invNum']
         pdf_path = weekly_path(save_folder, inv_num)
 
         # Check if PDF already exists (for overwrite flag)
@@ -326,6 +413,22 @@ def submit_monthly():
                 "success": False,
                 "error": "Missing required fields",
                 "message": f"Missing fields: {', '.join(missing_fields)}"
+            }), 400
+
+        # Validate email address
+        if not is_valid_email(payload['accountantEmail']):
+            return jsonify({
+                "success": False,
+                "error": "Invalid email",
+                "message": "accountantEmail must be a valid email address"
+            }), 400
+
+        # Validate month range
+        if not isinstance(payload['month'], int) or payload['month'] < 1 or payload['month'] > 12:
+            return jsonify({
+                "success": False,
+                "error": "Invalid month",
+                "message": "month must be an integer between 1 and 12"
             }), 400
 
         # Load config
