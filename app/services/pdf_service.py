@@ -147,9 +147,17 @@ def render_weekly_pdf(config, hours, week, template_id):
         template_filename = WEEKLY_TEMPLATES[template_id]
         template = env.get_template(template_filename)
         html_content = template.render(**context)
-    except Exception as e:
+    except FileNotFoundError as e:
         raise FileNotFoundError(
-            f"Failed to load template '{template_id}': {str(e)}"
+            f"Template file not found for '{template_id}': {str(e)}"
+        ) from e
+    except PermissionError as e:
+        raise PermissionError(
+            f"Permission denied accessing template '{template_id}': {str(e)}"
+        ) from e
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to render template '{template_id}': {str(e)}"
         ) from e
 
     # Render PDF
@@ -157,6 +165,10 @@ def render_weekly_pdf(config, hours, week, template_id):
         pdf_bytes_io = BytesIO()
         HTML(string=html_content, base_url=TEMPLATE_DIR).write_pdf(pdf_bytes_io)
         return pdf_bytes_io.getvalue()
+    except OSError as e:
+        raise OSError(
+            f"I/O error rendering PDF for template '{template_id}': {str(e)}"
+        ) from e
     except Exception as e:
         raise RuntimeError(
             f"Failed to render PDF for template '{template_id}': {str(e)}"
@@ -213,9 +225,17 @@ def render_monthly_pdf(config, week_data, month_label):
         env = _get_jinja_env()
         template = env.get_template('invoice_monthly.html')
         html_content = template.render(**context)
-    except Exception as e:
+    except FileNotFoundError as e:
         raise FileNotFoundError(
-            f"Failed to load monthly template: {str(e)}"
+            f"Monthly template file not found: {str(e)}"
+        ) from e
+    except PermissionError as e:
+        raise PermissionError(
+            f"Permission denied accessing monthly template: {str(e)}"
+        ) from e
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to render monthly template: {str(e)}"
         ) from e
 
     # Render PDF
@@ -223,6 +243,10 @@ def render_monthly_pdf(config, week_data, month_label):
         pdf_bytes_io = BytesIO()
         HTML(string=html_content, base_url=TEMPLATE_DIR).write_pdf(pdf_bytes_io)
         return pdf_bytes_io.getvalue()
+    except OSError as e:
+        raise OSError(
+            f"I/O error rendering monthly PDF: {str(e)}"
+        ) from e
     except Exception as e:
         raise RuntimeError(
             f"Failed to render monthly PDF: {str(e)}"

@@ -108,11 +108,23 @@ def scan_invoice():
 
         return jsonify({"found": found}), 200
 
+    except PermissionError as e:
+        logger.exception("Permission denied checking invoice: %s", e)
+        return jsonify({
+            "error": "Permission denied",
+            "message": "Cannot access the specified folder due to insufficient permissions"
+        }), 500
+    except OSError as e:
+        logger.exception("OS error checking invoice: %s", e)
+        return jsonify({
+            "error": "File system error",
+            "message": "An error occurred accessing the file system"
+        }), 500
     except Exception as e:
-        logger.exception("Error checking invoice existence: %s", e)
+        logger.exception("Unexpected error checking invoice existence: %s", e)
         return jsonify({
             "error": "Server error",
-            "message": "An error occurred while checking invoice existence"
+            "message": "An unexpected error occurred while checking invoice existence"
         }), 500
 
 
@@ -326,9 +338,21 @@ def scan_month():
 
         return jsonify({"weeks": result_weeks}), 200
 
+    except PermissionError as e:
+        logger.exception("Permission denied scanning month: %s", e)
+        return jsonify({
+            "error": "Permission denied",
+            "message": "Cannot access the specified folder due to insufficient permissions"
+        }), 500
+    except OSError as e:
+        logger.exception("OS error scanning month: %s", e)
+        return jsonify({
+            "error": "File system error",
+            "message": "An error occurred accessing the file system"
+        }), 500
     except Exception as e:
-        logger.exception("Error scanning month: %s", e)
+        logger.exception("Unexpected error scanning month: %s", e)
         return jsonify({
             "error": "Server error",
-            "message": "An error occurred while scanning the month"
+            "message": "An unexpected error occurred while scanning the month"
         }), 500
