@@ -308,6 +308,10 @@ def scan_month():
                         hours = total
                     else:
                         # Invalid type in sidecar - treat as if no sidecar exists
+                        logger.warning(
+                            "Invalid totalHours type in sidecar for %s: expected number, got %s",
+                            inv_num, type(total).__name__
+                        )
                         hours = None
                 else:
                     # Pre-existing invoice without sidecar - user enters manually

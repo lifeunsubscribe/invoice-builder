@@ -592,6 +592,36 @@ class TestScanMonthEndpoint:
             assert weeks[0]['found'] is True
             assert weeks[0]['hours'] is None
 
+    def test_scan_month_sidecar_invalid_totalhours_type(self, client):
+        """Test sidecar JSON with invalid totalHours type (hours=null)."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            weekly_dir = os.path.join(tmpdir, 'weekly')
+            os.makedirs(weekly_dir)
+
+            # Create PDF with JSON sidecar containing string totalHours
+            pdf = os.path.join(weekly_dir, 'INV-20260303.pdf')
+            json_file = os.path.join(weekly_dir, 'INV-20260303.json')
+            Path(pdf).touch()
+            with open(json_file, 'w') as f:
+                json.dump({"totalHours": "forty"}, f)
+
+            response = client.get(
+                '/api/scan-month',
+                query_string={
+                    'year': 2026,
+                    'month': 3,
+                    'folder': tmpdir
+                }
+            )
+
+            assert response.status_code == 200
+            data = response.get_json()
+            weeks = data['weeks']
+
+            # First week should be found but hours=null (invalid type)
+            assert weeks[0]['found'] is True
+            assert weeks[0]['hours'] is None
+
     def test_scan_month_path_traversal_protection(self, client):
         """Test that path traversal attempts are detected and skipped in scan-month."""
         with tempfile.TemporaryDirectory() as tmpdir:
