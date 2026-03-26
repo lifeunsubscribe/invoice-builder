@@ -4,6 +4,8 @@ import socket
 import threading
 import time
 import webbrowser
+import urllib.request
+import urllib.error
 from flask import Flask
 
 def get_base_paths():
@@ -49,6 +51,31 @@ def find_available_port(start_port=5000, max_attempts=11):
             return port
     return None
 
+def is_this_app_running_on_port(port):
+    """
+    Check if this specific Flask app is running on the given port.
+    Returns True if the app is running on the port, False otherwise.
+
+    Attempts to connect to the port and verify it's serving our React app
+    by checking if the index.html endpoint responds successfully.
+    """
+    try:
+        url = f"http://localhost:{port}/"
+        req = urllib.request.Request(url, method='GET')
+        with urllib.request.urlopen(req, timeout=2) as response:
+            # If we get a 200 response, check if it looks like our app
+            # Our app serves index.html at the root, which should contain React-specific content
+            content = response.read().decode('utf-8', errors='ignore')
+            # Check for indicators that this is our React app
+            # (looking for common React/Vite patterns in index.html)
+            return ('<!doctype html>' in content.lower() or '<!DOCTYPE html>' in content) and \
+                   ('div id="root"' in content or '<div id="root">' in content)
+    except (urllib.error.URLError, urllib.error.HTTPError, socket.timeout, ConnectionRefusedError):
+        return False
+    except Exception:
+        # Any other error means it's not our app
+        return False
+
 def open_browser(port):
     """
     Open the default browser to the Flask app URL after a short delay.
@@ -77,20 +104,24 @@ def index():
 # app.register_blueprint(submit_bp)
 
 if __name__ == "__main__":
-    # Check if app is already running on default port range
+    # Check if this app is already running on port 5000
+    if not is_port_available(5000):
+        if is_this_app_running_on_port(5000):
+            print("Lisa Invoice Builder is already running on port 5000.")
+            print("Opening browser to existing instance...")
+            webbrowser.open("http://localhost:5000")
+            print("Exiting.")
+            sys.exit(0)
+        else:
+            print("Port 5000 is occupied by another application.")
+            print("Looking for alternative port...")
+
+    # Find an available port (will skip 5000 if occupied by another app)
     port = find_available_port(5000, 11)
 
     if port is None:
         print("ERROR: No available ports in range 5000-5010. Please close other applications.")
         sys.exit(1)
-
-    # If port is not 5000, another instance might be running
-    if port != 5000:
-        print(f"Port 5000 is occupied. Checking if it's another instance of this app...")
-        # Open browser to existing instance and exit
-        webbrowser.open("http://localhost:5000")
-        print("Opened browser to existing instance on port 5000. Exiting.")
-        sys.exit(0)
 
     # Launch browser in background thread
     threading.Thread(target=open_browser, args=(port,), daemon=True).start()
