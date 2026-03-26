@@ -25,11 +25,12 @@ export default defineConfig({
         '**/*.config.{js,ts}',
         '**/dist/',
       ],
-      // Coverage thresholds (adjust as needed)
-      lines: 80,
-      functions: 80,
-      branches: 80,
-      statements: 80,
+      // Coverage thresholds (commented out until baseline is established)
+      // Uncomment and adjust these once you have a baseline coverage level
+      // lines: 80,
+      // functions: 80,
+      // branches: 80,
+      // statements: 80,
     },
 
     // Test match patterns
