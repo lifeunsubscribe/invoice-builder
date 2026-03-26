@@ -16,6 +16,7 @@ def is_valid_inv_num(inv_num: str) -> bool:
     Validate that invNum follows the expected format: INV-YYYYMMDD.
 
     This prevents path traversal attacks and ensures input conforms to spec.
+    Also validates that the date is a real calendar date (not month 13 or day 32).
 
     Args:
         inv_num: Invoice number to validate (e.g., "INV-20260324")
@@ -25,7 +26,23 @@ def is_valid_inv_num(inv_num: str) -> bool:
     """
     # Pattern: INV- followed by exactly 8 digits (YYYYMMDD)
     pattern = r'^INV-\d{8}$'
-    return re.match(pattern, inv_num) is not None
+    if not re.match(pattern, inv_num):
+        return False
+
+    # Extract date portion (YYYYMMDD) and validate it's a real calendar date
+    date_str = inv_num[4:]  # Remove 'INV-' prefix
+    try:
+        year = int(date_str[0:4])
+        month = int(date_str[4:6])
+        day = int(date_str[6:8])
+
+        # Attempt to create a date object - this validates the calendar date
+        # Will raise ValueError for invalid dates like month=13, day=32, Feb 30, etc.
+        date(year, month, day)
+        return True
+    except ValueError:
+        # Invalid calendar date
+        return False
 
 
 def is_safe_path(base_folder: str, target_path: str) -> bool:
