@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import socket
@@ -6,7 +7,10 @@ import time
 import webbrowser
 import urllib.request
 import urllib.error
-from flask import Flask
+from flask import Flask, jsonify
+from werkzeug.exceptions import HTTPException
+
+logger = logging.getLogger(__name__)
 
 def get_base_paths():
     """
@@ -93,10 +97,52 @@ app = Flask(__name__, static_folder=DIST_FOLDER, static_url_path="")
 # Configure Jinja2 to explicitly enable autoescape for XSS protection
 app.jinja_env.autoescape = True
 
+@app.errorhandler(HTTPException)
+def handle_http_exception(e):
+    """Handle all HTTP exceptions with JSON response."""
+    logger.warning("HTTP %d: %s", e.code, e)
+    return jsonify({"error": e.name, "message": str(e)}), e.code
+
+@app.errorhandler(404)
+def not_found(e):
+    """Handle 404 errors with JSON response."""
+    logger.warning("404: %s", e)
+    return jsonify({"error": "Not found", "message": str(e)}), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    """Handle 500 errors with JSON response."""
+    logger.error("500: %s", e)
+    return jsonify({"error": "Server error", "message": "An internal server error occurred"}), 500
+
 @app.route("/")
 def index():
     """Serve the React app's index.html as the entry point."""
-    return app.send_static_file("index.html")
+    if not os.path.exists(DIST_FOLDER):
+        logger.error("Dist folder missing: %s", DIST_FOLDER)
+        return jsonify({
+            "error": "Static files not found",
+            "message": "The frontend build directory does not exist. Run 'npm run build' in frontend/."
+        }), 500
+
+    index_path = os.path.join(str(DIST_FOLDER), "index.html")
+    if not os.path.exists(index_path):
+        logger.error("index.html not found in %s", DIST_FOLDER)
+        return jsonify({
+            "error": "Static file not found",
+            "message": "index.html not found in the build directory. Run 'npm run build' in frontend/."
+        }), 500
+
+    try:
+        return app.send_static_file("index.html")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error serving index.html: %s", e)
+        return jsonify({
+            "error": "Server error",
+            "message": "An error occurred while serving the application"
+        }), 500
 
 # Blueprint registration
 from app.api.config_api import config_bp
