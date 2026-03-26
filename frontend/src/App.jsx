@@ -418,9 +418,9 @@ function NotifCard({ notification, onDismiss }) {
         <div style={{background:"#fefaf2",border:"1px solid #ead8a8",borderRadius:8,padding:"11px 13px"}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#6a5010",marginBottom:7}}>⚠ Saved but Email Failed</div>
           <div style={{fontSize:12,color:"#4a7a50",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #e8e0c8",display:"flex",alignItems:"center",gap:5}}>
-            <span>💾</span> {notification.saved}
+            <span>💾</span> <span style={{wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.saved}</span>
           </div>
-          <div style={{fontSize:12,color:"#8a6020",lineHeight:1.5}}>
+          <div style={{fontSize:12,color:"#8a6020",lineHeight:1.5,wordBreak:"break-word",overflowWrap:"break-word"}}>
             <strong>Email error:</strong> {notification.emailError}
           </div>
         </div>
@@ -438,7 +438,7 @@ function NotifCard({ notification, onDismiss }) {
         </div>
         <div style={{background:"#fff5f2",border:"1px solid #f0c8b8",borderRadius:8,padding:"11px 13px"}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#4a2010",marginBottom:4}}>⚠ Failed</div>
-          <div style={{fontSize:12,color:"#7a4030",lineHeight:1.5}}>{notification.error}</div>
+          <div style={{fontSize:12,color:"#7a4030",lineHeight:1.5,wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.error}</div>
         </div>
       </div>
     );
@@ -453,9 +453,9 @@ function NotifCard({ notification, onDismiss }) {
       </div>
       <div style={{background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:8,padding:"11px 13px"}}>
         <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#2d4a2d",marginBottom:7}}>✓ Sent!</div>
-        {notification.sent.map(e=><div key={e} style={{fontSize:12,color:"#4a7a50",marginBottom:3}}>✉ {e}</div>)}
+        {notification.sent.map(e=><div key={e} style={{fontSize:12,color:"#4a7a50",marginBottom:3,wordBreak:"break-word",overflowWrap:"break-word"}}>✉ {e}</div>)}
         <div style={{fontSize:12,color:"#4a7a50",marginTop:4,paddingTop:6,borderTop:"1px solid #c8e8c8",display:"flex",alignItems:"center",gap:5}}>
-          <span>💾</span> {notification.saved}
+          <span>💾</span> <span style={{wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.saved}</span>
         </div>
       </div>
     </div>
