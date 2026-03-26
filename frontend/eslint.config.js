@@ -22,7 +22,7 @@ import globals from 'globals'
 export default [
   // Ignore build output and dependencies
   {
-    ignores: ['dist', 'node_modules', '*.config.js']
+    ignores: ['dist', 'node_modules']
   },
 
   // Base ESLint recommended rules
@@ -52,7 +52,7 @@ export default [
     },
     settings: {
       react: {
-        version: '18.2'
+        version: 'detect'
       }
     },
     rules: {
