@@ -1,0 +1,12 @@
+{
+  "name": "Your Full Name",
+  "address": "123 Main St, City, State ZIP",
+  "personalEmail": "your-email@example.com",
+  "rate": 25.00,
+  "clientName": "Client Agency Name",
+  "clientEmail": "client-billing@example.com",
+  "accountantEmail": "accountant@example.com",
+  "accent": "#b76e79",
+  "invoiceNote": "Your custom note here",
+  "saveFolder": "~/Documents/your-invoices"
+}
