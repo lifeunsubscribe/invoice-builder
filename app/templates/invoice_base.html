@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!--
+  Base template for weekly invoice PDFs
+  Used by: invoice_morning_light.html, invoice_caring_hands.html, invoice_garden.html
+
+  This template provides:
+  - HTML5 structure for WeasyPrint PDF rendering
+  - Base CSS reset for consistent cross-platform rendering
+  - Jinja2 blocks for child template customization
+
+  Expected template variables (provided by child templates):
+  - config: dict with name, address, personalEmail, rate, clientName, clientEmail, invoiceNote
+  - hours: dict mapping day names to hour counts (e.g., {'Monday': 8, 'Tuesday': 0, ...})
+  - week: dict with start, end, invNum, dayDates
+  - total_hours: int
+  - total_pay: str (formatted as "XXX.XX")
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Invoice{% endblock %}</title>
+  <style>
+    /* Base CSS reset for consistent PDF rendering across WeasyPrint versions */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+  </style>
+  {% block extra_styles %}{% endblock %}
+</head>
+<body>
+  {% block content %}{% endblock %}
+</body>
+</html>
