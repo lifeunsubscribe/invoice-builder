@@ -401,3 +401,158 @@ class TestSubmitMonthlyEndpoint:
                     assert data['success'] is True
                     assert data['sent'] == []
                     assert 'emailError' in data
+
+
+class TestEmailValidation:
+    """Tests for email validation in submit endpoints."""
+
+    def test_submit_weekly_invalid_client_email(self, client):
+        """Test that invalid client email is rejected."""
+        invalid_emails = [
+            "not-an-email",
+            "missing@domain",
+            "@nodomain.com",
+            "no@domain@double.com",
+            "spaces in@email.com",
+            "",
+            "nodomain@",
+            "user@",
+            123,  # Not a string
+            None,
+            {"email": "test@test.com"}  # Object instead of string
+        ]
+
+        for invalid_email in invalid_emails:
+            payload = {
+                "hours": {"Monday": 8, "Tuesday": 0, "Wednesday": 0, "Thursday": 0,
+                          "Friday": 0, "Saturday": 0, "Sunday": 0},
+                "clientEmail": invalid_email,
+                "accountantEmail": "valid@example.com",
+                "week": {
+                    "start": "March 24",
+                    "end": "March 30, 2026",
+                    "invNum": "INV-20260324",
+                    "dayDates": {}
+                },
+                "template": "morning-light"
+            }
+
+            response = client.post(
+                '/api/submit/weekly',
+                json=payload,
+                content_type='application/json'
+            )
+
+            assert response.status_code == 400, f"Expected 400 for invalid client email: {invalid_email}"
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'email' in data['error'].lower() or 'email' in data['message'].lower()
+
+    def test_submit_weekly_invalid_accountant_email(self, client):
+        """Test that invalid accountant email is rejected."""
+        invalid_emails = [
+            "not-an-email",
+            "missing@domain",
+            "@nodomain.com",
+            "no@domain@double.com",
+            ""
+        ]
+
+        for invalid_email in invalid_emails:
+            payload = {
+                "hours": {"Monday": 8, "Tuesday": 0, "Wednesday": 0, "Thursday": 0,
+                          "Friday": 0, "Saturday": 0, "Sunday": 0},
+                "clientEmail": "valid@example.com",
+                "accountantEmail": invalid_email,
+                "week": {
+                    "start": "March 24",
+                    "end": "March 30, 2026",
+                    "invNum": "INV-20260324",
+                    "dayDates": {}
+                },
+                "template": "morning-light"
+            }
+
+            response = client.post(
+                '/api/submit/weekly',
+                json=payload,
+                content_type='application/json'
+            )
+
+            assert response.status_code == 400, f"Expected 400 for invalid accountant email: {invalid_email}"
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'email' in data['error'].lower() or 'email' in data['message'].lower()
+
+    def test_submit_weekly_valid_email_formats(self, client, temp_config):
+        """Test that various valid email formats are accepted."""
+        tmpdir, config_path, config_data = temp_config
+
+        valid_emails = [
+            "user@example.com",
+            "test.user@example.com",
+            "test+tag@example.co.uk",
+            "user123@test-domain.com",
+            "UPPERCASE@EXAMPLE.COM",
+            "first.last@subdomain.example.com"
+        ]
+
+        for valid_email in valid_emails:
+            payload = {
+                "hours": {"Monday": 8, "Tuesday": 0, "Wednesday": 0, "Thursday": 0,
+                          "Friday": 0, "Saturday": 0, "Sunday": 0},
+                "clientEmail": valid_email,
+                "accountantEmail": "accountant@example.com",
+                "week": {
+                    "start": "March 24",
+                    "end": "March 30, 2026",
+                    "invNum": f"INV-{valid_email.replace('@', '-').replace('.', '-')}",
+                    "dayDates": {}
+                },
+                "template": "morning-light"
+            }
+
+            with patch('app.api.submit_api.get_config_path', return_value=config_path):
+                with patch('app.api.submit_api.render_weekly_pdf') as mock_pdf:
+                    with patch('app.api.submit_api.send_invoice_email') as mock_email:
+                        mock_pdf.return_value = b'%PDF-1.4 fake pdf'
+                        mock_email.return_value = {"success": True}
+
+                        response = client.post(
+                            '/api/submit/weekly',
+                            json=payload,
+                            content_type='application/json'
+                        )
+
+                        assert response.status_code == 200, f"Expected 200 for valid email: {valid_email}"
+                        data = response.get_json()
+                        assert data['success'] is True
+
+    def test_submit_monthly_invalid_accountant_email(self, client):
+        """Test that invalid accountant email is rejected in monthly endpoint."""
+        invalid_emails = [
+            "not-an-email",
+            "missing@domain",
+            "@nodomain.com",
+            "",
+            123
+        ]
+
+        for invalid_email in invalid_emails:
+            payload = {
+                "weekData": [{"label": "Mar 3 – Mar 9", "hours": 40}],
+                "year": 2026,
+                "month": 3,
+                "accountantEmail": invalid_email
+            }
+
+            response = client.post(
+                '/api/submit/monthly',
+                json=payload,
+                content_type='application/json'
+            )
+
+            assert response.status_code == 400, f"Expected 400 for invalid email: {invalid_email}"
+            data = response.get_json()
+            assert data['success'] is False
+            assert 'email' in data['error'].lower() or 'email' in data['message'].lower()

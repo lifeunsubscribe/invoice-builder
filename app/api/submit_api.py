@@ -423,6 +423,22 @@ def submit_monthly():
                 "message": "accountantEmail must be a valid email address"
             }), 400
 
+        # Validate weekData is an array
+        if not isinstance(payload['weekData'], list):
+            return jsonify({
+                "success": False,
+                "error": "Invalid weekData",
+                "message": "weekData must be an array"
+            }), 400
+
+        # Validate year
+        if not isinstance(payload['year'], int) or payload['year'] < 1900 or payload['year'] > 2200:
+            return jsonify({
+                "success": False,
+                "error": "Invalid year",
+                "message": "year must be an integer between 1900 and 2200"
+            }), 400
+
         # Validate month range
         if not isinstance(payload['month'], int) or payload['month'] < 1 or payload['month'] > 12:
             return jsonify({
