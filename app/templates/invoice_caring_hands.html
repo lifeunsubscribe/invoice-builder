@@ -1,0 +1,103 @@
+{% extends "invoice_base.html" %}
+<!--
+  Caring Hands Invoice Template
+
+  Color scheme (FIXED - does not respond to user palette setting):
+  - Primary accent: #7ab5a8 (teal)
+  - Header background: #1a2a3a (dark navy)
+  - Text colors: #1a2a3a (navy), #4a6a60 (muted teal), #7a9a90 (light teal-gray)
+  - Background: white with light teal tints (#f4f9f8 for alternating rows)
+  - Typography: sans-serif throughout
+
+  Layout structure:
+  1. Header (dark navy background with teal accents)
+  2. Gradient divider (teal to transparent)
+  3. Client info section (light teal background)
+  4. Invoice table (filters to show only days with hours > 0)
+  5. Total section (dark navy box with white text)
+  6. Footer (invoice note in italic)
+-->
+
+{% block title %}Invoice {{ week.invNum }} - {{ config.name }}{% endblock %}
+
+{% block content %}
+<div style="font-family: sans-serif; background: white; width: 100%; min-height: 100%;">
+  <!-- Dark navy header -->
+  <div style="background: #1a2a3a; padding: 34px 38px 28px; position: relative;">
+    <div style="font-size: 13px; color: #7ab5a8; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 7px;">
+      <span style="font-size: 15px;">🤍</span> Home Health Invoice
+    </div>
+    <div style="font-size: 27px; font-weight: 700; color: white; margin-bottom: 7px;">{{ config.name }}</div>
+    <div style="font-size: 13px; color: #8aacaa;">{{ config.address }}</div>
+    <div style="font-size: 13px; color: #8aacaa; margin-top: 2px;">{{ config.personalEmail }}</div>
+    <div style="position: absolute; right: 38px; top: 34px; text-align: right;">
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #7ab5a8;">Invoice</div>
+      <div style="font-size: 16px; color: white; font-weight: 700; font-family: monospace; margin-top: 4px;">{{ week.invNum }}</div>
+      <div style="font-size: 13px; color: #8aacaa; margin-top: 6px;">{{ week.end }}</div>
+    </div>
+  </div>
+
+  <!-- Teal gradient divider -->
+  <div style="height: 4px; background: linear-gradient(90deg, #7ab5a8, rgba(122, 181, 168, 0.4));"></div>
+
+  <!-- Client info section -->
+  <div style="background: #f4f8f8; padding: 24px 38px 22px; display: flex; gap: 52px; border-bottom: 1px solid #e0eeec;">
+    <div>
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #7ab5a8; margin-bottom: 7px;">Billed To</div>
+      <div style="font-size: 15px; font-weight: 700; color: #1a2a3a;">{{ config.clientName }}</div>
+      <div style="font-size: 13px; color: #4a6a60; margin-top: 3px;">{{ config.clientEmail }}</div>
+    </div>
+    <div>
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #7ab5a8; margin-bottom: 7px;">Service Period</div>
+      <div style="font-size: 14px; color: #1a2a3a;">{{ week.start }} – {{ week.end }}</div>
+    </div>
+  </div>
+
+  <!-- Invoice table -->
+  <div style="padding-top: 6px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px; font-family: sans-serif;">
+      <thead>
+        <tr>
+          {% for header in ['Day', 'Hours', 'Rate', 'Amount'] %}
+          <th style="padding: 11px {% if header == 'Day' %}38px 11px 38px{% else %}0{% endif %}; text-align: {% if header == 'Day' %}left{% else %}right{% endif %}; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #7ab5a8; font-weight: 700; border-bottom: 1.5px solid #e0e8e0;">
+            {{ header }}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% set days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+        {% for day in days %}
+          {% if hours[day] > 0 %}
+            {% set row_num = loop.index0 %}
+            <tr style="background: {% if row_num % 2 == 0 %}white{% else %}#f4f9f8{% endif %};">
+              <td style="padding: 12px 38px; color: #1a2a3a; font-size: 14px;">
+                <span>{{ day }}</span>
+                {% if week.dayDates and week.dayDates[day] %}
+                <span style="font-size: 11px; color: #7ab5a8; opacity: 0.7; margin-left: 8px;">{{ week.dayDates[day] }}</span>
+                {% endif %}
+              </td>
+              <td style="padding: 12px 0; text-align: right; color: #1a2a3a; font-size: 14px;">{{ hours[day] }}</td>
+              <td style="padding: 12px 0; text-align: right; color: #7ab5a8; font-size: 14px; opacity: 0.7;">${{ "%.2f"|format(config.rate) }}</td>
+              <td style="padding: 12px 38px 12px 0; text-align: right; color: #1a2a3a; font-weight: 600; font-size: 14px;">${{ "%.2f"|format(hours[day] * config.rate) }}</td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Total section with dark box -->
+  <div style="margin: 26px 38px 18px; display: flex; justify-content: flex-end;">
+    <div style="background: #1a2a3a; border-radius: 10px; padding: 16px 28px; text-align: right;">
+      <div style="font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #7ab5a8; margin-bottom: 6px;">{{ total_hours }} hours · Total Due</div>
+      <div style="font-size: 30px; font-weight: 700; color: white;">${{ total_pay }}</div>
+    </div>
+  </div>
+
+  <!-- Footer note -->
+  <div style="border-top: 1px solid #d8eae8; padding: 15px 38px; font-size: 12px; color: #7a9a90; font-style: italic; text-align: center;">
+    {{ config.invoiceNote }}
+  </div>
+</div>
+{% endblock %}
