@@ -1,7 +1,10 @@
 import os
 import sys
 import json
+import logging
 from flask import Blueprint, jsonify, request
+
+logger = logging.getLogger(__name__)
 
 config_bp = Blueprint('config', __name__, url_prefix='/api')
 
@@ -71,7 +74,8 @@ def get_config():
             "error": "Invalid JSON in configuration file",
             "message": "The configuration file contains malformed JSON"
         }), 500
-    except Exception:
+    except Exception as e:
+        logger.exception("Unexpected error reading config file: %s", e)
         return jsonify({
             "error": "Failed to read configuration",
             "message": "An error occurred while reading the configuration file"
@@ -122,7 +126,8 @@ def update_config():
             "message": "Configuration saved successfully"
         }), 200
 
-    except Exception:
+    except Exception as e:
+        logger.exception("Unexpected error writing config file: %s", e)
         return jsonify({
             "error": "Failed to write configuration",
             "message": "An error occurred while saving the configuration"
