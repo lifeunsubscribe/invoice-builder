@@ -1026,7 +1026,7 @@ function MonthlyPage({ config, onBack }) {
                 <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#4a7a50",maxWidth:"100%",overflow:"hidden"}}>
                   <span>💾</span>
                   <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                    Saved · {monthLabel} · {savedDate}
+                    Saved · {monthLabel}{savedDate ? ` · ${savedDate}` : ''}
                   </span>
                 </div>
               ) : (
