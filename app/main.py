@@ -137,11 +137,29 @@ def index():
         return app.send_static_file("index.html")
     except HTTPException:
         raise
+    except FileNotFoundError as e:
+        logger.exception("index.html not found: %s", e)
+        return jsonify({
+            "error": "Static file not found",
+            "message": "index.html is missing from the build directory"
+        }), 500
+    except PermissionError as e:
+        logger.exception("Permission denied serving index.html: %s", e)
+        return jsonify({
+            "error": "Permission denied",
+            "message": "Cannot read index.html due to insufficient permissions"
+        }), 500
+    except OSError as e:
+        logger.exception("OS error serving index.html: %s", e)
+        return jsonify({
+            "error": "File system error",
+            "message": "An error occurred reading the application files"
+        }), 500
     except Exception as e:
-        logger.exception("Error serving index.html: %s", e)
+        logger.exception("Unexpected error serving index.html: %s", e)
         return jsonify({
             "error": "Server error",
-            "message": "An error occurred while serving the application"
+            "message": "An unexpected error occurred while serving the application"
         }), 500
 
 # Blueprint registration

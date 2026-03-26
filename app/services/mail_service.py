@@ -119,6 +119,11 @@ def send_invoice_email(recipients, pdf_bytes, filename, subject, body):
         )
         msg.attach(pdf_attachment)
 
+    except UnicodeEncodeError as e:
+        return {
+            "success": False,
+            "error": f"Encoding error in email content: {str(e)}"
+        }
     except Exception as e:
         return {
             "success": False,
@@ -149,10 +154,15 @@ def send_invoice_email(recipients, pdf_bytes, filename, subject, body):
             "success": False,
             "error": f"Connection error: {str(e)}"
         }
+    except TimeoutError as e:
+        return {
+            "success": False,
+            "error": f"Connection timeout: {str(e)}"
+        }
     except Exception as e:
         return {
             "success": False,
-            "error": f"Failed to send email: {str(e)}"
+            "error": f"Unexpected error sending email: {str(e)}"
         }
 
 

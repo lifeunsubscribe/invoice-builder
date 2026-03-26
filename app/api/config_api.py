@@ -69,16 +69,28 @@ def get_config():
             "error": "Configuration file not found",
             "message": "config.json does not exist"
         }), 500
+    except PermissionError as e:
+        logger.exception("Permission denied reading config file: %s", e)
+        return jsonify({
+            "error": "Permission denied",
+            "message": "Cannot read configuration file due to insufficient permissions"
+        }), 500
     except json.JSONDecodeError:
         return jsonify({
             "error": "Invalid JSON in configuration file",
             "message": "The configuration file contains malformed JSON"
         }), 500
+    except OSError as e:
+        logger.exception("OS error reading config file: %s", e)
+        return jsonify({
+            "error": "File system error",
+            "message": "An error occurred reading the configuration file"
+        }), 500
     except Exception as e:
         logger.exception("Unexpected error reading config file: %s", e)
         return jsonify({
             "error": "Failed to read configuration",
-            "message": "An error occurred while reading the configuration file"
+            "message": "An unexpected error occurred while reading the configuration file"
         }), 500
 
 @config_bp.route('/config', methods=['POST'])
@@ -126,9 +138,21 @@ def update_config():
             "message": "Configuration saved successfully"
         }), 200
 
+    except PermissionError as e:
+        logger.exception("Permission denied writing config file: %s", e)
+        return jsonify({
+            "error": "Permission denied",
+            "message": "Cannot write configuration file due to insufficient permissions"
+        }), 500
+    except OSError as e:
+        logger.exception("OS error writing config file: %s", e)
+        return jsonify({
+            "error": "File system error",
+            "message": "An error occurred writing the configuration file (disk may be full)"
+        }), 500
     except Exception as e:
         logger.exception("Unexpected error writing config file: %s", e)
         return jsonify({
             "error": "Failed to write configuration",
-            "message": "An error occurred while saving the configuration"
+            "message": "An unexpected error occurred while saving the configuration"
         }), 500
