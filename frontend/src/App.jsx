@@ -407,7 +407,28 @@ function Shell({ config, title, subtitle, onBack, children }) {
 
 // ── NOTIFICATION CARD ─────────────────────────────────────────────────────
 function NotifCard({ notification, onDismiss }) {
-  // Handle error notifications
+  // Handle partial success: PDF saved but email failed
+  if (notification.saved && notification.emailError) {
+    return (
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c9972a"}}>Partial Success</div>
+          <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{background:"#fefaf2",border:"1px solid #ead8a8",borderRadius:8,padding:"11px 13px"}}>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#6a5010",marginBottom:7}}>⚠ Saved but Email Failed</div>
+          <div style={{fontSize:12,color:"#4a7a50",marginBottom:8,paddingBottom:8,borderBottom:"1px solid #e8e0c8",display:"flex",alignItems:"center",gap:5}}>
+            <span>💾</span> {notification.saved}
+          </div>
+          <div style={{fontSize:12,color:"#8a6020",lineHeight:1.5}}>
+            <strong>Email error:</strong> {notification.emailError}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle full error notifications
   if (notification.error) {
     return (
       <div>
@@ -423,7 +444,7 @@ function NotifCard({ notification, onDismiss }) {
     );
   }
 
-  // Handle success notifications
+  // Handle full success notifications
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -675,12 +696,24 @@ function WeeklyPage({ config, onBack }) {
 
       // Update UI with actual response data
       const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-      setNotification({
-        sent: data.sent || [clientEmail, accountantEmail],
-        saved: data.saved || savedPath
-      });
-      setAlreadySaved(true);
-      setSavedDate(dateStr);
+
+      // Check for partial success: PDF saved but email failed
+      if (data.saved && data.emailError) {
+        setNotification({
+          saved: data.saved,
+          emailError: data.emailError
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      } else {
+        // Full success
+        setNotification({
+          sent: data.sent || [clientEmail, accountantEmail],
+          saved: data.saved || savedPath
+        });
+        setAlreadySaved(true);
+        setSavedDate(dateStr);
+      }
 
     } catch (error) {
       console.error('Weekly submit failed:', error);
@@ -911,12 +944,21 @@ function MonthlyPage({ config, onBack }) {
 
       const data = await response.json();
 
-      // Update UI with actual response data
-      setNotification({
-        sent: data.sent || [config.accountantEmail],
-        saved: data.saved || savedPath
-      });
-      setAlreadySaved(true);
+      // Check for partial success: PDF saved but email failed
+      if (data.saved && data.emailError) {
+        setNotification({
+          saved: data.saved,
+          emailError: data.emailError
+        });
+        setAlreadySaved(true);
+      } else {
+        // Full success - update UI with actual response data
+        setNotification({
+          sent: data.sent || [config.accountantEmail],
+          saved: data.saved || savedPath
+        });
+        setAlreadySaved(true);
+      }
 
     } catch (error) {
       console.error('Monthly submit failed:', error);
