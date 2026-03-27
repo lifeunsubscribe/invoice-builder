@@ -123,7 +123,14 @@ def scan_invoice():
         # Check if PDF exists
         found = os.path.exists(pdf_path)
 
-        return jsonify({"found": found}), 200
+        result = {"found": found}
+        if found:
+            sidecar = read_sidecar(pdf_path)
+            if sidecar:
+                result["dailyHours"] = sidecar.get("dailyHours")
+                result["totalHours"] = sidecar.get("totalHours")
+
+        return jsonify(result), 200
 
     except PermissionError as e:
         logger.exception("Permission denied checking invoice: %s", e)

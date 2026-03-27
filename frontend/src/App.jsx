@@ -767,6 +767,10 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
         if (data && data.found) {
           setAlreadySaved(true);
           setSavedDate(data.date || null);
+          // Populate hours from saved invoice
+          if (data.dailyHours) {
+            setHours(prev => ({...prev, ...data.dailyHours}));
+          }
         }
       })
       .catch(() => {}); // non-critical, pill just stays "not saved"
