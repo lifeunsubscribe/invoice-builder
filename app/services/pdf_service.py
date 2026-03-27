@@ -175,7 +175,8 @@ def render_weekly_pdf(config, hours, week, template_id):
         ) from e
 
 
-def render_monthly_pdf(config, week_data, month_label):
+def render_monthly_pdf(config, week_data, month_label, signature_font='',
+                       sign_date=''):
     """
     Render a monthly hours summary PDF.
 
@@ -191,6 +192,10 @@ def render_monthly_pdf(config, week_data, month_label):
         week_data: list of dicts with week information
             - Each dict: {'label': str (e.g., "Mar 3 – Mar 9"), 'hours': int}
         month_label: str, month and year (e.g., "March 2026")
+        signature_font: str, Google Font name for cursive signature
+            (e.g., "Dancing Script", "Great Vibes")
+        sign_date: str, date to render in the signature date field
+            (e.g., "March 27, 2026")
 
     Returns:
         bytes: PDF file contents
@@ -217,7 +222,9 @@ def render_monthly_pdf(config, week_data, month_label):
         'month_label': month_label,
         'total_hours': total_hours,
         'total_pay': total_pay,
-        'weeks_worked': weeks_worked
+        'weeks_worked': weeks_worked,
+        'signature_font': signature_font,
+        'sign_date': sign_date
     }
 
     # Load and render template

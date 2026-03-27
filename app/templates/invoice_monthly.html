@@ -24,6 +24,8 @@
   - total_hours: int
   - total_pay: string (formatted as "1000.00")
   - weeks_worked: int (count of weeks with hours > 0)
+  - signature_font: string, Google Font name for cursive signature (e.g., "Dancing Script")
+  - sign_date: string, date for signature line (e.g., "March 27, 2026")
 
   Note: All template variables include |default filters ('' for strings, 0 for numbers)
   to prevent rendering errors if None values are passed, even though pdf_service.py
@@ -34,6 +36,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monthly Report {{ month_label|default('') }} - {{ config.name|default('') }}</title>
+  {% if signature_font|default('') %}
+  <link href="https://fonts.googleapis.com/css2?family={{ signature_font|default('Dancing Script')|replace(' ', '+') }}:wght@400;700&display=swap" rel="stylesheet">
+  {% endif %}
   <style>
     /* Base CSS reset for consistent PDF rendering */
     @page {
@@ -138,12 +143,22 @@
     <!-- Signature lines -->
     <div style="margin: 0 38px 20px; border-top: 1px dashed #c8dce8; padding-top: 16px; display: flex;">
       <div style="flex: 1; margin-right: 48px;">
-        <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 20px;">Provider Signature</div>
+        <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 6px;">Provider Signature</div>
+        {% if signature_font|default('') %}
+        <div style="font-family: '{{ signature_font }}', cursive; font-size: 28px; color: #1a2a3a; padding-bottom: 2px;">{{ config.name|default('') }}</div>
+        {% else %}
+        <div style="height: 20px;"></div>
+        {% endif %}
         <div style="border-bottom: 1px solid #1a2a3a; height: 1px; width: 80%;"></div>
         <div style="font-size: 11px; color: #7a9aaa; margin-top: 5px;">{{ config.name|default('') }}</div>
       </div>
       <div style="flex: 1;">
-        <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 20px;">Date</div>
+        <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 6px;">Date</div>
+        {% if sign_date|default('') %}
+        <div style="font-family: '{{ signature_font|default('') }}', cursive; font-size: 28px; color: #1a2a3a; padding-bottom: 2px;">{{ sign_date }}</div>
+        {% else %}
+        <div style="height: 20px;"></div>
+        {% endif %}
         <div style="border-bottom: 1px solid #1a2a3a; height: 1px; width: 60%;"></div>
       </div>
     </div>

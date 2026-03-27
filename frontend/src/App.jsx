@@ -335,7 +335,7 @@ function TemplateGarden({ config, hours, week, totalHours, totalPay }) {
 }
 
 // ── MONTHLY REPORT PDF ────────────────────────────────────────────────────
-function MonthlyReportPDF({ config, weekData, monthLabel }) {
+function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
   const totalHours = weekData.reduce((s,w)=>s+w.hours,0);
   const totalPay   = (totalHours*config.rate).toFixed(2);
   const worked     = weekData.filter(w=>w.hours>0);
@@ -389,12 +389,18 @@ function MonthlyReportPDF({ config, weekData, monthLabel }) {
       </div>
       <div style={{margin:"0 38px 20px",borderTop:"1px dashed #c8dce8",paddingTop:16,display:"flex",gap:48}}>
         <div style={{flex:1}}>
-          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:20}}>Provider Signature</div>
+          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:6}}>Provider Signature</div>
+          {signatureFont
+            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:28,color:"#1a2a3a",paddingBottom:2}}>{config.name}</div>
+            : <div style={{height:20}}/>}
           <div style={{borderBottom:"1px solid #1a2a3a",height:1,width:"80%"}}/>
           <div style={{fontSize:11,color:"#7a9aaa",marginTop:5}}>{config.name}</div>
         </div>
         <div style={{flex:1}}>
-          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:20}}>Date</div>
+          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:6}}>Date</div>
+          {signatureFont
+            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:28,color:"#1a2a3a",paddingBottom:2}}>{new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
+            : <div style={{height:20}}/>}
           <div style={{borderBottom:"1px solid #1a2a3a",height:1,width:"60%"}}/>
         </div>
       </div>
@@ -409,7 +415,7 @@ function MonthlyReportPDF({ config, weekData, monthLabel }) {
 function Shell({ config, title, subtitle, onBack, emailConfigured, onOpenEmailSetup, children }) {
   return (
     <div style={{height:"100vh",display:"flex",flexDirection:"column",background:chrome.titleBar,overflow:"hidden"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');*{box-sizing:border-box}.day-row:hover{background:#fbeee8!important}.tmpl-btn,.bsm{transition:all 0.15s}.tmpl-btn:hover,.bsm:hover{opacity:0.85}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#d0c0b8;border-radius:3px}@keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(196,113,79,0.4)}50%{box-shadow:0 0 0 6px rgba(196,113,79,0)}}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Sacramento&family=Pacifico&family=Satisfy&display=swap');*{box-sizing:border-box}.day-row:hover{background:#fbeee8!important}.tmpl-btn,.bsm{transition:all 0.15s}.tmpl-btn:hover,.bsm:hover{opacity:0.85}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#d0c0b8;border-radius:3px}@keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(196,113,79,0.4)}50%{box-shadow:0 0 0 6px rgba(196,113,79,0)}}`}</style>
       <div style={{background:chrome.toolbar,borderBottom:`1px solid ${chrome.border}`,padding:"10px 20px",display:"flex",alignItems:"center",gap:14,flexShrink:0}}>
         <button onClick={onBack||undefined} style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${onBack?chrome.border:"transparent"}`,borderRadius:6,padding:"5px 12px",cursor:onBack?"pointer":"default",visibility:onBack?"visible":"hidden"}}>← Back</button>
         <span style={{fontSize:14,letterSpacing:3,textTransform:"uppercase",color:config.accent,display:"flex",alignItems:"center",gap:6}}><span>♥</span> {title}</span>
@@ -1004,6 +1010,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
   const [lastScanResults, setLastScanResults] = useState(null); // persists after popup closes
   const [accountantEmail, setAccountantEmail] = useState(config.accountantEmail);
   const [submitting,   setSubmitting]   = useState(false);
+  const [signatureFont, setSignatureFont] = useState(()=>localStorage.getItem("signatureFont")||"Dancing Script");
   const submitInProgressRef = useRef(false);
   const isFirstLoad = useRef(true);
   const acc = config.accent;
@@ -1089,7 +1096,8 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
         weekData: weeksWithData.map(w => ({ label: w.label, hours: w.hours })),
         year: year,
         month: month + 1, // Backend expects 1-indexed month
-        accountantEmail: accountantEmail
+        accountantEmail: accountantEmail,
+        signatureFont: signatureFont
       };
 
       const response = await fetch('/api/submit/monthly', {
@@ -1177,7 +1185,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
           <div style={{flex:1,overflowY:"auto",overflowX:"auto",display:"flex",justifyContent:"center",alignItems:"flex-start",padding:"24px 20px",background:chrome.previewBg}}>
             <div style={{width:LETTER_W*zoom,minHeight:LETTER_H*zoom,flexShrink:0,boxShadow:"0 4px 32px rgba(0,0,0,0.25)",background:"white",overflow:"hidden"}}>
               <div style={{transform:`scale(${zoom})`,transformOrigin:"top left",width:LETTER_W}}>
-                <MonthlyReportPDF config={config} weekData={weeksWithData} monthLabel={monthLabel}/>
+                <MonthlyReportPDF config={config} weekData={weeksWithData} monthLabel={monthLabel} signatureFont={signatureFont}/>
               </div>
             </div>
           </div>
@@ -1215,6 +1223,18 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                 style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:"#b0a090",marginTop:8,paddingLeft:11,cursor:"pointer"}}
                 title="Open folder">
                 <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
+              </div>
+            </div>
+            <div style={{flexShrink:0,marginBottom:14}}>
+              <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Signature Font</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {["Dancing Script","Great Vibes","Sacramento","Pacifico","Satisfy"].map(f=>(
+                  <button key={f} onClick={()=>{setSignatureFont(f);localStorage.setItem("signatureFont",f);}}
+                    style={{textAlign:"left",padding:"7px 12px",borderRadius:7,border:signatureFont===f?`2px solid ${acc}`:"1.5px solid #e8ddd8",background:signatureFont===f?"#fff5f0":"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontFamily:`'${f}', cursive`,fontSize:20,color:"#2c1810"}}>{config.name||"Your Name"}</span>
+                    <span style={{fontSize:11,color:"#b0988a"}}>{f}</span>
+                  </button>
+                ))}
               </div>
             </div>
             <div style={{flexShrink:0}}>

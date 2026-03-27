@@ -594,12 +594,22 @@ def submit_monthly():
         # Check if PDF already exists (for overwrite flag)
         overwrite = os.path.exists(pdf_path)
 
+        # Signature font and date (optional)
+        signature_font = ''
+        raw_font = payload.get('signatureFont', '')
+        if isinstance(raw_font, str) and raw_font.strip():
+            signature_font = raw_font.strip()
+
+        sign_date = datetime.now().strftime('%B %d, %Y')
+
         # Generate PDF
         try:
             pdf_bytes = render_monthly_pdf(
                 config=config,
                 week_data=payload['weekData'],
-                month_label=month_label
+                month_label=month_label,
+                signature_font=signature_font,
+                sign_date=sign_date
             )
         except ValueError as e:
             error_str = str(e)
