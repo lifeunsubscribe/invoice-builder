@@ -549,7 +549,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
         body: JSON.stringify(draft)
       });
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to save configuration`);
+        throw new Error(`Unable to save your profile settings. Please try again or contact support if the issue continues.`);
       }
       // Update local state only after successful save (pessimistic update for data integrity)
       onSave(draft);
@@ -646,6 +646,53 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
   );
 }
 
+// ── SHARED UTILITY: HANDLE SUBMIT RESPONSE ───────────────────────────────
+/**
+ * Processes API response from weekly/monthly submit endpoints and updates UI state.
+ * Handles both partial success (PDF saved but email failed) and full success cases.
+ *
+ * @param {Object} data - Response data from submit endpoint
+ * @param {string} savedPath - Expected path where PDF should be saved (fallback)
+ * @param {string[]} emails - Expected email recipients (fallback)
+ * @param {Function} setNotification - State setter for notification display
+ * @param {Function} setAlreadySaved - State setter for saved status flag
+ * @param {Function} setSavedDate - State setter for saved date display
+ */
+function handleSubmitResponse(data, savedPath, emails, setNotification, setAlreadySaved, setSavedDate) {
+  // Validate API response shape to prevent undefined value issues
+  if (!data || typeof data !== 'object') {
+    setNotification({
+      error: 'Unable to process server response. Please try again or contact support if the issue persists.'
+    });
+    return;
+  }
+
+  const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+
+  // Check for partial success: PDF saved but email failed
+  if (data.saved && data.emailError) {
+    setNotification({
+      saved: data.saved,
+      emailError: data.emailError
+    });
+    setAlreadySaved(true);
+    setSavedDate(dateStr);
+  } else if (data.saved || data.sent) {
+    // Full success - require at least one success indicator
+    setNotification({
+      sent: data.sent || emails,
+      saved: data.saved || savedPath
+    });
+    setAlreadySaved(true);
+    setSavedDate(dateStr);
+  } else {
+    // Response doesn't match expected success patterns
+    setNotification({
+      error: 'The submission did not complete successfully. Please verify your configuration and try again.'
+    });
+  }
+}
+
 // ── WEEKLY PAGE ───────────────────────────────────────────────────────────
 function WeeklyPage({ config, onBack }) {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -708,36 +755,25 @@ function WeeklyPage({ config, onBack }) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: Failed to submit weekly invoice`);
+        throw new Error(errorData.error || `Unable to submit your weekly invoice. Please check your settings and try again.`);
       }
 
       const data = await response.json();
 
-      // Update UI with actual response data
-      const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-
-      // Check for partial success: PDF saved but email failed
-      if (data.saved && data.emailError) {
-        setNotification({
-          saved: data.saved,
-          emailError: data.emailError
-        });
-        setAlreadySaved(true);
-        setSavedDate(dateStr);
-      } else {
-        // Full success
-        setNotification({
-          sent: data.sent || [clientEmail, accountantEmail],
-          saved: data.saved || savedPath
-        });
-        setAlreadySaved(true);
-        setSavedDate(dateStr);
-      }
+      // Update UI with actual response data using shared handler
+      handleSubmitResponse(
+        data,
+        savedPath,
+        [clientEmail, accountantEmail],
+        setNotification,
+        setAlreadySaved,
+        setSavedDate
+      );
 
     } catch (error) {
       console.error('Weekly submit failed:', error);
       setNotification({
-        error: error.message || 'Failed to submit weekly invoice. Please try again.'
+        error: error.message || 'Unable to submit weekly invoice. Please try again.'
       });
     } finally {
       // Always reset submitting state and ref in all code paths (success, error, or early return)
@@ -912,7 +948,7 @@ function MonthlyPage({ config, onBack }) {
     })
       .then(response => {
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: Failed to scan monthly invoices`);
+          throw new Error(`Unable to scan for existing weekly invoices. You can still manually enter hours.`);
         }
         return response.json();
       })
@@ -934,7 +970,7 @@ function MonthlyPage({ config, onBack }) {
         console.error('Monthly scan failed:', error);
         // Show error notification to user
         setNotification({
-          error: error.message || 'Failed to scan weekly invoices. You can still manually enter hours.'
+          error: error.message || 'Unable to scan for existing invoices. You can still manually enter hours.'
         });
         // Set empty results on error - user can still manually enter hours
         // Use currentWeeks captured at effect start to avoid stale closure
@@ -977,36 +1013,25 @@ function MonthlyPage({ config, onBack }) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: Failed to submit monthly report`);
+        throw new Error(errorData.error || `Unable to submit your monthly report. Please check your settings and try again.`);
       }
 
       const data = await response.json();
 
-      // Update UI with actual response data
-      const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-
-      // Check for partial success: PDF saved but email failed
-      if (data.saved && data.emailError) {
-        setNotification({
-          saved: data.saved,
-          emailError: data.emailError
-        });
-        setAlreadySaved(true);
-        setSavedDate(dateStr);
-      } else {
-        // Full success - update UI with actual response data
-        setNotification({
-          sent: data.sent || [config.accountantEmail],
-          saved: data.saved || savedPath
-        });
-        setAlreadySaved(true);
-        setSavedDate(dateStr);
-      }
+      // Update UI with actual response data using shared handler
+      handleSubmitResponse(
+        data,
+        savedPath,
+        [config.accountantEmail],
+        setNotification,
+        setAlreadySaved,
+        setSavedDate
+      );
 
     } catch (error) {
       console.error('Monthly submit failed:', error);
       setNotification({
-        error: error.message || 'Failed to submit monthly report. Please try again.'
+        error: error.message || 'Unable to submit monthly report. Please try again.'
       });
     } finally {
       // Always reset submitting state and ref in all code paths (success, error, or early return)
@@ -1125,7 +1150,7 @@ export default function App() {
     fetch('/api/config', { signal: abortController.signal })
       .then(response => {
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: Failed to load configuration`);
+          throw new Error(`Unable to load your saved profile. Using default settings instead.`);
         }
         return response.json();
       })
