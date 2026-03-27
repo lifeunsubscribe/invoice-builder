@@ -646,6 +646,40 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
   );
 }
 
+// ── SHARED UTILITY: HANDLE SUBMIT RESPONSE ───────────────────────────────
+/**
+ * Processes API response from weekly/monthly submit endpoints and updates UI state.
+ * Handles both partial success (PDF saved but email failed) and full success cases.
+ *
+ * @param {Object} data - Response data from submit endpoint
+ * @param {string} savedPath - Expected path where PDF should be saved (fallback)
+ * @param {string[]} emails - Expected email recipients (fallback)
+ * @param {Function} setNotification - State setter for notification display
+ * @param {Function} setAlreadySaved - State setter for saved status flag
+ * @param {Function} setSavedDate - State setter for saved date display
+ */
+function handleSubmitResponse(data, savedPath, emails, setNotification, setAlreadySaved, setSavedDate) {
+  const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+
+  // Check for partial success: PDF saved but email failed
+  if (data.saved && data.emailError) {
+    setNotification({
+      saved: data.saved,
+      emailError: data.emailError
+    });
+    setAlreadySaved(true);
+    setSavedDate(dateStr);
+  } else {
+    // Full success
+    setNotification({
+      sent: data.sent || emails,
+      saved: data.saved || savedPath
+    });
+    setAlreadySaved(true);
+    setSavedDate(dateStr);
+  }
+}
+
 // ── WEEKLY PAGE ───────────────────────────────────────────────────────────
 function WeeklyPage({ config, onBack }) {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -713,26 +747,15 @@ function WeeklyPage({ config, onBack }) {
 
       const data = await response.json();
 
-      // Update UI with actual response data
-      const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-
-      // Check for partial success: PDF saved but email failed
-      if (data.saved && data.emailError) {
-        setNotification({
-          saved: data.saved,
-          emailError: data.emailError
-        });
-        setAlreadySaved(true);
-        setSavedDate(dateStr);
-      } else {
-        // Full success
-        setNotification({
-          sent: data.sent || [clientEmail, accountantEmail],
-          saved: data.saved || savedPath
-        });
-        setAlreadySaved(true);
-        setSavedDate(dateStr);
-      }
+      // Update UI with actual response data using shared handler
+      handleSubmitResponse(
+        data,
+        savedPath,
+        [clientEmail, accountantEmail],
+        setNotification,
+        setAlreadySaved,
+        setSavedDate
+      );
 
     } catch (error) {
       console.error('Weekly submit failed:', error);
@@ -982,26 +1005,15 @@ function MonthlyPage({ config, onBack }) {
 
       const data = await response.json();
 
-      // Update UI with actual response data
-      const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
-
-      // Check for partial success: PDF saved but email failed
-      if (data.saved && data.emailError) {
-        setNotification({
-          saved: data.saved,
-          emailError: data.emailError
-        });
-        setAlreadySaved(true);
-        setSavedDate(dateStr);
-      } else {
-        // Full success - update UI with actual response data
-        setNotification({
-          sent: data.sent || [config.accountantEmail],
-          saved: data.saved || savedPath
-        });
-        setAlreadySaved(true);
-        setSavedDate(dateStr);
-      }
+      // Update UI with actual response data using shared handler
+      handleSubmitResponse(
+        data,
+        savedPath,
+        [config.accountantEmail],
+        setNotification,
+        setAlreadySaved,
+        setSavedDate
+      );
 
     } catch (error) {
       console.error('Monthly submit failed:', error);
