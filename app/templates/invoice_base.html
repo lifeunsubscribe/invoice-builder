@@ -22,6 +22,10 @@
   <title>{% block title %}Invoice{% endblock %}</title>
   <style>
     /* Base CSS reset for consistent PDF rendering across WeasyPrint versions */
+    @page {
+      size: letter;
+      margin: 12pt;
+    }
     * {
       margin: 0;
       padding: 0;

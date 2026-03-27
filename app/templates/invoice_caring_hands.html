@@ -24,8 +24,8 @@
 <div style="font-family: sans-serif; background: white; width: 100%; min-height: 100%;">
   <!-- Dark navy header -->
   <div style="background: #1a2a3a; padding: 34px 38px 28px; position: relative;">
-    <div style="font-size: 13px; color: #7ab5a8; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 7px;">
-      <span style="font-size: 15px;">🤍</span> Home Health Invoice
+    <div style="font-size: 13px; color: #7ab5a8; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center;">
+      <span style="font-size: 15px; margin-right: 7px;">🤍</span> Home Health Invoice
     </div>
     <div style="font-size: 27px; font-weight: 700; color: white; margin-bottom: 7px;">{{ config.name }}</div>
     <div style="font-size: 13px; color: #8aacaa;">{{ config.address }}</div>
@@ -41,8 +41,8 @@
   <div style="height: 4px; background: linear-gradient(90deg, #7ab5a8, rgba(122, 181, 168, 0.4));"></div>
 
   <!-- Client info section -->
-  <div style="background: #f4f8f8; padding: 24px 38px 22px; display: flex; gap: 52px; border-bottom: 1px solid #e0eeec;">
-    <div>
+  <div style="background: #f4f8f8; padding: 24px 38px 22px; display: flex; border-bottom: 1px solid #e0eeec;">
+    <div style="margin-right: 52px;">
       <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #7ab5a8; margin-bottom: 7px;">Billed To</div>
       <div style="font-size: 15px; font-weight: 700; color: #1a2a3a;">{{ config.clientName }}</div>
       <div style="font-size: 13px; color: #4a6a60; margin-top: 3px;">{{ config.clientEmail }}</div>
@@ -59,7 +59,7 @@
       <thead>
         <tr>
           {% for header in ['Day', 'Hours', 'Rate', 'Amount'] %}
-          <th style="padding: 11px {% if header == 'Day' %}38px 11px 38px{% else %}0{% endif %}; text-align: {% if header == 'Day' %}left{% else %}right{% endif %}; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #7ab5a8; font-weight: 700; border-bottom: 1.5px solid #e0e8e0;">
+          <th style="padding: 11px {% if header == 'Amount' %}38px{% else %}0{% endif %} 11px {% if header == 'Day' %}38px{% else %}0{% endif %}; text-align: {% if header == 'Day' %}left{% else %}right{% endif %}; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #7ab5a8; font-weight: 700; border-bottom: 1.5px solid #e0e8e0;">
             {{ header }}
           </th>
           {% endfor %}

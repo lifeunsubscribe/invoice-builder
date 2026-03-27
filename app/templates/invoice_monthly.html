@@ -36,6 +36,10 @@
   <title>Monthly Report {{ month_label|default('') }} - {{ config.name|default('') }}</title>
   <style>
     /* Base CSS reset for consistent PDF rendering */
+    @page {
+      size: letter;
+      margin: 12pt;
+    }
     * {
       margin: 0;
       padding: 0;
@@ -55,8 +59,8 @@
   <div style="font-family: sans-serif; background: white; width: 100%; min-height: 100%;">
     <!-- Header with gradient background -->
     <div style="background: linear-gradient(135deg, #2c3e50, #3d5468); padding: 34px 38px 28px; position: relative;">
-      <div style="font-size: 13px; color: #a8c8d8; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 7px;">
-        <span style="font-size: 15px;">📋</span> Monthly Hours Summary
+      <div style="font-size: 13px; color: #a8c8d8; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center;">
+        <span style="font-size: 15px; margin-right: 7px;">📋</span> Monthly Hours Summary
       </div>
       <div style="font-size: 27px; font-weight: 700; color: white; margin-bottom: 7px;">{{ config.name|default('') }}</div>
       <div style="font-size: 13px; color: #8aacbc;">{{ config.address|default('') }}</div>
@@ -71,13 +75,13 @@
     <div style="height: 4px; background: linear-gradient(90deg, #7ab5c8, #7ab5c888);"></div>
 
     <!-- Info section (client, accountant, rate) -->
-    <div style="background: #f4f8fa; padding: 22px 38px 20px; display: flex; gap: 52px; border-bottom: 1px solid #d8eaf0;">
-      <div>
+    <div style="background: #f4f8fa; padding: 22px 38px 20px; display: flex; border-bottom: 1px solid #d8eaf0;">
+      <div style="margin-right: 52px;">
         <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 7px;">Submitted To</div>
         <div style="font-size: 13px; font-weight: 700; color: #1a2a3a;">{{ config.clientName|default('') }}</div>
         <div style="font-size: 12px; color: #4a6a70; margin-top: 2px;">{{ config.clientEmail|default('') }}</div>
       </div>
-      <div>
+      <div style="margin-right: 52px;">
         <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 7px;">Prepared For</div>
         <div style="font-size: 13px; font-weight: 700; color: #1a2a3a;">Accountant of Record</div>
         <div style="font-size: 12px; color: #4a6a70; margin-top: 2px;">{{ config.accountantEmail|default('') }}</div>
@@ -96,7 +100,7 @@
         <thead>
           <tr>
             {% for header in ['Week', 'Period', 'Hours', 'Rate', 'Amount'] %}
-            <th style="padding: 10px {% if header == 'Week' %}38px 10px 38px{% else %}0{% endif %}; text-align: {% if header == 'Week' or header == 'Period' %}left{% else %}right{% endif %}; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; font-weight: 700; border-bottom: 1.5px solid #d8eaf0;">
+            <th style="padding: 10px {% if header == 'Amount' %}38px{% else %}0{% endif %} 10px {% if header == 'Week' %}38px{% else %}0{% endif %}; text-align: {% if header == 'Week' or header == 'Period' %}left{% else %}right{% endif %}; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; font-weight: 700; border-bottom: 1.5px solid #d8eaf0;">
               {{ header }}
             </th>
             {% endfor %}
@@ -132,8 +136,8 @@
     </div>
 
     <!-- Signature lines -->
-    <div style="margin: 0 38px 20px; border-top: 1px dashed #c8dce8; padding-top: 16px; display: flex; gap: 48px;">
-      <div style="flex: 1;">
+    <div style="margin: 0 38px 20px; border-top: 1px dashed #c8dce8; padding-top: 16px; display: flex;">
+      <div style="flex: 1; margin-right: 48px;">
         <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 20px;">Provider Signature</div>
         <div style="border-bottom: 1px solid #1a2a3a; height: 1px; width: 80%;"></div>
         <div style="font-size: 11px; color: #7a9aaa; margin-top: 5px;">{{ config.name|default('') }}</div>
