@@ -391,12 +391,26 @@ function MonthlyReportPDF({ config, weekData, monthLabel }) {
 }
 
 // ── SHELL ─────────────────────────────────────────────────────────────────
-function Shell({ config, title, subtitle, onBack, children }) {
+function Shell({ config, title, subtitle, onBack, emailConfigured, onOpenEmailSetup, children }) {
   return (
     <div style={{height:"100vh",display:"flex",flexDirection:"column",background:chrome.titleBar,overflow:"hidden"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');*{box-sizing:border-box}.day-row:hover{background:#fbeee8!important}.tmpl-btn,.bsm{transition:all 0.15s}.tmpl-btn:hover,.bsm:hover{opacity:0.85}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#d0c0b8;border-radius:3px}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&display=swap');*{box-sizing:border-box}.day-row:hover{background:#fbeee8!important}.tmpl-btn,.bsm{transition:all 0.15s}.tmpl-btn:hover,.bsm:hover{opacity:0.85}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#d0c0b8;border-radius:3px}@keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(196,113,79,0.4)}50%{box-shadow:0 0 0 6px rgba(196,113,79,0)}}`}</style>
       <div style={{background:chrome.toolbar,borderBottom:`1px solid ${chrome.border}`,padding:"10px 20px",display:"flex",alignItems:"center",gap:14,flexShrink:0}}>
         {onBack && <button onClick={onBack} style={{fontSize:12,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:6,padding:"4px 11px",cursor:"pointer"}}>← Back</button>}
+        {onOpenEmailSetup && emailConfigured === false && (
+          <button onClick={onOpenEmailSetup}
+            style={{fontSize:11,fontWeight:700,color:"#fff",background:"#c4714f",border:"none",borderRadius:20,padding:"5px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,animation:"pulse-glow 2s ease-in-out infinite"}}>
+            <span style={{fontSize:13}}>✉</span> Set Up Email
+          </button>
+        )}
+        {onOpenEmailSetup && emailConfigured === true && (
+          <button onClick={onOpenEmailSetup}
+            style={{fontSize:10,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:20,padding:"4px 11px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,opacity:0.7,transition:"opacity 0.15s"}}
+            onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+            onMouseLeave={e=>e.currentTarget.style.opacity="0.7"}>
+            <span style={{fontSize:11}}>✉</span> Email Settings
+          </button>
+        )}
         <span style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:config.accent,display:"flex",alignItems:"center",gap:6}}><span>♥</span> {title}</span>
         {subtitle && <><div style={{width:1,height:14,background:chrome.border}}/><span style={{fontSize:13,color:chrome.brightText}}>{subtitle}</span></>}
       </div>
@@ -406,9 +420,10 @@ function Shell({ config, title, subtitle, onBack, children }) {
 }
 
 // ── NOTIFICATION CARD ─────────────────────────────────────────────────────
-function NotifCard({ notification, onDismiss }) {
+function NotifCard({ notification, onDismiss, onOpenEmailSetup }) {
   // Handle partial success: PDF saved but email failed
   if (notification.saved && notification.emailError) {
+    const isCredentialError = notification.emailError.includes('.env') || notification.emailError.includes('not found');
     return (
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -421,8 +436,17 @@ function NotifCard({ notification, onDismiss }) {
             <span>💾</span> <span style={{wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.saved}</span>
           </div>
           <div style={{fontSize:12,color:"#8a6020",lineHeight:1.5,wordBreak:"break-word",overflowWrap:"break-word"}}>
-            <strong>Email error:</strong> {notification.emailError}
+            {isCredentialError
+              ? <><strong>Email is not set up.</strong> Your invoice was saved locally. Set up your Gmail and app password to send invoices by email.</>
+              : <><strong>Email error:</strong> {notification.emailError}</>
+            }
           </div>
+          {isCredentialError && onOpenEmailSetup && (
+            <button onClick={onOpenEmailSetup}
+              style={{marginTop:10,fontSize:12,fontWeight:700,color:"#fff",background:"#c4714f",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",width:"100%"}}>
+              Set Up Email Now
+            </button>
+          )}
         </div>
       </div>
     );
@@ -465,7 +489,7 @@ function NotifCard({ notification, onDismiss }) {
 }
 
 // ── LANDING ───────────────────────────────────────────────────────────────
-function LandingPage({ config, onNav }) {
+function LandingPage({ config, onNav, emailConfigured, onOpenEmailSetup }) {
   const acc  = config.accent;
   const week = getWeekRange(0);
   const now  = new Date();
@@ -476,7 +500,7 @@ function LandingPage({ config, onNav }) {
     { id:"profile", emoji:"👤", label:"Edit Profile",    desc:"Name, rate, contacts & folder",        primary:false },
   ];
   return (
-    <Shell config={config} title="Home Health Invoice" subtitle={config.name}>
+    <Shell config={config} title="Home Health Invoice" subtitle={config.name} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
       <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:"32px 24px",background:"linear-gradient(160deg,#f9f3ee,#f2ebe4)"}}>
         <div style={{textAlign:"center",marginBottom:8}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:"#2c1810",fontWeight:700,marginBottom:4}}>
@@ -509,7 +533,7 @@ function LandingPage({ config, onNav }) {
 }
 
 // ── PROFILE PAGE ──────────────────────────────────────────────────────────
-function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
+function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, onOpenEmailSetup }) {
   const [draft, setDraft] = useState(config);
   const [folderOverridden, setFolderOverridden] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -567,7 +591,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
   };
 
   return (
-    <Shell config={draft} title="Edit Profile" onBack={onBack}>
+    <Shell config={draft} title="Edit Profile" onBack={onBack} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
       {/* Fixed-height scrollable body — buttons stay inside the scroll area, not pinned outside */}
       <div style={{flex:1,overflowY:"auto",background:"#f9f3ee",padding:"28px 16px 32px"}}>
         <div style={{width:"100%",maxWidth:480,margin:"0 auto"}}>
@@ -696,7 +720,7 @@ function handleSubmitResponse(data, savedPath, emails, setNotification, setAlrea
 }
 
 // ── WEEKLY PAGE ───────────────────────────────────────────────────────────
-function WeeklyPage({ config, onBack }) {
+function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSetupCount }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const week  = useMemo(()=>getWeekRange(weekOffset),[weekOffset]);
   const acc   = config.accent;
@@ -714,11 +738,27 @@ function WeeklyPage({ config, onBack }) {
   const [submitting,      setSubmitting]      = useState(false);
   const submitInProgressRef = useRef(false);
 
-  // Reset state when week changes, re-default hours to 8/day
+  // Reset state when week changes, re-default hours to 8/day, and check if already saved
   useEffect(()=>{
     setHours({Monday:8,Tuesday:8,Wednesday:8,Thursday:8,Friday:8,Saturday:0,Sunday:0});
-    setNotification(null); setAlreadySaved(false);
+    setNotification(null); setAlreadySaved(false); setSavedDate(null);
+
+    // Check if this week's invoice already exists on disk
+    fetch(`/api/scan?folder=${encodeURIComponent(config.saveFolder)}&invNum=${week.invNum}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.found) {
+          setAlreadySaved(true);
+          setSavedDate(data.date || null);
+        }
+      })
+      .catch(() => {}); // non-critical, pill just stays "not saved"
   },[weekOffset]);
+
+  // Clear stale "email failed" notification after email setup completes
+  useEffect(()=>{
+    if (emailSetupCount > 0 && notification?.emailError) setNotification(null);
+  },[emailSetupCount]);
 
   const totalHours = Object.values(hours).reduce((a,b)=>a+b,0);
   const totalPay   = (totalHours*config.rate).toFixed(2);
@@ -822,7 +862,7 @@ function WeeklyPage({ config, onBack }) {
   const weekLabel = isCurrent ? `${week.start} – ${week.end}` : weekOffset < 0 ? `${week.start} – ${week.end} (past)` : `${week.start} – ${week.end} (future)`;
 
   return (
-    <Shell config={config} title="Weekly Invoice" subtitle={weekLabel} onBack={onBack}>
+    <Shell config={config} title="Weekly Invoice" subtitle={weekLabel} onBack={onBack} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
       {showConfirm && <ConfirmModal savedPath={savedPath} onConfirm={doSend} onCancel={()=>setShowConfirm(false)}/>}
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
         {/* PDF */}
@@ -859,13 +899,13 @@ function WeeklyPage({ config, onBack }) {
         {/* Editor */}
         <div style={{width:288,background:"#fdf8f4",borderLeft:"1px solid #e8ddd4",display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
           <div style={{flex:1,display:"flex",flexDirection:"column",padding:"13px 16px 0",overflow:"hidden"}}>
-            <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:5}}>Hours This Week</div>
+            <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:8}}>Hours This Week</div>
             <div style={{flex:"0 0 auto"}}>
               {DAYS.map(day=>(
                 <HourRow key={day} label={day} value={hours[day]} onChange={v=>setHour(day,v)} accent={acc}/>
               ))}
             </div>
-            <div style={{background:"white",borderRadius:8,padding:"8px 12px",margin:"7px 0 5px",display:"flex",justifyContent:"space-between",border:`1px solid ${acc}22`,flexShrink:0}}>
+            <div style={{background:"white",borderRadius:8,padding:"8px 12px",margin:"14px 0 10px",display:"flex",justifyContent:"space-between",border:`1px solid ${acc}22`,flexShrink:0}}>
               <div><div style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Hours</div>
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,color:"#2c1810",lineHeight:1.1}}>{totalHours}</div></div>
               <div style={{textAlign:"right"}}><div style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Total Due</div>
@@ -877,7 +917,7 @@ function WeeklyPage({ config, onBack }) {
                 <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#4a7a50",maxWidth:"100%",overflow:"hidden"}}>
                   <span>💾</span>
                   <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                    Saved · {week.invNum} · {savedDate}
+                    {savedDate ? `Saved · ${week.invNum} · ${savedDate}` : `File exists · ${week.invNum}`}
                   </span>
                 </div>
               ) : (
@@ -885,10 +925,13 @@ function WeeklyPage({ config, onBack }) {
                   <span style={{fontSize:9}}>○</span> Not yet saved for this week
                 </div>
               )}
+              <div style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,color:"#b0a090",marginTop:4}}>
+                <span style={{fontSize:11}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{config.saveFolder}</span>
+              </div>
             </div>
-            <div style={{margin:"6px 0 0",flexShrink:0}}>
+            <div style={{margin:"14px 0 0",flexShrink:0}}>
               {notification ? (
-                <NotifCard notification={notification} onDismiss={()=>setNotification(null)}/>
+                <NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup}/>
               ) : (
                 <div>
                   <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
@@ -918,7 +961,7 @@ function WeeklyPage({ config, onBack }) {
 }
 
 // ── MONTHLY PAGE ──────────────────────────────────────────────────────────
-function MonthlyPage({ config, onBack }) {
+function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSetupCount }) {
   const now = new Date();
   const [year,  setYear]  = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -936,6 +979,11 @@ function MonthlyPage({ config, onBack }) {
   const [weekHours, setWeekHours] = useState(()=>weeks.map(()=>0));
   const monthLabel  = new Date(year,month,1).toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const savedPath   = monthlyPath(config.saveFolder, year, month);
+
+  // Clear stale "email failed" notification after email setup completes
+  useEffect(()=>{
+    if (emailSetupCount > 0 && notification?.emailError) setNotification(null);
+  },[emailSetupCount]);
 
   // Scan weekly folder for each week's invoice when month changes
   useEffect(()=>{
@@ -1048,6 +1096,7 @@ function MonthlyPage({ config, onBack }) {
     if (submitInProgressRef.current) {
       return;
     }
+
     if (alreadySaved) {
       setShowConfirm(true);
       return;
@@ -1060,7 +1109,7 @@ function MonthlyPage({ config, onBack }) {
   const LETTER_W=680, LETTER_H=Math.round(LETTER_W*(11/8.5));
 
   return (
-    <Shell config={config} title="Monthly Report" subtitle={monthLabel} onBack={onBack}>
+    <Shell config={config} title="Monthly Report" subtitle={monthLabel} onBack={onBack} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
       {showConfirm && <ConfirmModal savedPath={savedPath} onConfirm={doSend} onCancel={()=>setShowConfirm(false)}/>}
       {scanPopup   && <ScanPopup results={scanPopup} onClose={()=>setScanPopup(null)}/>}
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
@@ -1105,7 +1154,7 @@ function MonthlyPage({ config, onBack }) {
                 <div style={{display:"inline-flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"3px 10px",fontSize:10,color:"#4a7a50",maxWidth:"100%",overflow:"hidden"}}>
                   <span>💾</span>
                   <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                    Saved · {monthLabel}{savedDate ? ` · ${savedDate}` : ''}
+                    {savedDate ? `Saved · ${monthLabel} · ${savedDate}` : `File exists · ${monthLabel}`}
                   </span>
                 </div>
               ) : (
@@ -1113,10 +1162,13 @@ function MonthlyPage({ config, onBack }) {
                   <span style={{fontSize:9}}>○</span> Not yet saved for this month
                 </div>
               )}
+              <div style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,color:"#b0a090",marginTop:4}}>
+                <span style={{fontSize:11}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{config.saveFolder}</span>
+              </div>
             </div>
             <div style={{flexShrink:0}}>
               {notification ? (
-                <NotifCard notification={notification} onDismiss={()=>setNotification(null)}/>
+                <NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup}/>
               ) : (
                 <div>
                   <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:5}}>Send To</div>
@@ -1140,34 +1192,225 @@ function MonthlyPage({ config, onBack }) {
 }
 
 // ── ROOT ──────────────────────────────────────────────────────────────────
+// ── EMAIL SETUP MODAL ──────────────────────────────────────────────────
+function EmailSetupModal({ onDone, onSkip, isEditing }) {
+  const [gmailAddress, setGmailAddress] = useState("");
+  const [appPassword, setAppPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(true);
+  const [alreadyVerified, setAlreadyVerified] = useState(false);
+  const [wantsToChange, setWantsToChange] = useState(false);
+
+  // Load existing email address and verification status on mount
+  useEffect(() => {
+    fetch('/api/email-status')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data) {
+          if (data.gmailAddress) setGmailAddress(data.gmailAddress);
+          if (data.configured) setAlreadyVerified(true);
+        }
+        setLoadingExisting(false);
+      })
+      .catch(() => setLoadingExisting(false));
+  }, []);
+
+  const handleSave = async () => {
+    // If already verified and user hasn't changed anything, just close
+    if (alreadyVerified && !wantsToChange) {
+      setSuccess("Email is already verified and ready to send.");
+      setTimeout(() => onDone(), 1000);
+      return;
+    }
+    if (!gmailAddress.trim()) { setError("Please enter your Gmail address."); return; }
+    if (!appPassword.trim()) { setError("Please enter your app password."); return; }
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch('/api/email-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gmailAddress: gmailAddress.trim(), gmailAppPassword: appPassword.trim() })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Failed to save email settings.");
+      setSuccess("Connected successfully! Your email is ready to send invoices.");
+      setTimeout(() => onDone(), 1200);
+    } catch (e) {
+      setError(e.message);
+      setSaving(false);
+    }
+  };
+
+  const inputStyle = {
+    width:"100%",fontSize:14,padding:"10px 12px",borderRadius:8,
+    border:"1.5px solid #d8ccc4",fontFamily:"monospace",color:"#2c1810",
+    background:"white",outline:"none",boxSizing:"border-box"
+  };
+  const labelStyle = {fontSize:11,fontWeight:700,color:"#6a4a40",letterSpacing:0.5,marginBottom:5,display:"block"};
+
+  // Whether to show the full form (new setup, or user chose to change existing)
+  const showForm = !alreadyVerified || wantsToChange;
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(44,24,16,0.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}}>
+      <div style={{background:"white",borderRadius:18,maxWidth:440,width:"100%",overflow:"hidden",boxShadow:"0 12px 60px rgba(0,0,0,0.3)"}}>
+        {/* Header */}
+        <div style={{background:chrome.titleBar,padding:"20px 24px"}}>
+          <div style={{fontSize:10,letterSpacing:3,textTransform:"uppercase",color:"#e0c090",marginBottom:6}}>
+            {isEditing ? "Email Settings" : "Email Setup"}
+          </div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,color:"#f0e0d0",fontWeight:700}}>
+            {isEditing ? "Email Settings" : "Set Up Email Sending"}
+          </div>
+          <div style={{fontSize:13,color:chrome.mutedText,marginTop:6,lineHeight:1.5}}>
+            {alreadyVerified && !wantsToChange
+              ? "Your email is connected and ready to send invoices."
+              : isEditing
+                ? "Update your Gmail address or app password below."
+                : "To send invoices by email, you need a Gmail address and an app password."}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{padding:"20px 24px"}}>
+          {loadingExisting ? (
+            <div style={{textAlign:"center",padding:"20px 0",color:"#9a8070",fontSize:13}}>Loading...</div>
+          ) : (<>
+            {/* Verified status badge */}
+            {alreadyVerified && !wantsToChange && (
+              <div style={{marginBottom:18}}>
+                <div style={{background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:10,padding:"14px 16px",display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:22}}>✓</span>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:700,color:"#2d6a2d",marginBottom:2}}>Email Verified</div>
+                    <div style={{fontSize:13,color:"#4a7a50",fontFamily:"monospace"}}>{gmailAddress}</div>
+                  </div>
+                </div>
+                <button onClick={()=>setWantsToChange(true)}
+                  style={{marginTop:10,fontSize:12,color:"#9a8070",background:"none",border:"1px dashed #d0c0b0",borderRadius:8,padding:"6px 14px",cursor:"pointer",width:"100%",transition:"all 0.15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="#8a6a5a";e.currentTarget.style.color="#6a4a40";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="#d0c0b0";e.currentTarget.style.color="#9a8070";}}>
+                  Change email or app password
+                </button>
+              </div>
+            )}
+
+            {showForm && (<>
+              {/* Gmail address */}
+              <div style={{marginBottom:16}}>
+                <label style={labelStyle}>Gmail Address</label>
+                <input
+                  type="email" placeholder="yourname@gmail.com" value={gmailAddress}
+                  onChange={e=>setGmailAddress(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* App password */}
+              <div style={{marginBottom:18}}>
+                <label style={labelStyle}>Gmail App Password</label>
+                <div style={{position:"relative"}}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="xxxx xxxx xxxx xxxx" value={appPassword}
+                    onChange={e=>setAppPassword(e.target.value)}
+                    style={{...inputStyle,paddingRight:40}}
+                  />
+                  <button onClick={()=>setShowPassword(v=>!v)}
+                    style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14,color:"#9a8070"}}>
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div style={{background:"#f9f3ee",border:"1px solid #e8ddd4",borderRadius:10,padding:"14px 16px",marginBottom:18}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#4a3028",marginBottom:8}}>How to get a Gmail App Password:</div>
+                <ol style={{margin:0,paddingLeft:18,fontSize:12,color:"#6a4a40",lineHeight:1.8}}>
+                  <li>Go to <strong>myaccount.google.com</strong></li>
+                  <li>Click <strong>Security</strong> on the left sidebar</li>
+                  <li>Under "How you sign in to Google", make sure <strong>2-Step Verification</strong> is turned on</li>
+                  <li>Go back to Security, then click <strong>2-Step Verification</strong></li>
+                  <li>Scroll to the bottom and click <strong>App passwords</strong></li>
+                  <li>Enter a name (e.g. "Invoice Builder") and click <strong>Create</strong></li>
+                  <li>Copy the 16-character password and paste it above</li>
+                </ol>
+              </div>
+            </>)}
+
+            {/* Success */}
+            {success && (
+              <div style={{fontSize:12,color:"#2d6a2d",background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:8,padding:"10px 12px",marginBottom:14,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:16}}>✓</span> {success}
+              </div>
+            )}
+
+            {/* Error */}
+            {error && (
+              <div style={{fontSize:12,color:"#c4504f",background:"#fff5f2",border:"1px solid #f0c8b8",borderRadius:8,padding:"8px 12px",marginBottom:14,lineHeight:1.5}}>
+                {error}
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={onSkip} disabled={saving}
+                style={{flex:1,fontSize:13,fontWeight:700,padding:"11px 0",borderRadius:10,border:"1.5px solid #e8ddd8",background:"white",color:"#9a8070",cursor:"pointer"}}>
+                {alreadyVerified && !wantsToChange ? "Close" : isEditing ? "Cancel" : "Skip for Now"}
+              </button>
+              {(showForm || !success) && (
+                <button onClick={handleSave} disabled={saving || !!success}
+                  style={{flex:2,fontSize:13,fontWeight:700,padding:"11px 0",borderRadius:10,border:"none",background:chrome.titleBar,color:"white",cursor:saving?"wait":"pointer",opacity:(saving||!!success)?0.7:1}}>
+                  {saving ? "Verifying..." : success ? "Done!" : alreadyVerified && !wantsToChange ? "Already Verified" : "Verify & Save"}
+                </button>
+              )}
+            </div>
+          </>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [config, setConfig] = useState(defaultConfig);
   const [page,   setPage]   = useState("menu");
   const [scrollToFolder, setScrollToFolder] = useState(false);
   const [loading, setLoading] = useState(true);
   const [configError, setConfigError] = useState(null);
+  const [showEmailSetup, setShowEmailSetup] = useState(false);
+  const [emailConfigured, setEmailConfigured] = useState(null); // null=unknown, true/false
+  const [emailSetupCount, setEmailSetupCount] = useState(0); // increments on successful setup
 
-  // Fetch config from API on app mount
+  // Fetch config and email status on app mount
   useEffect(() => {
     const abortController = new AbortController();
-    fetch('/api/config', { signal: abortController.signal })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`Unable to load your saved profile. Using default settings instead.`);
+
+    // Fetch both config and email status in parallel
+    Promise.all([
+      fetch('/api/config', { signal: abortController.signal }).then(r => r.ok ? r.json() : Promise.reject(new Error('Config fetch failed'))),
+      fetch('/api/email-status', { signal: abortController.signal }).then(r => r.ok ? r.json() : null).catch(() => null)
+    ])
+      .then(([configData, emailStatus]) => {
+        setConfig({ ...defaultConfig, ...configData });
+        const configured = emailStatus ? emailStatus.configured : null;
+        setEmailConfigured(configured);
+        // Show email setup popup if credentials aren't configured
+        if (configured === false) {
+          setShowEmailSetup(true);
         }
-        return response.json();
-      })
-      .then(data => {
-        setConfig({ ...defaultConfig, ...data });
         setLoading(false);
       })
       .catch(error => {
-        // Ignore abort errors - component unmounted before fetch completed
         if (error.name === 'AbortError') return;
         console.error('Config fetch failed, using defaults:', error);
         setConfigError(error.message);
         setLoading(false);
-        // Keep defaultConfig as fallback
       });
     return () => abortController.abort();
   }, []);
@@ -1176,6 +1419,22 @@ export default function App() {
     if (dest==="profile-folder") { setScrollToFolder(true); setPage("profile"); }
     else { setScrollToFolder(false); setPage(dest); }
   };
+
+  const handleEmailSetupDone = () => {
+    setShowEmailSetup(false);
+    setEmailConfigured(true);
+    setEmailSetupCount(c => c + 1);
+  };
+
+  const handleEmailSetupSkip = () => {
+    setShowEmailSetup(false);
+    // emailConfigured stays false — pill button remains visible
+  };
+
+  const openEmailSetup = () => setShowEmailSetup(true);
+
+  // Shared props for email setup state
+  const emailProps = { emailConfigured, onOpenEmailSetup: openEmailSetup, emailSetupCount };
 
   // Show loading state while fetching config
   if (loading) {
@@ -1199,8 +1458,10 @@ export default function App() {
     </div>
   ) : null;
 
-  if (page==="weekly")  return <>{ErrorBanner}<WeeklyPage  config={config} onBack={()=>setPage("menu")}/></>;
-  if (page==="monthly") return <>{ErrorBanner}<MonthlyPage config={config} onBack={()=>setPage("menu")}/></>;
-  if (page==="profile") return <>{ErrorBanner}<ProfilePage config={config} onSave={setConfig} onBack={()=>setPage("menu")} scrollToFolder={scrollToFolder}/></>;
-  return <>{ErrorBanner}<LandingPage config={config} onNav={handleNav}/></>;
+  const emailModal = showEmailSetup ? <EmailSetupModal onDone={handleEmailSetupDone} onSkip={handleEmailSetupSkip} isEditing={emailConfigured === true}/> : null;
+
+  if (page==="weekly")  return <>{ErrorBanner}{emailModal}<WeeklyPage  config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
+  if (page==="monthly") return <>{ErrorBanner}{emailModal}<MonthlyPage config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
+  if (page==="profile") return <>{ErrorBanner}{emailModal}<ProfilePage config={config} onSave={setConfig} onBack={()=>setPage("menu")} scrollToFolder={scrollToFolder} {...emailProps}/></>;
+  return <>{ErrorBanner}{emailModal}<LandingPage config={config} onNav={handleNav} {...emailProps}/></>;
 }

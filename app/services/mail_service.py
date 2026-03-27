@@ -32,6 +32,7 @@ load_dotenv()
 def _get_smtp_credentials():
     """
     Load SMTP credentials from environment variables.
+    Re-reads .env each time so credential changes take effect without restart.
 
     Returns:
         tuple of (gmail_address: str, gmail_password: str)
@@ -39,6 +40,9 @@ def _get_smtp_credentials():
     Raises:
         ValueError: if GMAIL_ADDRESS or GMAIL_APP_PASSWORD not set in .env
     """
+    # Reload .env so changes (from UI setup or manual edits) take effect immediately
+    load_dotenv(override=True)
+
     gmail_address = os.getenv('GMAIL_ADDRESS')
     gmail_password = os.getenv('GMAIL_APP_PASSWORD')
 
