@@ -1060,10 +1060,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
         // Ignore abort errors - component unmounted or month changed before fetch completed
         if (error.name === 'AbortError') return;
         console.error('Monthly scan failed:', error);
-        // Show error notification to user
-        setNotification({
-          error: error.message || 'Unable to scan for existing invoices. You can still manually enter hours.'
-        });
+        // Non-critical — user can still manually enter hours
         // Set empty results on error - user can still manually enter hours
         // Use currentWeeks captured at effect start to avoid stale closure
         const fallback = currentWeeks.map(w => ({ label: w.label, invNum: w.invNum, found: false, hours: 0 }));
