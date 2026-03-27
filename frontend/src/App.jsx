@@ -969,10 +969,13 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
             </div>
             <div style={{flex:1}}/>
           </div>
-          <div style={{padding:"10px 16px 14px",borderTop:"1px solid #eee0d8",flexShrink:0,background:"#fdf8f4"}}>
-            <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
-              {submitting ? "Submitting..." : "Save & Submit ✉"}
-            </button>
+          <div style={{flexShrink:0,borderTop:"1px solid #eee0d8",background:"#fdf8f4"}}>
+            {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup}/></div>}
+            <div style={{padding:"10px 16px 14px"}}>
+              <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+                {submitting ? "Submitting..." : "Save & Submit ✉"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1227,10 +1230,13 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
             </div>
             <div style={{flex:1}}/>
           </div>
-          <div style={{padding:"10px 16px 14px",borderTop:"1px solid #eee0d8",flexShrink:0,background:"#fdf8f4"}}>
-            <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
-              {submitting ? "Sending Report..." : "Generate & Send Report 📊"}
-            </button>
+          <div style={{flexShrink:0,borderTop:"1px solid #eee0d8",background:"#fdf8f4"}}>
+            {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup}/></div>}
+            <div style={{padding:"10px 16px 14px"}}>
+              <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+                {submitting ? "Sending Report..." : "Generate & Send Report 📊"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -178,14 +178,14 @@ def shutdown():
     os._exit(0)
 
 def _heartbeat_watchdog():
-    """Exit if no heartbeat received for 10 seconds after first ping."""
+    """Exit if no heartbeat received for 30 seconds after first ping."""
     global _last_heartbeat
     # Wait until the frontend has actually connected and sent a heartbeat
     while _last_heartbeat is None:
         time.sleep(1)
     while True:
         time.sleep(5)
-        if time.time() - _last_heartbeat > 10:
+        if time.time() - _last_heartbeat > 30:
             logger.info("No heartbeat for 10s, exiting.")
             os._exit(0)
 
@@ -279,4 +279,4 @@ if __name__ == "__main__":
     print(f"Starting Lisa Invoice Builder on port {port}...")
     print(f"Config directory: {BASE_DIR}")
     print(f"Static files directory: {DIST_FOLDER}")
-    app.run(port=port, debug=False)
+    app.run(port=port, debug=False, threaded=True)
