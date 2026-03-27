@@ -8,20 +8,37 @@ logger = logging.getLogger(__name__)
 
 config_bp = Blueprint('config', __name__, url_prefix='/api')
 
+def _exe_base_dir():
+    """Return the directory next to the exe (frozen) or project root (dev)."""
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    else:
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.dirname(app_dir)
+
+
 def get_config_path():
     """
-    Resolve config.json path for both dev and PyInstaller environments.
-    Matches the path resolution logic from main.py.
+    Resolve config.json path. Checks the invoice save folder first,
+    falls back to the exe-relative location.
     """
-    if getattr(sys, 'frozen', False):
-        # Running as PyInstaller bundle - config.json is next to .exe
-        base_dir = os.path.dirname(sys.executable)
-    else:
-        # Running in dev mode - config.json is in project root
-        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        base_dir = os.path.dirname(app_dir)
+    base_dir = _exe_base_dir()
+    exe_config = os.path.join(base_dir, 'config.json')
 
-    return os.path.join(base_dir, 'config.json')
+    # Check if exe-relative config points to a saveFolder
+    try:
+        with open(exe_config, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        save_folder = data.get('saveFolder', '')
+        if save_folder:
+            expanded = os.path.expanduser(save_folder)
+            folder_config = os.path.join(expanded, 'config.json')
+            if os.path.exists(folder_config):
+                return folder_config
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+
+    return exe_config
 
 def derive_save_folder(full_name):
     """
@@ -142,8 +159,19 @@ def update_config():
                 "message": "Configuration must be less than 1MB"
             }), 400
 
-        # Write to config.json
-        with open(config_path, 'w', encoding='utf-8') as f:
+        # Write config to the save folder if one is set
+        save_folder = config_data.get('saveFolder', '')
+        if save_folder:
+            expanded = os.path.expanduser(save_folder)
+            os.makedirs(expanded, exist_ok=True)
+            folder_config = os.path.join(expanded, 'config.json')
+            with open(folder_config, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, indent=2, ensure_ascii=False)
+
+        # Always write a pointer to exe-relative config so the app
+        # can find the save folder on next launch
+        exe_config = os.path.join(_exe_base_dir(), 'config.json')
+        with open(exe_config, 'w', encoding='utf-8') as f:
             json.dump(config_data, f, indent=2, ensure_ascii=False)
 
         return jsonify({

@@ -10,6 +10,13 @@ import urllib.error
 from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
 
+# On Windows PyInstaller bundles, point fontconfig at system fonts
+# so WeasyPrint/Pango can find Georgia, emoji fonts, etc.
+if getattr(sys, 'frozen', False) and sys.platform == 'win32':
+    _fonts_conf = os.path.join(sys._MEIPASS, 'app', 'fonts.conf')
+    if os.path.exists(_fonts_conf):
+        os.environ['FONTCONFIG_FILE'] = _fonts_conf
+
 from app.middleware.rate_limiter import get_rate_limiter
 from app.middleware.request_validator import MAX_CONTENT_LENGTH_BYTES
 

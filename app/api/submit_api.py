@@ -83,18 +83,31 @@ def sanitize_filename(filename):
 
 def get_config_path():
     """
-    Resolve config.json path for both dev and PyInstaller environments.
-    Matches the path resolution logic from config_api.py.
+    Resolve config.json path. Checks the invoice save folder first,
+    falls back to the exe-relative location.
     """
     if getattr(sys, 'frozen', False):
-        # Running as PyInstaller bundle - config.json is next to .exe
         base_dir = os.path.dirname(sys.executable)
     else:
-        # Running in dev mode - config.json is in project root
         app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         base_dir = os.path.dirname(app_dir)
 
-    return os.path.join(base_dir, 'config.json')
+    exe_config = os.path.join(base_dir, 'config.json')
+
+    # Check if exe-relative config points to a saveFolder
+    try:
+        with open(exe_config, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        save_folder = data.get('saveFolder', '')
+        if save_folder:
+            expanded = os.path.expanduser(save_folder)
+            folder_config = os.path.join(expanded, 'config.json')
+            if os.path.exists(folder_config):
+                return folder_config
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+
+    return exe_config
 
 
 def load_config():

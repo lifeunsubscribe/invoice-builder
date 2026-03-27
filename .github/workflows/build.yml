@@ -70,6 +70,7 @@ jobs:
               "--name=InvoiceBuilder",
               "--add-data", "dist;dist",
               "--add-data", "app\\templates;app\\templates",
+              "--add-data", "app\\fonts.conf;app",
               *dll_args,
               "--collect-all", "weasyprint",
               "--collect-all", "cairocffi",
