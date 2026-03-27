@@ -1424,6 +1424,15 @@ export default function App() {
   const [emailConfigured, setEmailConfigured] = useState(null); // null=unknown, true/false
   const [emailSetupCount, setEmailSetupCount] = useState(0); // increments on successful setup
 
+  // Tell the server to shut down when the window/tab closes
+  useEffect(() => {
+    const handleUnload = () => {
+      navigator.sendBeacon("/api/shutdown");
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, []);
+
   // Fetch config and email status on app mount
   useEffect(() => {
     const abortController = new AbortController();

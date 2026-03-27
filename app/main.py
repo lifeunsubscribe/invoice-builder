@@ -160,6 +160,12 @@ def request_entity_too_large(e):
         "message": "Request body exceeds maximum allowed size"
     }), 413
 
+@app.route("/api/shutdown", methods=["POST"])
+def shutdown():
+    """Shut down the server when the user closes the app window."""
+    logger.info("Shutdown requested, exiting.")
+    os._exit(0)
+
 @app.route("/")
 def index():
     """Serve the React app's index.html as the entry point."""
