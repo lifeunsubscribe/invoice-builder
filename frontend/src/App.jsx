@@ -961,22 +961,18 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
               </div>
             </div>
             <div style={{flexShrink:0}}>
-              {notification ? (
-                <NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup}/>
-              ) : (
-                <div>
-                  <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
-                  {[{label:"Client",value:clientEmail,set:setClientEmail},{label:"Accountant",value:accountantEmail,set:setAccountantEmail}].map(({label,value,set})=>(
-                    <div key={label} style={{marginBottom:7}}>
-                      <div style={{fontSize:13,color:"#b0988a",marginBottom:3}}>{label}</div>
-                      <input value={value} onChange={e=>set(e.target.value)}
+              <div>
+                <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
+                {[{label:"Client",value:clientEmail,set:setClientEmail},{label:"Accountant",value:accountantEmail,set:setAccountantEmail}].map(({label,value,set})=>(
+                  <div key={label} style={{marginBottom:7}}>
+                    <div style={{fontSize:13,color:"#b0988a",marginBottom:3}}>{label}</div>
+                    <input value={value} onChange={e=>set(e.target.value)}
                         style={{width:"100%",fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
                         onFocus={e=>{e.target.style.borderColor=acc;e.target.style.boxShadow=`0 0 0 2px ${tint(acc,0.12)}`;}}
                         onBlur={e=>{e.target.style.borderColor="#e8ddd8";e.target.style.boxShadow="none";}}/>
                     </div>
                   ))}
-                </div>
-              )}
+              </div>
             </div>
             <div style={{flex:1}}/>
           </div>
@@ -1222,21 +1218,17 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
               </div>
             </div>
             <div style={{flexShrink:0}}>
-              {notification ? (
-                <NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup}/>
-              ) : (
-                <div>
-                  <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
-                  <div style={{marginBottom:7}}>
-                    <div style={{fontSize:13,color:"#b0988a",marginBottom:3}}>Accountant</div>
-                    <input value={accountantEmail} onChange={e=>setAccountantEmail(e.target.value)}
-                      style={{width:"100%",fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
-                      onFocus={e=>{e.target.style.borderColor=acc;e.target.style.boxShadow=`0 0 0 2px ${tint(acc,0.12)}`;}}
-                      onBlur={e=>{e.target.style.borderColor="#e8ddd8";e.target.style.boxShadow="none";}}/>
-                  </div>
-                  <div style={{fontSize:13,color:"#c0a898",fontStyle:"italic"}}>Monthly reports go to your accountant only.</div>
+              <div>
+                <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
+                <div style={{marginBottom:7}}>
+                  <div style={{fontSize:13,color:"#b0988a",marginBottom:3}}>Accountant</div>
+                  <input value={accountantEmail} onChange={e=>setAccountantEmail(e.target.value)}
+                    style={{width:"100%",fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
+                    onFocus={e=>{e.target.style.borderColor=acc;e.target.style.boxShadow=`0 0 0 2px ${tint(acc,0.12)}`;}}
+                    onBlur={e=>{e.target.style.borderColor="#e8ddd8";e.target.style.boxShadow="none";}}/>
                 </div>
-              )}
+                <div style={{fontSize:13,color:"#c0a898",fontStyle:"italic"}}>Monthly reports go to your accountant only.</div>
+              </div>
             </div>
             <div style={{flex:1}}/>
           </div>
