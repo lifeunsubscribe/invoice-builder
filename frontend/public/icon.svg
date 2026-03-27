@@ -1,40 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <!-- Receipt paper with slight gradient -->
   <defs>
-    <linearGradient id="paperGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#f5f5f5;stop-opacity:1" />
-    </linearGradient>
+    <clipPath id="bounds">
+      <rect x="0" y="0" width="256" height="256" rx="56"/>
+    </clipPath>
   </defs>
-
-  <!-- Receipt background -->
-  <rect x="48" y="32" width="160" height="200" rx="4" fill="url(#paperGradient)" stroke="#d0d0d0" stroke-width="2"/>
-
-  <!-- Receipt header lines (representing invoice details) -->
-  <line x1="64" y1="56" x2="192" y2="56" stroke="#666666" stroke-width="3" stroke-linecap="round"/>
-  <line x1="64" y1="72" x2="160" y2="72" stroke="#999999" stroke-width="2" stroke-linecap="round"/>
-
-  <!-- Invoice items/hours lines -->
-  <line x1="64" y1="96" x2="192" y2="96" stroke="#cccccc" stroke-width="2" stroke-linecap="round"/>
-  <line x1="64" y1="112" x2="192" y2="112" stroke="#cccccc" stroke-width="2" stroke-linecap="round"/>
-  <line x1="64" y1="128" x2="192" y2="128" stroke="#cccccc" stroke-width="2" stroke-linecap="round"/>
-  <line x1="64" y1="144" x2="192" y2="144" stroke="#cccccc" stroke-width="2" stroke-linecap="round"/>
-  <line x1="64" y1="160" x2="192" y2="160" stroke="#cccccc" stroke-width="2" stroke-linecap="round"/>
-
-  <!-- Total line (thicker, darker) -->
-  <line x1="64" y1="184" x2="192" y2="184" stroke="#666666" stroke-width="3" stroke-linecap="round"/>
-  <line x1="64" y1="200" x2="144" y2="200" stroke="#999999" stroke-width="2" stroke-linecap="round"/>
-
-  <!-- Small heart in top-right corner of receipt -->
-  <g transform="translate(180, 48)">
-    <path d="M 0,-4
-             C -2,-8, -8,-8, -10,-4
-             C -12,0, -10,4, 0,10
-             C 10,4, 12,0, 10,-4
-             C 8,-8, 2,-8, 0,-4 Z"
-          fill="#b76e79" stroke="none"/>
-  </g>
-
-  <!-- Subtle shadow effect at bottom of receipt -->
-  <ellipse cx="128" cy="235" rx="70" ry="8" fill="#000000" opacity="0.1"/>
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#b76e79"/>
+  <rect x="28" y="30" width="200" height="210" rx="10" fill="#f8f6f4"/>
+  <ellipse cx="128" cy="242" rx="76" ry="9" fill="#8a4a58" opacity="0.35"/>
+  <line x1="52" y1="72"  x2="204" y2="72"  stroke="#444" stroke-width="7" stroke-linecap="round"/>
+  <line x1="52" y1="94"  x2="168" y2="94"  stroke="#bbb" stroke-width="5" stroke-linecap="round"/>
+  <line x1="52" y1="118" x2="204" y2="118" stroke="#ccc" stroke-width="4" stroke-linecap="round"/>
+  <line x1="52" y1="138" x2="204" y2="138" stroke="#ccc" stroke-width="4" stroke-linecap="round"/>
+  <line x1="52" y1="158" x2="204" y2="158" stroke="#ccc" stroke-width="4" stroke-linecap="round"/>
+  <line x1="52" y1="182" x2="204" y2="182" stroke="#444" stroke-width="7" stroke-linecap="round"/>
+  <line x1="52" y1="202" x2="152" y2="202" stroke="#bbb" stroke-width="5" stroke-linecap="round"/>
+  <path d="M196,52 C191,41 176,41 176,52 C176,63 196,74 196,74 C196,74 216,63 216,52 C216,41 201,41 196,52 Z" fill="#b76e79"/>
 </svg>

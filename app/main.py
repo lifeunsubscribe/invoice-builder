@@ -204,10 +204,12 @@ def index():
 from app.api.config_api import config_bp
 from app.api.scan_api import scan_bp
 from app.api.submit_api import submit_bp
+from app.api.email_config_api import email_config_bp
 
 app.register_blueprint(config_bp)
 app.register_blueprint(scan_bp)
 app.register_blueprint(submit_bp)
+app.register_blueprint(email_config_bp)
 
 if __name__ == "__main__":
     # Check if this app is already running on port 5000

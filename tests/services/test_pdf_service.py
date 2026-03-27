@@ -1,12 +1,11 @@
 """
-Tests for PDF service validation.
+Tests for PDF service validation and rendering.
 
 These tests verify that required template variables are properly validated
-before rendering, preventing cryptic Jinja2 errors in production.
+before rendering, and that PDFs are generated successfully with ReportLab.
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
 
 from app.services.pdf_service import (
     _validate_config,
@@ -217,33 +216,17 @@ class TestRenderWeeklyPdf:
 
         assert "Invalid template_id 'invalid-template'" in str(exc_info.value)
 
-    @patch('app.services.pdf_service.HTML')
-    @patch('app.services.pdf_service._get_jinja_env')
     def test_render_weekly_pdf_valid_config_all_templates(
-        self, mock_jinja_env, mock_html, valid_weekly_config, valid_hours, valid_week
+        self, valid_weekly_config, valid_hours, valid_week
     ):
-        """Test that valid config passes validation for all template variants."""
-        # Mock Jinja environment and template
-        mock_template = MagicMock()
-        mock_template.render.return_value = '<html>Test</html>'
-        mock_env = MagicMock()
-        mock_env.get_template.return_value = mock_template
-        mock_jinja_env.return_value = mock_env
-
-        # Mock HTML and PDF writing
-        mock_pdf = MagicMock()
-        mock_pdf.write_pdf.return_value = None
-        mock_html.return_value = mock_pdf
-
-        # Test all three template variants
+        """Test that valid config produces PDF bytes for all template variants."""
         for template_id in ['morning-light', 'caring-hands', 'garden']:
-            # Should not raise ValueError for validation
-            try:
-                render_weekly_pdf(valid_weekly_config, valid_hours, valid_week, template_id)
-            except ValueError as e:
-                if "Missing required config keys" in str(e):
-                    pytest.fail(f"Validation failed for {template_id}: {e}")
-                # Other ValueErrors (like template loading) are ok for this test
+            result = render_weekly_pdf(
+                valid_weekly_config, valid_hours, valid_week, template_id
+            )
+            assert isinstance(result, bytes)
+            assert len(result) > 0
+            assert result[:5] == b'%PDF-'
 
 
 class TestRenderMonthlyPdf:
@@ -349,31 +332,16 @@ class TestRenderMonthlyPdf:
         assert "rate" in error_message
         assert "accountantEmail" in error_message
 
-    @patch('app.services.pdf_service.HTML')
-    @patch('app.services.pdf_service._get_jinja_env')
     def test_render_monthly_pdf_valid_config(
-        self, mock_jinja_env, mock_html, valid_monthly_config, valid_week_data
+        self, valid_monthly_config, valid_week_data
     ):
-        """Test that valid config passes validation."""
-        # Mock Jinja environment and template
-        mock_template = MagicMock()
-        mock_template.render.return_value = '<html>Test</html>'
-        mock_env = MagicMock()
-        mock_env.get_template.return_value = mock_template
-        mock_jinja_env.return_value = mock_env
-
-        # Mock HTML and PDF writing
-        mock_pdf = MagicMock()
-        mock_pdf.write_pdf.return_value = None
-        mock_html.return_value = mock_pdf
-
-        # Should not raise ValueError for validation
-        try:
-            render_monthly_pdf(valid_monthly_config, valid_week_data, 'March 2026')
-        except ValueError as e:
-            if "Missing required config keys" in str(e):
-                pytest.fail(f"Validation failed: {e}")
-            # Other ValueErrors (like template loading) are ok for this test
+        """Test that valid config produces PDF bytes."""
+        result = render_monthly_pdf(
+            valid_monthly_config, valid_week_data, 'March 2026'
+        )
+        assert isinstance(result, bytes)
+        assert len(result) > 0
+        assert result[:5] == b'%PDF-'
 
 
 class TestWeeklyVsMonthlyRequirements:
@@ -412,58 +380,28 @@ class TestWeeklyVsMonthlyRequirements:
         """Basic week data for monthly."""
         return [{'label': 'Mar 3 – Mar 9', 'hours': 40}]
 
-    @patch('app.services.pdf_service.HTML')
-    @patch('app.services.pdf_service._get_jinja_env')
-    def test_weekly_requires_invoice_note(self, mock_jinja_env, mock_html, base_config, hours, week):
+    def test_weekly_requires_invoice_note(self, base_config, hours, week):
         """Test that weekly invoices require invoiceNote but not accountantEmail."""
         # Weekly should fail without invoiceNote
         with pytest.raises(ValueError) as exc_info:
             render_weekly_pdf(base_config, hours, week, 'morning-light')
         assert "invoiceNote" in str(exc_info.value)
 
-        # Add invoiceNote, should pass validation (though may fail on template loading)
+        # Add invoiceNote, should pass validation and produce PDF
         config_with_note = {**base_config, 'invoiceNote': 'Thank you'}
+        result = render_weekly_pdf(config_with_note, hours, week, 'morning-light')
+        assert isinstance(result, bytes)
+        assert result[:5] == b'%PDF-'
 
-        mock_template = MagicMock()
-        mock_template.render.return_value = '<html>Test</html>'
-        mock_env = MagicMock()
-        mock_env.get_template.return_value = mock_template
-        mock_jinja_env.return_value = mock_env
-
-        mock_pdf = MagicMock()
-        mock_pdf.write_pdf.return_value = None
-        mock_html.return_value = mock_pdf
-
-        try:
-            render_weekly_pdf(config_with_note, hours, week, 'morning-light')
-        except ValueError as e:
-            if "Missing required config keys" in str(e):
-                pytest.fail(f"Should not fail validation: {e}")
-
-    @patch('app.services.pdf_service.HTML')
-    @patch('app.services.pdf_service._get_jinja_env')
-    def test_monthly_requires_accountant_email(self, mock_jinja_env, mock_html, base_config, week_data):
+    def test_monthly_requires_accountant_email(self, base_config, week_data):
         """Test that monthly reports require accountantEmail but not invoiceNote."""
         # Monthly should fail without accountantEmail
         with pytest.raises(ValueError) as exc_info:
             render_monthly_pdf(base_config, week_data, 'March 2026')
         assert "accountantEmail" in str(exc_info.value)
 
-        # Add accountantEmail, should pass validation
+        # Add accountantEmail, should pass validation and produce PDF
         config_with_accountant = {**base_config, 'accountantEmail': 'accountant@cpa.com'}
-
-        mock_template = MagicMock()
-        mock_template.render.return_value = '<html>Test</html>'
-        mock_env = MagicMock()
-        mock_env.get_template.return_value = mock_template
-        mock_jinja_env.return_value = mock_env
-
-        mock_pdf = MagicMock()
-        mock_pdf.write_pdf.return_value = None
-        mock_html.return_value = mock_pdf
-
-        try:
-            render_monthly_pdf(config_with_accountant, week_data, 'March 2026')
-        except ValueError as e:
-            if "Missing required config keys" in str(e):
-                pytest.fail(f"Should not fail validation: {e}")
+        result = render_monthly_pdf(config_with_accountant, week_data, 'March 2026')
+        assert isinstance(result, bytes)
+        assert result[:5] == b'%PDF-'

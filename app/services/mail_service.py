@@ -12,6 +12,7 @@ Functions:
 
 import logging
 import os
+import sys
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -25,13 +26,25 @@ logger = logging.getLogger(__name__)
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 
+
+def _get_env_path():
+    """Resolve .env file path for both dev and PyInstaller environments."""
+    if getattr(sys, 'frozen', False):
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        base_dir = os.path.dirname(app_dir)
+    return os.path.join(base_dir, '.env')
+
+
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(_get_env_path())
 
 
 def _get_smtp_credentials():
     """
     Load SMTP credentials from environment variables.
+    Re-reads .env each time so credential changes take effect without restart.
 
     Returns:
         tuple of (gmail_address: str, gmail_password: str)
@@ -39,6 +52,9 @@ def _get_smtp_credentials():
     Raises:
         ValueError: if GMAIL_ADDRESS or GMAIL_APP_PASSWORD not set in .env
     """
+    # Reload .env so changes (from UI setup or manual edits) take effect immediately
+    load_dotenv(_get_env_path(), override=True)
+
     gmail_address = os.getenv('GMAIL_ADDRESS')
     gmail_password = os.getenv('GMAIL_APP_PASSWORD')
 
