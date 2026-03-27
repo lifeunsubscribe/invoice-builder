@@ -100,10 +100,10 @@ app = Flask(__name__, static_folder=DIST_FOLDER, static_url_path="")
 # Configure Jinja2 to explicitly enable autoescape for XSS protection
 app.jinja_env.autoescape = True
 
-# Configure request size limits to prevent DoS attacks
+# Request size limits
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH_BYTES
 
-# Initialize rate limiter to prevent DoS attacks
+# Rate limiting
 limiter = get_rate_limiter()
 limiter.init_app(app)
 
