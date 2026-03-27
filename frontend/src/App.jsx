@@ -1457,6 +1457,7 @@ export default function App() {
   const [showEmailSetup, setShowEmailSetup] = useState(false);
   const [emailConfigured, setEmailConfigured] = useState(null); // null=unknown, true/false
   const [emailSetupCount, setEmailSetupCount] = useState(0); // increments on successful setup
+  const [updateInfo, setUpdateInfo] = useState(null); // {downloadUrl, latestVersion}
 
   // Heartbeat + shutdown: ping the server every 3s so it knows we're alive.
   // When the tab closes, the pings stop and the server exits after 10s.
@@ -1468,6 +1469,13 @@ export default function App() {
     const handleUnload = () => navigator.sendBeacon("/api/shutdown");
     window.addEventListener("beforeunload", handleUnload);
     return () => { clearInterval(interval); window.removeEventListener("beforeunload", handleUnload); };
+  }, []);
+
+  // Check for updates on mount
+  useEffect(() => {
+    fetch('/api/check-update').then(r=>r.json()).then(data => {
+      if (data.updateAvailable) setUpdateInfo(data);
+    }).catch(()=>{});
   }, []);
 
   // Fetch config and email status on app mount
@@ -1538,10 +1546,20 @@ export default function App() {
     </div>
   ) : null;
 
+  const UpdateBanner = updateInfo ? (
+    <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#eef6ff",borderTop:"2px solid #6aa8d8",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
+      <span style={{fontSize:17}}>🔄</span>
+      <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>A new version of Invoice Builder is available.</div>
+      <a href={updateInfo.downloadUrl} target="_blank" rel="noreferrer"
+        style={{fontSize:13,fontWeight:700,color:"#fff",background:"#4a90c8",border:"none",borderRadius:6,padding:"6px 14px",textDecoration:"none",cursor:"pointer"}}>Download Update</a>
+      <button onClick={()=>setUpdateInfo(null)} style={{fontSize:12,color:"#4a80a8",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+    </div>
+  ) : null;
+
   const emailModal = showEmailSetup ? <EmailSetupModal onDone={handleEmailSetupDone} onSkip={handleEmailSetupSkip} isEditing={emailConfigured === true}/> : null;
 
-  if (page==="weekly")  return <>{ErrorBanner}{emailModal}<WeeklyPage  config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
-  if (page==="monthly") return <>{ErrorBanner}{emailModal}<MonthlyPage config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
-  if (page==="profile") return <>{ErrorBanner}{emailModal}<ProfilePage config={config} onSave={setConfig} onBack={()=>setPage("menu")} scrollToFolder={scrollToFolder} {...emailProps}/></>;
-  return <>{ErrorBanner}{emailModal}<LandingPage config={config} onNav={handleNav} {...emailProps}/></>;
+  if (page==="weekly")  return <>{ErrorBanner}{UpdateBanner}{emailModal}<WeeklyPage  config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
+  if (page==="monthly") return <>{ErrorBanner}{UpdateBanner}{emailModal}<MonthlyPage config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
+  if (page==="profile") return <>{ErrorBanner}{UpdateBanner}{emailModal}<ProfilePage config={config} onSave={setConfig} onBack={()=>setPage("menu")} scrollToFolder={scrollToFolder} {...emailProps}/></>;
+  return <>{ErrorBanner}{UpdateBanner}{emailModal}<LandingPage config={config} onNav={handleNav} {...emailProps}/></>;
 }

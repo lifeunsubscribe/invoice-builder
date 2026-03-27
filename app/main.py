@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sys
@@ -163,6 +164,44 @@ def request_entity_too_large(e):
     }), 413
 
 _last_heartbeat = None  # None until first heartbeat received
+
+# ── Update check ──────────────────────────────────────────────────────
+DOWNLOAD_URL = "https://drive.google.com/file/d/1uQXorRDZiJPcaIId3_UBUN9JNOtGBbq5/view?usp=sharing"
+
+def _get_local_version():
+    """Read the baked-in build version."""
+    if getattr(sys, 'frozen', False):
+        ver_path = os.path.join(sys._MEIPASS, 'app', 'build_version.txt')
+    else:
+        ver_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'build_version.txt')
+    try:
+        with open(ver_path, 'r') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "dev"
+
+@app.route("/api/check-update", methods=["GET"])
+def check_update():
+    """Check if a newer version is available on GitHub."""
+    local = _get_local_version()
+    try:
+        req = urllib.request.Request(
+            "https://api.github.com/repos/lifeunsubscribe/invoice-builder/releases/latest",
+            headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "InvoiceBuilder"}
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+        remote = data.get("body", "").replace("Build ", "").strip()
+        if remote and remote != local:
+            return jsonify({
+                "updateAvailable": True,
+                "currentVersion": local,
+                "latestVersion": remote,
+                "downloadUrl": DOWNLOAD_URL
+            }), 200
+    except Exception:
+        pass
+    return jsonify({"updateAvailable": False, "currentVersion": local}), 200
 
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():

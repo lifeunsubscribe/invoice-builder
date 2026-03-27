@@ -37,6 +37,17 @@ jobs:
           npm run build
           cd ..
 
+      - name: Generate version file
+        shell: python
+        run: |
+          import datetime, subprocess
+          sha = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode().strip()
+          now = datetime.datetime.utcnow().strftime("%Y%m%d%H%M")
+          version = f"{now}-{sha}"
+          with open("app/build_version.txt", "w") as f:
+              f.write(version)
+          print(f"Build version: {version}")
+
       - name: Build exe
         shell: python
         run: |
@@ -71,6 +82,7 @@ jobs:
               "--add-data", "dist;dist",
               "--add-data", "app\\templates;app\\templates",
               "--add-data", "app\\fonts.conf;app",
+              "--add-data", "app\\build_version.txt;app",
               *dll_args,
               "--collect-all", "weasyprint",
               "--collect-all", "cairocffi",
@@ -97,3 +109,21 @@ jobs:
           name: InvoiceBuilder-windows
           path: "dist/Invoice Builder.exe"
           retention-days: 30
+
+      - name: Create/update GitHub Release
+        run: |
+          $version = Get-Content "app\build_version.txt" -Raw
+          $version = $version.Trim()
+          $tag = "v$version"
+
+          # Delete existing 'latest' release if it exists
+          gh release delete latest --yes 2>$null
+
+          # Create new release
+          gh release create latest `
+            --title "Invoice Builder (latest)" `
+            --notes "Build $version" `
+            --latest `
+            "dist/Invoice Builder.exe"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
