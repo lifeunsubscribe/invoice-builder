@@ -346,8 +346,8 @@ def submit_weekly():
             if worked_days:
                 first_worked = monday_date + timedelta(days=worked_days[0])
                 last_worked = monday_date + timedelta(days=worked_days[-1])
-                work_start = first_worked.strftime('%B %-d')
-                work_end = last_worked.strftime('%B %-d, %Y')
+                work_start = f"{first_worked.strftime('%B')} {first_worked.day}"
+                work_end = f"{last_worked.strftime('%B')} {last_worked.day}, {last_worked.year}"
             else:
                 work_start = week['start']
                 work_end = week['end']
