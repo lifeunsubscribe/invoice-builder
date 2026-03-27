@@ -918,8 +918,8 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
         </div>
         {/* Editor */}
         <div style={{width:360,background:"#fdf8f4",borderLeft:"1px solid #e8ddd4",display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
-          <div style={{flex:1,display:"flex",flexDirection:"column",padding:"13px 16px 0",overflow:"hidden"}}>
-            <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:8}}>Hours This Week</div>
+          <div style={{flex:1,display:"flex",flexDirection:"column",padding:"13px 16px 0",overflowY:"auto"}}>
+            <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Hours This Week</div>
             <div style={{flex:"0 0 auto"}}>
               {DAYS.map(day=>(
                 <HourRow key={day} label={day} value={hours[day]} onChange={v=>setHour(day,v)} accent={acc}/>
@@ -932,7 +932,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
               </div>
             </div>
             {/* Saved status pill */}
-            <div style={{flexShrink:0,marginTop:28,marginBottom:28}}>
+            <div style={{flexShrink:0,marginTop:14,marginBottom:14}}>
               {alreadySaved ? (
                 <div style={{display:"flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#4a7a50",maxWidth:"100%",overflow:"hidden",width:"fit-content"}}>
                   <span>💾</span>
@@ -1177,7 +1177,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
         </div>
         {/* Editor */}
         <div style={{width:360,background:"#fdf8f4",borderLeft:"1px solid #e8ddd4",display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
-          <div style={{flex:1,display:"flex",flexDirection:"column",padding:"13px 16px 0",overflow:"hidden"}}>
+          <div style={{flex:1,display:"flex",flexDirection:"column",padding:"13px 16px 0",overflowY:"auto"}}>
             <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Hours Per Week</div>
             <div style={{flex:"0 0 auto",overflowY:"auto"}}>
               {weeksWithData.map((w,i)=>(
@@ -1191,7 +1191,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
               </div>
             </div>
             {/* Saved status pill */}
-            <div style={{flexShrink:0,marginTop:28,marginBottom:28}}>
+            <div style={{flexShrink:0,marginTop:14,marginBottom:14}}>
               {alreadySaved ? (
                 <div style={{display:"flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#4a7a50",maxWidth:"100%",overflow:"hidden",width:"fit-content"}}>
                   <span>💾</span>
