@@ -96,10 +96,12 @@ function HourRow({ label, sublabel, value, onChange, accent }) {
   const [editing, setEditing] = useState(false);
   const [raw, setRaw] = useState(String(value));
   const commit = () => {
-    const n = parseInt(raw,10);
-    onChange(isNaN(n) ? value : Math.max(0, Math.min(168, n)));
+    const n = parseFloat(raw);
+    const rounded = isNaN(n) ? value : Math.round(Math.max(0, Math.min(168, n)) * 2) / 2;
+    onChange(rounded);
     setEditing(false);
   };
+  const display = value % 1 === 0 ? String(value) : value.toFixed(1);
   return (
     <div className="day-row" style={{display:"flex",alignItems:"center",padding:"6px 3px",borderBottom:"1px solid #f0e6e0",transition:"background 0.1s",borderRadius:4}}>
       <div style={{flex:1,minWidth:0}}>
@@ -107,7 +109,7 @@ function HourRow({ label, sublabel, value, onChange, accent }) {
         {sublabel && <div style={{fontSize:12,color:"#b0988a",marginTop:1}}>{sublabel}</div>}
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0,marginLeft:8}}>
-        <button onClick={()=>onChange(Math.max(0,value-1))}
+        <button onClick={()=>onChange(Math.max(0,value-0.5))}
           style={{width:23,height:23,borderRadius:"50%",border:`1.5px solid ${accent}`,background:"white",color:accent,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>−</button>
         {editing ? (
           <input value={raw} onChange={e=>setRaw(e.target.value)}
@@ -115,11 +117,11 @@ function HourRow({ label, sublabel, value, onChange, accent }) {
             style={{width:36,textAlign:"center",fontFamily:"'Playfair Display',serif",fontSize:17,border:`1.5px solid ${accent}`,borderRadius:5,padding:"1px 2px",color:"#2c1810",outline:"none"}} autoFocus/>
         ) : (
           <span onClick={()=>{setRaw(String(value));setEditing(true);}} title="Click to type"
-            style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:value>0?"#2c1810":"#ccc",width:30,textAlign:"center",cursor:"text",borderBottom:`1px dashed ${value>0?"#c8b0a8":"#ddd"}`}}>
-            {value}
+            style={{fontFamily:"'Playfair Display',serif",fontSize:18,color:value>0?"#2c1810":"#ccc",width:36,textAlign:"center",cursor:"text",borderBottom:`1px dashed ${value>0?"#c8b0a8":"#ddd"}`}}>
+            {display}
           </span>
         )}
-        <button onClick={()=>onChange(Math.min(168,value+1))}
+        <button onClick={()=>onChange(Math.min(168,value+0.5))}
           style={{width:23,height:23,borderRadius:"50%",border:`1.5px solid ${accent}`,background:accent,color:"white",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
         {!sublabel && <span style={{fontSize:12,color:"#c0a898",width:18}}>hr</span>}
       </div>
