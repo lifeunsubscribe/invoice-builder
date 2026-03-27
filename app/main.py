@@ -268,6 +268,15 @@ if __name__ == "__main__":
         print("ERROR: No available ports in range 5000-5010. Please close other applications.")
         sys.exit(1)
 
+    # Pre-warm WeasyPrint in background so first PDF render is fast
+    def _warm_weasyprint():
+        try:
+            from weasyprint import HTML
+            HTML(string='<html><body></body></html>').write_pdf()
+        except Exception:
+            pass
+    threading.Thread(target=_warm_weasyprint, daemon=True).start()
+
     # Launch browser in background thread (unless NO_BROWSER env var is set)
     if not os.getenv('NO_BROWSER'):
         threading.Thread(target=open_browser, args=(port,), daemon=True).start()
