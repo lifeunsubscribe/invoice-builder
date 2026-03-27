@@ -22,11 +22,6 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Install GTK3 runtime (needed by WeasyPrint)
-        run: |
-          choco install gtk-runtime --yes --no-progress
-          echo "C:\Program Files\GTK3-Runtime Win64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
-
       - name: Install Python deps
         run: pip install -r requirements.txt
 
@@ -43,9 +38,6 @@ jobs:
             --icon=frontend/public/icon.ico `
             --name=InvoiceBuilder `
             --add-data "dist;dist" `
-            --collect-all weasyprint `
-            --collect-all cairocffi `
-            --collect-all tinycss2 `
             app/main.py
 
       - name: Upload artifact
