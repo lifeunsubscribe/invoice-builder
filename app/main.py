@@ -45,8 +45,10 @@ def is_port_available(port):
     """
     Check if a port is available by attempting to bind to it.
     Returns True if port is available, False if occupied.
+    Uses SO_REUSEADDR so ports in TIME_WAIT (from a recent exit) are reusable.
     """
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         sock.bind(('localhost', port))
         sock.close()

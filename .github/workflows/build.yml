@@ -67,7 +67,7 @@ jobs:
           cmd = [
               "pyinstaller", "--onefile", "--windowed",
               "--icon=frontend/public/icon.ico",
-              "--name=InvoiceBuilder",
+              "--name="Invoice Builder"",
               "--add-data", "dist;dist",
               "--add-data", "app\\templates;app\\templates",
               "--add-data", "app\\fonts.conf;app",
@@ -82,7 +82,7 @@ jobs:
 
       - name: Verify exe starts
         run: |
-          $proc = Start-Process -FilePath "dist\InvoiceBuilder.exe" -PassThru
+          $proc = Start-Process -FilePath "dist\Invoice Builder.exe" -PassThru
           Start-Sleep -Seconds 5
           if ($proc.HasExited) {
             Write-Error "Exe crashed on startup (exit code $($proc.ExitCode))"
@@ -95,5 +95,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: InvoiceBuilder-windows
-          path: dist/InvoiceBuilder.exe
+          path: "dist/Invoice Builder.exe"
           retention-days: 30

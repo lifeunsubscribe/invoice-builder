@@ -8,26 +8,37 @@ logger = logging.getLogger(__name__)
 
 config_bp = Blueprint('config', __name__, url_prefix='/api')
 
-def _exe_base_dir():
-    """Return the directory next to the exe (frozen) or project root (dev)."""
-    if getattr(sys, 'frozen', False):
-        return os.path.dirname(sys.executable)
+def _appdata_dir():
+    """Return the app data directory for storing the save folder pointer."""
+    if sys.platform == 'win32':
+        base = os.environ.get('APPDATA', os.path.expanduser('~'))
     else:
-        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        return os.path.dirname(app_dir)
+        base = os.path.expanduser('~')
+    d = os.path.join(base, '.invoicebuilder')
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _dev_base_dir():
+    """Return the project root in dev mode."""
+    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.dirname(app_dir)
 
 
 def get_config_path():
     """
-    Resolve config.json path. Checks the invoice save folder first,
-    falls back to the exe-relative location.
+    Resolve config.json path. Reads a pointer file from app data to find
+    the save folder, then loads config from there. Falls back to project
+    root (dev) or app data dir (frozen).
     """
-    base_dir = _exe_base_dir()
-    exe_config = os.path.join(base_dir, 'config.json')
+    # In dev mode, use project root config.json directly
+    if not getattr(sys, 'frozen', False):
+        return os.path.join(_dev_base_dir(), 'config.json')
 
-    # Check if exe-relative config points to a saveFolder
+    # In frozen mode, check the pointer file for saveFolder
+    pointer_path = os.path.join(_appdata_dir(), 'pointer.json')
     try:
-        with open(exe_config, 'r', encoding='utf-8') as f:
+        with open(pointer_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         save_folder = data.get('saveFolder', '')
         if save_folder:
@@ -38,7 +49,8 @@ def get_config_path():
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         pass
 
-    return exe_config
+    # Fallback: config in app data dir
+    return os.path.join(_appdata_dir(), 'config.json')
 
 def derive_save_folder(full_name):
     """
@@ -159,7 +171,17 @@ def update_config():
                 "message": "Configuration must be less than 1MB"
             }), 400
 
-        # Write config to the save folder if one is set
+        # Find the old save folder (before this save) so we can detect moves
+        old_save_folder = ''
+        try:
+            old_config_path = get_config_path()
+            with open(old_config_path, 'r', encoding='utf-8') as f:
+                old_data = json.load(f)
+            old_save_folder = old_data.get('saveFolder', '')
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            pass
+
+        # Write config to the save folder
         save_folder = config_data.get('saveFolder', '')
         if save_folder:
             expanded = os.path.expanduser(save_folder)
@@ -168,11 +190,26 @@ def update_config():
             with open(folder_config, 'w', encoding='utf-8') as f:
                 json.dump(config_data, f, indent=2, ensure_ascii=False)
 
-        # Always write a pointer to exe-relative config so the app
-        # can find the save folder on next launch
-        exe_config = os.path.join(_exe_base_dir(), 'config.json')
-        with open(exe_config, 'w', encoding='utf-8') as f:
-            json.dump(config_data, f, indent=2, ensure_ascii=False)
+            # If save folder changed, remove config from the old location
+            if old_save_folder and old_save_folder != save_folder:
+                old_expanded = os.path.expanduser(old_save_folder)
+                old_config = os.path.join(old_expanded, 'config.json')
+                try:
+                    if os.path.exists(old_config):
+                        os.remove(old_config)
+                except OSError:
+                    pass  # Best effort — don't fail the save
+
+        # Write pointer to app data so the app can find the save folder
+        if save_folder and getattr(sys, 'frozen', False):
+            pointer_path = os.path.join(_appdata_dir(), 'pointer.json')
+            with open(pointer_path, 'w', encoding='utf-8') as f:
+                json.dump({"saveFolder": save_folder}, f, indent=2)
+        elif not getattr(sys, 'frozen', False):
+            # Dev mode: also write to project root
+            dev_config = os.path.join(_dev_base_dir(), 'config.json')
+            with open(dev_config, 'w', encoding='utf-8') as f:
+                json.dump(config_data, f, indent=2, ensure_ascii=False)
 
         return jsonify({
             "success": True,
