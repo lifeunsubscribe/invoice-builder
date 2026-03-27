@@ -102,7 +102,13 @@ def load_config():
     """
     config_path = get_config_path()
     with open(config_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        config = json.load(f)
+    # Ensure rate is numeric (may be stored as string from form input)
+    try:
+        config['rate'] = float(config.get('rate', 0))
+    except (ValueError, TypeError):
+        config['rate'] = 0.0
+    return config
 
 
 @submit_bp.route('/weekly', methods=['POST'])
