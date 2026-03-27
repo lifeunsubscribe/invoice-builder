@@ -245,13 +245,13 @@ def submit_weekly():
         except FileNotFoundError:
             return jsonify({
                 "success": False,
-                "error": "Please fill out your profile in Settings before submitting.",
+                "error": "Please fill out your profile in Edit Profile before submitting.",
                 "message": "config.json does not exist"
             }), 400
         except json.JSONDecodeError:
             return jsonify({
                 "success": False,
-                "error": "Your profile settings are invalid. Please re-enter your details in Settings.",
+                "error": "Your profile settings are invalid. Please re-enter your details in Edit Profile.",
                 "message": "config.json contains malformed JSON"
             }), 400
 
@@ -259,7 +259,7 @@ def submit_weekly():
         if 'saveFolder' not in config or not config['saveFolder']:
             return jsonify({
                 "success": False,
-                "error": "Please set a save folder in Settings before submitting.",
+                "error": "Please set a save folder in Edit Profile before submitting.",
                 "message": "saveFolder not specified in config.json"
             }), 400
 
@@ -305,7 +305,7 @@ def submit_weekly():
             # Missing config keys means profile is incomplete
             error_str = str(e)
             if "Missing required config keys" in error_str:
-                error_msg = "Please fill out your profile in Settings before submitting."
+                error_msg = "Please fill out your profile in Edit Profile before submitting."
             else:
                 error_msg = error_str
             return jsonify({
@@ -559,13 +559,13 @@ def submit_monthly():
         except FileNotFoundError:
             return jsonify({
                 "success": False,
-                "error": "Please fill out your profile in Settings before submitting.",
+                "error": "Please fill out your profile in Edit Profile before submitting.",
                 "message": "config.json does not exist"
             }), 400
         except json.JSONDecodeError:
             return jsonify({
                 "success": False,
-                "error": "Your profile settings are invalid. Please re-enter your details in Settings.",
+                "error": "Your profile settings are invalid. Please re-enter your details in Edit Profile.",
                 "message": "config.json contains malformed JSON"
             }), 400
 
@@ -573,7 +573,7 @@ def submit_monthly():
         if 'saveFolder' not in config or not config['saveFolder']:
             return jsonify({
                 "success": False,
-                "error": "Please set a save folder in Settings before submitting.",
+                "error": "Please set a save folder in Edit Profile before submitting.",
                 "message": "saveFolder not specified in config.json"
             }), 400
 
@@ -614,7 +614,7 @@ def submit_monthly():
         except ValueError as e:
             error_str = str(e)
             if "Missing required config keys" in error_str:
-                error_msg = "Please fill out your profile in Settings before submitting."
+                error_msg = "Please fill out your profile in Edit Profile before submitting."
             else:
                 error_msg = error_str
             return jsonify({
