@@ -413,7 +413,7 @@ function NotifCard({ notification, onDismiss }) {
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c9972a"}}>Partial Success</div>
-          <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+          <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
         </div>
         <div style={{background:"#fefaf2",border:"1px solid #ead8a8",borderRadius:8,padding:"11px 13px"}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#6a5010",marginBottom:7}}>⚠ Saved but Email Failed</div>
@@ -434,7 +434,7 @@ function NotifCard({ notification, onDismiss }) {
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#c4714f"}}>Error</div>
-          <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+          <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
         </div>
         <div style={{background:"#fff5f2",border:"1px solid #f0c8b8",borderRadius:8,padding:"11px 13px"}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#4a2010",marginBottom:4}}>⚠ Failed</div>
@@ -449,7 +449,7 @@ function NotifCard({ notification, onDismiss }) {
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
         <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#6a9a70"}}>Sent</div>
-        <button onClick={onDismiss} style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+        <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
       </div>
       <div style={{background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:8,padding:"11px 13px"}}>
         <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#2d4a2d",marginBottom:7}}>✓ Sent!</div>
@@ -513,6 +513,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const folderRef = useRef(null);
+  const saveInProgressRef = useRef(false);
   const acc = draft.accent;
 
   // Scroll to folder section if requested
@@ -532,6 +533,12 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
 
   // Save profile changes to persistent storage via API
   const handleSave = async () => {
+    // Prevent race condition from rapid clicks - ref updates synchronously
+    if (saveInProgressRef.current) {
+      return;
+    }
+
+    saveInProgressRef.current = true;
     setSaving(true);
     setSaveError(null);
     try {
@@ -546,12 +553,14 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
       }
       // Update local state only after successful save (pessimistic update for data integrity)
       onSave(draft);
-      setSaving(false);
       onBack();
     } catch (error) {
       console.error('Save failed:', error);
       setSaveError(error.message);
+    } finally {
+      // Always reset saving state and ref in all code paths (success, error, or early return)
       setSaving(false);
+      saveInProgressRef.current = false;
     }
   };
 
@@ -653,6 +662,8 @@ function WeeklyPage({ config, onBack }) {
   const [alreadySaved,    setAlreadySaved]    = useState(false);
   const [savedDate,       setSavedDate]       = useState(null);
   const [showConfirm,     setShowConfirm]     = useState(false);
+  const [submitting,      setSubmitting]      = useState(false);
+  const submitInProgressRef = useRef(false);
 
   // Reset state when week changes, re-default hours to 8/day
   useEffect(()=>{
@@ -665,7 +676,15 @@ function WeeklyPage({ config, onBack }) {
   const setHour    = (day,v) => setHours(h=>({...h,[day]:v}));
 
   const doSend = async () => {
-    setNotification(null); setShowConfirm(false);
+    // Prevent race condition from rapid clicks - ref updates synchronously
+    if (submitInProgressRef.current) {
+      return;
+    }
+
+    submitInProgressRef.current = true;
+    setSubmitting(true);
+    setNotification(null);
+    setShowConfirm(false);
 
     try {
       // Build payload for weekly submit API
@@ -720,10 +739,19 @@ function WeeklyPage({ config, onBack }) {
       setNotification({
         error: error.message || 'Failed to submit weekly invoice. Please try again.'
       });
+    } finally {
+      // Always reset submitting state and ref in all code paths (success, error, or early return)
+      setSubmitting(false);
+      submitInProgressRef.current = false;
     }
   };
 
   const handleSubmit = async () => {
+    // Prevent multiple submissions
+    if (submitInProgressRef.current) {
+      return;
+    }
+
     // Pre-flight check: does this invoice already exist?
     try {
       const scanResponse = await fetch(`/api/scan?folder=${encodeURIComponent(config.saveFolder)}&invNum=${week.invNum}`);
@@ -840,8 +868,8 @@ function WeeklyPage({ config, onBack }) {
             <div style={{flex:1}}/>
           </div>
           <div style={{padding:"10px 16px 14px",borderTop:"1px solid #eee0d8",flexShrink:0,background:"#fdf8f4"}}>
-            <button onClick={handleSubmit} style={{width:"100%",fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`}}>
-              Save &amp; Submit ✉
+            <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+              {submitting ? "Submitting..." : "Save & Submit ✉"}
             </button>
           </div>
         </div>
@@ -861,6 +889,8 @@ function MonthlyPage({ config, onBack }) {
   const [savedDate,    setSavedDate]    = useState(null);
   const [showConfirm,  setShowConfirm]  = useState(false);
   const [scanPopup,    setScanPopup]    = useState(null); // null | results[]
+  const [submitting,   setSubmitting]   = useState(false);
+  const submitInProgressRef = useRef(false);
   const acc = config.accent;
 
   const weeks     = useMemo(()=>getWeeksForMonth(year,month),[year,month]);
@@ -920,6 +950,13 @@ function MonthlyPage({ config, onBack }) {
   const setWeekHour = (i,v) => setWeekHours(h=>{ const n=[...h]; n[i]=v; return n; });
 
   const doSend = async () => {
+    // Prevent race condition from rapid clicks - ref updates synchronously
+    if (submitInProgressRef.current) {
+      return;
+    }
+
+    submitInProgressRef.current = true;
+    setSubmitting(true);
     setNotification(null);
     setShowConfirm(false);
 
@@ -971,10 +1008,24 @@ function MonthlyPage({ config, onBack }) {
       setNotification({
         error: error.message || 'Failed to submit monthly report. Please try again.'
       });
+    } finally {
+      // Always reset submitting state and ref in all code paths (success, error, or early return)
+      setSubmitting(false);
+      submitInProgressRef.current = false;
     }
   };
 
-  const handleSubmit = async () => { if(alreadySaved){setShowConfirm(true);return;} await doSend(); };
+  const handleSubmit = async () => {
+    // Prevent multiple submissions
+    if (submitInProgressRef.current) {
+      return;
+    }
+    if (alreadySaved) {
+      setShowConfirm(true);
+      return;
+    }
+    await doSend();
+  };
   const prevMonth = () => { setNotification(null); if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1); };
   const nextMonth = () => { setNotification(null); if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1); };
 
@@ -1050,8 +1101,8 @@ function MonthlyPage({ config, onBack }) {
             <div style={{flex:"0 0 8px"}}/>
           </div>
           <div style={{padding:"10px 16px 14px",borderTop:"1px solid #eee0d8",flexShrink:0,background:"#fdf8f4"}}>
-            <button onClick={handleSubmit} style={{width:"100%",fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`}}>
-              Generate &amp; Send Report 📊
+            <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+              {submitting ? "Sending Report..." : "Generate & Send Report 📊"}
             </button>
           </div>
         </div>
@@ -1116,7 +1167,7 @@ export default function App() {
         <div style={{fontSize:12,fontWeight:700,color:"#8a5010"}}>Could not load saved profile</div>
         <div style={{fontSize:11,color:"#a87020"}}>Using default settings. You can save your profile to persist changes.</div>
       </div>
-      <button onClick={()=>setConfigError(null)} style={{fontSize:11,color:"#8a5010",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+      <button onClick={()=>setConfigError(null)} aria-label="Dismiss error" style={{fontSize:11,color:"#8a5010",background:"none",border:"none",cursor:"pointer"}}>✕</button>
     </div>
   ) : null;
 
