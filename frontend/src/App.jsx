@@ -747,7 +747,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
   const [clientEmail,     setClientEmail]     = useState(config.clientEmail);
   const [accountantEmail, setAccountantEmail] = useState(config.accountantEmail);
   const [zoom,            setZoom]            = useState(()=>{const s=localStorage.getItem("invoiceZoom");return s?parseFloat(s):0.9;});
-  const [activeTemplate,  setActiveTemplate]  = useState("morning-light");
+  const [activeTemplate,  setActiveTemplate]  = useState(()=>localStorage.getItem("invoiceTemplate")||"morning-light");
   const [notification,    setNotification]    = useState(null);
   const [alreadySaved,    setAlreadySaved]    = useState(false);
   const [savedDate,       setSavedDate]       = useState(null);
@@ -888,7 +888,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
           <div style={{background:chrome.toolbar,borderBottom:`1px solid ${chrome.border}`,padding:"7px 20px",display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
             <span style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:chrome.mutedText,marginRight:2}}>Template</span>
             {TEMPLATES.map(t=>(
-              <button key={t.id} className="tmpl-btn" onClick={()=>setActiveTemplate(t.id)} style={{fontFamily:"sans-serif",fontSize:14,padding:"5px 12px",borderRadius:20,border:`1px solid ${activeTemplate===t.id?acc:chrome.border}`,background:activeTemplate===t.id?acc:"transparent",color:activeTemplate===t.id?"white":chrome.mutedText,cursor:"pointer"}}>{t.label}</button>
+              <button key={t.id} className="tmpl-btn" onClick={()=>{setActiveTemplate(t.id);localStorage.setItem("invoiceTemplate",t.id);}} style={{fontFamily:"sans-serif",fontSize:14,padding:"5px 12px",borderRadius:20,border:`1px solid ${activeTemplate===t.id?acc:chrome.border}`,background:activeTemplate===t.id?acc:"transparent",color:activeTemplate===t.id?"white":chrome.mutedText,cursor:"pointer"}}>{t.label}</button>
             ))}
             <div style={{flex:1}}/>
             {/* Week nav + Zoom — right */}
