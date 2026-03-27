@@ -92,6 +92,8 @@ def get_or_create_config(config_path):
                 "clientEmail": "",
                 "accountantEmail": "",
                 "accent": "#b76e79",
+                "patientName": "",
+                "patientAddress": "",
                 "invoiceNote": "",
                 "saveFolder": ""
             }, f, indent=2)
