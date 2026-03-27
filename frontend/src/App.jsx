@@ -949,8 +949,10 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
                   <span style={{fontSize:12}}>○</span> Not yet saved for this week
                 </div>
               )}
-              <div style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:"#b0a090",marginTop:8,paddingLeft:11}}>
-                <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{config.saveFolder}</span>
+              <div onClick={()=>fetch('/api/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:config.saveFolder})}).catch(()=>{})}
+                style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:"#b0a090",marginTop:8,paddingLeft:11,cursor:"pointer"}}
+                title="Open folder">
+                <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
               </div>
             </div>
             <div style={{flexShrink:0}}>
@@ -1211,8 +1213,10 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                   <span style={{fontSize:12}}>○</span> Not yet saved for this month
                 </div>
               )}
-              <div style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:"#b0a090",marginTop:8,paddingLeft:11}}>
-                <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{config.saveFolder}</span>
+              <div onClick={()=>fetch('/api/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:config.saveFolder})}).catch(()=>{})}
+                style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:"#b0a090",marginTop:8,paddingLeft:11,cursor:"pointer"}}
+                title="Open folder">
+                <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
               </div>
             </div>
             <div style={{flexShrink:0}}>

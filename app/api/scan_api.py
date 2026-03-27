@@ -1,6 +1,8 @@
 import os
 import re
+import sys
 import logging
+import subprocess
 from datetime import date, timedelta
 from flask import Blueprint, jsonify, request
 
@@ -150,6 +152,30 @@ def scan_invoice():
             "error": "Server error",
             "message": "An unexpected error occurred while checking invoice existence"
         }), 500
+
+
+@scan_bp.route('/open-folder', methods=['POST'])
+def open_folder():
+    """Open a folder in the system file browser."""
+    data = request.get_json()
+    folder = data.get('folder', '') if data else ''
+    if not folder:
+        return jsonify({"error": "No folder specified"}), 400
+
+    expanded = expand_path(folder)
+    if not os.path.isdir(expanded):
+        return jsonify({"error": "Folder does not exist"}), 404
+
+    try:
+        if sys.platform == 'win32':
+            os.startfile(expanded)
+        elif sys.platform == 'darwin':
+            subprocess.Popen(['open', expanded])
+        else:
+            subprocess.Popen(['xdg-open', expanded])
+        return jsonify({"success": True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 def get_weeks_for_month(year: int, month: int) -> list:
