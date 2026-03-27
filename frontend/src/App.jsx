@@ -659,6 +659,14 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
  * @param {Function} setSavedDate - State setter for saved date display
  */
 function handleSubmitResponse(data, savedPath, emails, setNotification, setAlreadySaved, setSavedDate) {
+  // Validate API response shape to prevent undefined value issues
+  if (!data || typeof data !== 'object') {
+    setNotification({
+      error: 'Invalid API response: expected object, received ' + (data === null ? 'null' : typeof data)
+    });
+    return;
+  }
+
   const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
 
   // Check for partial success: PDF saved but email failed
@@ -669,14 +677,19 @@ function handleSubmitResponse(data, savedPath, emails, setNotification, setAlrea
     });
     setAlreadySaved(true);
     setSavedDate(dateStr);
-  } else {
-    // Full success
+  } else if (data.saved || data.sent) {
+    // Full success - require at least one success indicator
     setNotification({
       sent: data.sent || emails,
       saved: data.saved || savedPath
     });
     setAlreadySaved(true);
     setSavedDate(dateStr);
+  } else {
+    // Response doesn't match expected success patterns
+    setNotification({
+      error: 'Unexpected API response: missing success indicators (saved/sent)'
+    });
   }
 }
 
