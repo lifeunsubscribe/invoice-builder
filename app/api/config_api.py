@@ -50,25 +50,43 @@ def derive_save_folder(full_name):
     last = parts[-1]
     return f"~/Documents/{first}-{last[0].lower()}-invoices"
 
+def get_or_create_config(config_path):
+    """Create config.json from example if it doesn't exist."""
+    if not os.path.exists(config_path):
+        example_path = os.path.join(os.path.dirname(config_path), 'config.example.json')
+        if os.path.exists(example_path):
+            import shutil
+            shutil.copy(example_path, config_path)
+        else:
+            with open(config_path, 'w') as f:
+                json.dump({
+                    "name": "",
+                    "address": "",
+                    "personalEmail": "",
+                    "rate": 0,
+                    "clientName": "",
+                    "clientEmail": "",
+                    "accountantEmail": "",
+                    "accent": "#b76e79",
+                    "invoiceNote": "",
+                    "saveFolder": ""
+                }, f, indent=2)
+
 @config_bp.route('/config', methods=['GET'])
 def get_config():
     """
     GET /api/config
 
     Returns the contents of config.json.
-    Returns 500 error if file is missing or invalid JSON.
+    Creates config from example on first run if missing.
     """
     config_path = get_config_path()
+    get_or_create_config(config_path)
 
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config_data = json.load(f)
         return jsonify(config_data), 200
-    except FileNotFoundError:
-        return jsonify({
-            "error": "Configuration file not found",
-            "message": "config.json does not exist"
-        }), 500
     except PermissionError as e:
         logger.exception("Permission denied reading config file: %s", e)
         return jsonify({

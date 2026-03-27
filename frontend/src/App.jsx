@@ -478,7 +478,7 @@ function LandingPage({ config, onNav }) {
       <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:"32px 24px",background:"linear-gradient(160deg,#f9f3ee,#f2ebe4)"}}>
         <div style={{textAlign:"center",marginBottom:8}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:26,color:"#2c1810",fontWeight:700,marginBottom:4}}>
-            Good {now.getHours()<12?"Morning":"Afternoon"}, {config.name.split(" ")[0]} 👋
+            Good {now.getHours()<12?"Morning":now.getHours()<18?"Afternoon":"Evening"}{config.name.trim() ? `, ${config.name.split(" ")[0]}` : ""} 👋
           </div>
           <div style={{fontFamily:"sans-serif",fontSize:13,color:"#9a8070"}}>What would you like to do today?</div>
         </div>
@@ -1190,8 +1190,8 @@ export default function App() {
     <div style={{position:"fixed",top:0,left:0,right:0,background:"#fef3e8",borderBottom:"2px solid #e8b060",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
       <span style={{fontSize:16}}>⚠️</span>
       <div style={{flex:1}}>
-        <div style={{fontSize:12,fontWeight:700,color:"#8a5010"}}>Could not load saved profile</div>
-        <div style={{fontSize:11,color:"#a87020"}}>Using default settings. You can save your profile to persist changes.</div>
+        <div style={{fontSize:12,fontWeight:700,color:"#8a5010"}}>Welcome! Fill in your profile to get started.</div>
+        <div style={{fontSize:11,color:"#a87020"}}>Head to Edit Profile to add your info.</div>
       </div>
       <button onClick={()=>setConfigError(null)} aria-label="Dismiss error" style={{fontSize:11,color:"#8a5010",background:"none",border:"none",cursor:"pointer"}}>✕</button>
     </div>
