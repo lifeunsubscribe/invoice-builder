@@ -22,10 +22,10 @@ jobs:
         with:
           node-version: "18"
 
-      - name: Install GTK3 runtime (needed by WeasyPrint)
+      - name: Install GTK3 via MSYS2 (pre-installed on runner)
         run: |
-          choco install gtk-runtime --yes --no-progress
-          echo "C:\Program Files\GTK3-Runtime Win64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          C:\msys64\usr\bin\bash.exe -lc "pacman -S --noconfirm mingw-w64-x86_64-pango mingw-w64-x86_64-gdk-pixbuf2"
+          echo "C:\msys64\mingw64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - name: Install Python deps
         run: pip install -r requirements.txt
@@ -38,36 +38,46 @@ jobs:
           cd ..
 
       - name: Build exe
+        shell: python
         run: |
-          $gtkBin = "C:\Program Files\GTK3-Runtime Win64\bin"
+          import subprocess, glob, os
 
-          pyinstaller --onefile --windowed `
-            --icon=frontend/public/icon.ico `
-            --name=InvoiceBuilder `
-            --add-data "dist;dist" `
-            --add-data "app\templates;app\templates" `
-            --add-binary "$gtkBin\libgobject-2.0-0.dll;." `
-            --add-binary "$gtkBin\libcairo-2.dll;." `
-            --add-binary "$gtkBin\libcairo-gobject-2.dll;." `
-            --add-binary "$gtkBin\libpango-1.0-0.dll;." `
-            --add-binary "$gtkBin\libpangocairo-1.0-0.dll;." `
-            --add-binary "$gtkBin\libpangoft2-1.0-0.dll;." `
-            --add-binary "$gtkBin\libpangowin32-1.0-0.dll;." `
-            --add-binary "$gtkBin\libgdk_pixbuf-2.0-0.dll;." `
-            --add-binary "$gtkBin\libffi-8.dll;." `
-            --add-binary "$gtkBin\libgio-2.0-0.dll;." `
-            --add-binary "$gtkBin\libglib-2.0-0.dll;." `
-            --add-binary "$gtkBin\libgmodule-2.0-0.dll;." `
-            --add-binary "$gtkBin\libfontconfig-1.dll;." `
-            --add-binary "$gtkBin\libfreetype-6.dll;." `
-            --add-binary "$gtkBin\libharfbuzz-0.dll;." `
-            --add-binary "$gtkBin\libintl-8.dll;." `
-            --add-binary "$gtkBin\libpng16-16.dll;." `
-            --add-binary "$gtkBin\zlib1.dll;." `
-            --collect-all weasyprint `
-            --collect-all cairocffi `
-            --collect-all tinycss2 `
-            app/main.py
+          gtk_bin = r"C:\msys64\mingw64\bin"
+
+          # DLL prefixes covering WeasyPrint's full native dependency chain
+          prefixes = [
+              "libgobject-", "libcairo", "libpango", "libgdk_pixbuf",
+              "libffi-", "libgio-", "libglib-", "libgmodule-",
+              "libfontconfig", "libfreetype", "libharfbuzz",
+              "libintl", "libpng", "zlib1", "libfribidi",
+              "libpcre2", "libbrotli", "libexpat", "libbz2",
+              "libgraphite2", "libstdc++", "libwinpthread", "libgcc_s",
+              "libiconv", "libpixman",
+          ]
+
+          dll_args = []
+          for prefix in prefixes:
+              for dll in glob.glob(os.path.join(gtk_bin, f"{prefix}*.dll")):
+                  dll_args.extend(["--add-binary", f"{dll};."])
+
+          print(f"Bundling {len(dll_args)//2} GTK DLLs:")
+          for i in range(0, len(dll_args), 2):
+              print(f"  {os.path.basename(dll_args[i+1].split(';')[0])}")
+
+          cmd = [
+              "pyinstaller", "--onefile", "--windowed",
+              "--icon=frontend/public/icon.ico",
+              "--name=InvoiceBuilder",
+              "--add-data", "dist;dist",
+              "--add-data", "app\\templates;app\\templates",
+              *dll_args,
+              "--collect-all", "weasyprint",
+              "--collect-all", "cairocffi",
+              "--collect-all", "tinycss2",
+              "app/main.py",
+          ]
+
+          subprocess.run(cmd, check=True)
 
       - name: Verify exe starts
         run: |
