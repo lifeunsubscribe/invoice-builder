@@ -38,7 +38,7 @@
     /* Base CSS reset for consistent PDF rendering */
     @page {
       size: letter;
-      margin: 12pt;
+      margin: 0;
     }
     * {
       margin: 0;
@@ -60,7 +60,7 @@
     <!-- Header with gradient background -->
     <div style="background: linear-gradient(135deg, #2c3e50, #3d5468); padding: 34px 38px 28px; position: relative;">
       <div style="font-size: 13px; color: #a8c8d8; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center;">
-        <span style="font-size: 15px; margin-right: 7px;">📋</span> Monthly Hours Summary
+        <span style="font-size: 15px; margin-right: 7px; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;">📋</span> Monthly Hours Summary
       </div>
       <div style="font-size: 27px; font-weight: 700; color: white; margin-bottom: 7px;">{{ config.name|default('') }}</div>
       <div style="font-size: 13px; color: #8aacbc;">{{ config.address|default('') }}</div>
