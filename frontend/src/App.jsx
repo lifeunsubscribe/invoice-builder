@@ -445,15 +445,17 @@ function NotifCard({ notification, onDismiss }) {
   }
 
   // Handle full success notifications
+  const hasSent = notification.sent && notification.sent.length > 0;
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-        <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#6a9a70"}}>Sent</div>
+        <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#6a9a70"}}>{hasSent ? "Sent" : "Saved"}</div>
         <button onClick={onDismiss} aria-label="Dismiss notification" style={{fontSize:11,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
       </div>
       <div style={{background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:8,padding:"11px 13px"}}>
-        <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#2d4a2d",marginBottom:7}}>✓ Sent!</div>
-        {notification.sent.map(e=><div key={e} style={{fontSize:12,color:"#4a7a50",marginBottom:3,wordBreak:"break-word",overflowWrap:"break-word"}}>✉ {e}</div>)}
+        <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,color:"#2d4a2d",marginBottom:7}}>{hasSent ? "✓ Sent!" : "✓ Saved!"}</div>
+        {hasSent && notification.sent.map(e=><div key={e} style={{fontSize:12,color:"#4a7a50",marginBottom:3,wordBreak:"break-word",overflowWrap:"break-word"}}>✉ {e}</div>)}
+        {!hasSent && <div style={{fontSize:12,color:"#9a8070",marginBottom:3}}>No emails sent</div>}
         <div style={{fontSize:12,color:"#4a7a50",marginTop:4,paddingTop:6,borderTop:"1px solid #c8e8c8",display:"flex",alignItems:"center",gap:5}}>
           <span>💾</span> <span style={{wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.saved}</span>
         </div>
@@ -677,10 +679,10 @@ function handleSubmitResponse(data, savedPath, emails, setNotification, setAlrea
     });
     setAlreadySaved(true);
     setSavedDate(dateStr);
-  } else if (data.saved || data.sent) {
+  } else if (data.saved || (data.sent && data.sent.length)) {
     // Full success - require at least one success indicator
     setNotification({
-      sent: data.sent || emails,
+      sent: data.sent && data.sent.length ? data.sent : null,
       saved: data.saved || savedPath
     });
     setAlreadySaved(true);

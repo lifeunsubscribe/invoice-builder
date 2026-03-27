@@ -160,7 +160,7 @@ def submit_weekly():
             }), 400
 
         # Validate required fields
-        required_fields = ['hours', 'clientEmail', 'accountantEmail', 'week', 'template']
+        required_fields = ['hours', 'week', 'template']
         missing_fields = [field for field in required_fields if field not in payload]
 
         if missing_fields:
@@ -182,15 +182,18 @@ def submit_weekly():
                 "message": f"Missing week fields: {', '.join(missing_week_fields)}"
             }), 400
 
-        # Validate email addresses
-        if not is_valid_email(payload['clientEmail']):
+        # Validate email addresses (only if provided and non-empty)
+        client_email = payload.get('clientEmail', '').strip()
+        accountant_email = payload.get('accountantEmail', '').strip()
+
+        if client_email and not is_valid_email(client_email):
             return jsonify({
                 "success": False,
                 "error": "Invalid email",
                 "message": "clientEmail must be a valid email address"
             }), 400
 
-        if not is_valid_email(payload['accountantEmail']):
+        if accountant_email and not is_valid_email(accountant_email):
             return jsonify({
                 "success": False,
                 "error": "Invalid email",
@@ -324,62 +327,69 @@ def submit_weekly():
             # Non-critical error - log but continue
             logger.warning("Failed to write sidecar JSON: %s", e)
 
-        # Send emails
-        recipients = [payload['clientEmail'], payload['accountantEmail']]
+        # Send emails (only if recipients provided)
+        recipients = [e for e in [client_email, accountant_email] if e]
 
-        # Calculate totals for email body
-        total_hours = sum(payload['hours'].values())
-        total_pay = total_hours * config.get('rate', 0)
+        if recipients:
+            # Calculate totals for email body
+            total_hours = sum(payload['hours'].values())
+            total_pay = total_hours * config.get('rate', 0)
 
-        # Compute worked date range (only days with hours > 0)
-        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        monday_date = datetime.strptime(inv_num.replace('INV-', ''), '%Y%m%d')
-        worked_days = [i for i, day in enumerate(day_order) if payload['hours'].get(day, 0) > 0]
+            # Compute worked date range (only days with hours > 0)
+            day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            monday_date = datetime.strptime(inv_num.replace('INV-', ''), '%Y%m%d')
+            worked_days = [i for i, day in enumerate(day_order) if payload['hours'].get(day, 0) > 0]
 
-        if worked_days:
-            first_worked = monday_date + timedelta(days=worked_days[0])
-            last_worked = monday_date + timedelta(days=worked_days[-1])
-            work_start = first_worked.strftime('%B %-d')
-            work_end = last_worked.strftime('%B %-d, %Y')
-        else:
-            work_start = week['start']
-            work_end = week['end']
+            if worked_days:
+                first_worked = monday_date + timedelta(days=worked_days[0])
+                last_worked = monday_date + timedelta(days=worked_days[-1])
+                work_start = first_worked.strftime('%B %-d')
+                work_end = last_worked.strftime('%B %-d, %Y')
+            else:
+                work_start = week['start']
+                work_end = week['end']
 
-        email_subject = f"Invoice {inv_num} - {work_start} to {work_end}"
-        email_body = create_weekly_email_body(
-            name=config.get('name', 'Provider'),
-            week_start=work_start,
-            week_end=work_end,
-            total_hours=total_hours,
-            total_pay=total_pay
-        )
+            email_subject = f"Invoice {inv_num} - {work_start} to {work_end}"
+            email_body = create_weekly_email_body(
+                name=config.get('name', 'Provider'),
+                week_start=work_start,
+                week_end=work_end,
+                total_hours=total_hours,
+                total_pay=total_pay
+            )
 
-        email_result = send_invoice_email(
-            recipients=recipients,
-            pdf_bytes=pdf_bytes,
-            filename=f"{inv_num}.pdf",
-            subject=email_subject,
-            body=email_body
-        )
+            email_result = send_invoice_email(
+                recipients=recipients,
+                pdf_bytes=pdf_bytes,
+                filename=f"{inv_num}.pdf",
+                subject=email_subject,
+                body=email_body
+            )
 
-        # Build response
-        if email_result.get('success'):
-            # Full success
-            return jsonify({
-                "success": True,
-                "saved": pdf_path,
-                "sent": recipients,
-                "overwrite": overwrite
-            }), 200
-        else:
-            # Partial success - PDF saved but email failed
-            return jsonify({
-                "success": True,
-                "saved": pdf_path,
-                "sent": [],
-                "emailError": email_result.get('error', 'Unknown email error'),
-                "overwrite": overwrite
-            }), 200
+            # Build response
+            if email_result.get('success'):
+                return jsonify({
+                    "success": True,
+                    "saved": pdf_path,
+                    "sent": recipients,
+                    "overwrite": overwrite
+                }), 200
+            else:
+                return jsonify({
+                    "success": True,
+                    "saved": pdf_path,
+                    "sent": [],
+                    "emailError": email_result.get('error', 'Unknown email error'),
+                    "overwrite": overwrite
+                }), 200
+
+        # No recipients - just save PDF
+        return jsonify({
+            "success": True,
+            "saved": pdf_path,
+            "sent": [],
+            "overwrite": overwrite
+        }), 200
 
     except Exception as e:
         logger.exception("Unexpected error in submit_weekly: %s", e)
@@ -434,7 +444,7 @@ def submit_monthly():
             }), 400
 
         # Validate required fields
-        required_fields = ['weekData', 'year', 'month', 'accountantEmail']
+        required_fields = ['weekData', 'year', 'month']
         missing_fields = [field for field in required_fields if field not in payload]
 
         if missing_fields:
@@ -444,8 +454,10 @@ def submit_monthly():
                 "message": f"Missing fields: {', '.join(missing_fields)}"
             }), 400
 
-        # Validate email address
-        if not is_valid_email(payload['accountantEmail']):
+        # Validate email address (only if provided and non-empty)
+        accountant_email = payload.get('accountantEmail', '').strip()
+
+        if accountant_email and not is_valid_email(accountant_email):
             return jsonify({
                 "success": False,
                 "error": "Invalid email",
@@ -607,47 +619,54 @@ def submit_monthly():
                 "message": f"Could not save PDF: {str(e)}"
             }), 500
 
-        # Send email to accountant only
-        recipients = [payload['accountantEmail']]
+        # Send email to accountant (only if provided)
+        if accountant_email:
+            recipients = [accountant_email]
 
-        # Calculate totals for email body
-        total_hours = sum(week.get('hours', 0) for week in payload['weekData'])
-        total_pay = total_hours * config.get('rate', 0)
+            # Calculate totals for email body
+            total_hours = sum(week.get('hours', 0) for week in payload['weekData'])
+            total_pay = total_hours * config.get('rate', 0)
 
-        email_subject = f"Monthly Report - {month_label}"
-        email_body = create_monthly_email_body(
-            name=config.get('name', 'Provider'),
-            month_label=month_label,
-            total_hours=total_hours,
-            total_pay=total_pay
-        )
+            email_subject = f"Monthly Report - {month_label}"
+            email_body = create_monthly_email_body(
+                name=config.get('name', 'Provider'),
+                month_label=month_label,
+                total_hours=total_hours,
+                total_pay=total_pay
+            )
 
-        email_result = send_invoice_email(
-            recipients=recipients,
-            pdf_bytes=pdf_bytes,
-            filename=os.path.basename(pdf_path),
-            subject=email_subject,
-            body=email_body
-        )
+            email_result = send_invoice_email(
+                recipients=recipients,
+                pdf_bytes=pdf_bytes,
+                filename=os.path.basename(pdf_path),
+                subject=email_subject,
+                body=email_body
+            )
 
-        # Build response
-        if email_result.get('success'):
-            # Full success
-            return jsonify({
-                "success": True,
-                "saved": pdf_path,
-                "sent": recipients,
-                "overwrite": overwrite
-            }), 200
-        else:
-            # Partial success - PDF saved but email failed
-            return jsonify({
-                "success": True,
-                "saved": pdf_path,
-                "sent": [],
-                "emailError": email_result.get('error', 'Unknown email error'),
-                "overwrite": overwrite
-            }), 200
+            # Build response
+            if email_result.get('success'):
+                return jsonify({
+                    "success": True,
+                    "saved": pdf_path,
+                    "sent": recipients,
+                    "overwrite": overwrite
+                }), 200
+            else:
+                return jsonify({
+                    "success": True,
+                    "saved": pdf_path,
+                    "sent": [],
+                    "emailError": email_result.get('error', 'Unknown email error'),
+                    "overwrite": overwrite
+                }), 200
+
+        # No recipient - just save PDF
+        return jsonify({
+            "success": True,
+            "saved": pdf_path,
+            "sent": [],
+            "overwrite": overwrite
+        }), 200
 
     except Exception as e:
         logger.exception("Unexpected error in submit_monthly: %s", e)
