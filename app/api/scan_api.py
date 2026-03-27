@@ -131,6 +131,7 @@ def scan_invoice():
             if sidecar:
                 result["dailyHours"] = sidecar.get("dailyHours")
                 result["totalHours"] = sidecar.get("totalHours")
+                result["template"] = sidecar.get("template")
 
         return jsonify(result), 200
 

@@ -767,9 +767,12 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
         if (data && data.found) {
           setAlreadySaved(true);
           setSavedDate(data.date || null);
-          // Populate hours from saved invoice
+          // Populate hours and template from saved invoice
           if (data.dailyHours) {
             setHours(prev => ({...prev, ...data.dailyHours}));
+          }
+          if (data.template) {
+            setActiveTemplate(data.template);
           }
         }
       })

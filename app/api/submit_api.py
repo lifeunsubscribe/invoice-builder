@@ -323,7 +323,8 @@ def submit_weekly():
             sidecar_data = {
                 "totalHours": sum(payload['hours'].values()),
                 "dailyHours": payload['hours'],
-                "week": week
+                "week": week,
+                "template": payload.get('template', 'morning-light')
             }
             write_sidecar(pdf_path, sidecar_data)
         except Exception as e:
