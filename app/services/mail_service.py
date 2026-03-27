@@ -151,7 +151,7 @@ def send_invoice_email(recipients, pdf_bytes, filename, subject, body):
 
     # Send email via Gmail SMTP
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
             server.starttls()  # Enable TLS encryption
             server.login(gmail_address, gmail_password)
             server.sendmail(gmail_address, recipients, msg.as_string())
