@@ -148,3 +148,285 @@ describe('Profile Save - Race Condition Prevention', () => {
     expect(postCalls.length).toBe(1)
   })
 })
+
+describe('Weekly Submit - Loading State', () => {
+  beforeEach(() => {
+    // Mock successful config fetch for initial load
+    global.fetch = vi.fn((url) => {
+      if (url === '/api/config') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            name: 'Test User',
+            address: '123 Test St',
+            personalEmail: 'test@example.com',
+            rate: 20.0,
+            clientName: 'Test Client',
+            clientEmail: 'client@example.com',
+            accountantEmail: 'accountant@example.com',
+            accent: '#b76e79',
+            invoiceNote: 'Test note',
+            saveFolder: '~/Documents/test-invoices'
+          })
+        }) as any
+      }
+      // Mock scan endpoint (no existing file)
+      if (url.includes('/api/scan?')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ found: false })
+        }) as any
+      }
+      // Mock POST /api/submit/weekly with delay to simulate real network
+      if (url === '/api/submit/weekly') {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({
+              ok: true,
+              json: () => Promise.resolve({
+                sent: ['client@example.com', 'accountant@example.com'],
+                saved: '~/Documents/test-invoices/weekly/INV-20260323.pdf'
+              })
+            } as any)
+          }, 100)
+        })
+      }
+      return Promise.reject(new Error('Unexpected fetch'))
+    }) as any
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('prevents multiple concurrent submit requests from rapid clicks', async () => {
+    render(<App />)
+
+    // Wait for config to load
+    await waitFor(() => {
+      expect(screen.getByText(/Good (Morning|Afternoon), Test/i)).toBeInTheDocument()
+    })
+
+    // Navigate to weekly page
+    const weeklyButton = screen.getByText(/Weekly Invoice/i)
+    fireEvent.click(weeklyButton)
+
+    // Wait for weekly page to load
+    await waitFor(() => {
+      expect(screen.getByText(/Save & Submit/i)).toBeInTheDocument()
+    })
+
+    // Get the submit button
+    const submitButton = screen.getByText(/Save & Submit/i)
+
+    // Rapidly click the submit button 5 times
+    fireEvent.click(submitButton)
+    fireEvent.click(submitButton)
+    fireEvent.click(submitButton)
+    fireEvent.click(submitButton)
+    fireEvent.click(submitButton)
+
+    // Wait for the submit operation to complete
+    await waitFor(() => {
+      const submitCalls = (global.fetch as any).mock.calls.filter(
+        (call: any[]) => call[0] === '/api/submit/weekly'
+      )
+      expect(submitCalls.length).toBeGreaterThan(0)
+    })
+
+    // Verify that fetch was called only ONCE for weekly submit
+    const submitCalls = (global.fetch as any).mock.calls.filter(
+      (call: any[]) => call[0] === '/api/submit/weekly'
+    )
+    expect(submitCalls.length).toBe(1)
+  })
+
+  it('shows loading state during submission', async () => {
+    render(<App />)
+
+    // Wait for config to load
+    await waitFor(() => {
+      expect(screen.getByText(/Good (Morning|Afternoon), Test/i)).toBeInTheDocument()
+    })
+
+    // Navigate to weekly page
+    const weeklyButton = screen.getByText(/Weekly Invoice/i)
+    fireEvent.click(weeklyButton)
+
+    // Wait for weekly page to load
+    await waitFor(() => {
+      expect(screen.getByText(/Save & Submit/i)).toBeInTheDocument()
+    })
+
+    // Get the submit button
+    const submitButton = screen.getByText(/Save & Submit/i)
+
+    // Click submit
+    fireEvent.click(submitButton)
+
+    // Verify loading state appears
+    await waitFor(() => {
+      expect(screen.getByText(/Submitting\.\.\./i)).toBeInTheDocument()
+    })
+
+    // Verify button is disabled during submission
+    const loadingButton = screen.getByText(/Submitting\.\.\./i)
+    expect(loadingButton).toBeDisabled()
+
+    // Wait for submission to complete
+    await waitFor(() => {
+      expect(screen.queryByText(/Submitting\.\.\./i)).not.toBeInTheDocument()
+    })
+  })
+})
+
+describe('Monthly Submit - Loading State', () => {
+  beforeEach(() => {
+    // Mock successful config fetch for initial load
+    global.fetch = vi.fn((url) => {
+      if (url === '/api/config') {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            name: 'Test User',
+            address: '123 Test St',
+            personalEmail: 'test@example.com',
+            rate: 20.0,
+            clientName: 'Test Client',
+            clientEmail: 'client@example.com',
+            accountantEmail: 'accountant@example.com',
+            accent: '#b76e79',
+            invoiceNote: 'Test note',
+            saveFolder: '~/Documents/test-invoices'
+          })
+        }) as any
+      }
+      // Mock scan-month endpoint
+      if (url.includes('/api/scan-month?')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            weeks: [
+              { label: 'Week 1', invNum: 'INV-20260301', found: false, hours: 0 },
+              { label: 'Week 2', invNum: 'INV-20260308', found: false, hours: 0 },
+              { label: 'Week 3', invNum: 'INV-20260315', found: false, hours: 0 },
+              { label: 'Week 4', invNum: 'INV-20260322', found: false, hours: 0 }
+            ],
+            monthlyExists: false
+          })
+        }) as any
+      }
+      // Mock POST /api/submit/monthly with delay to simulate real network
+      if (url === '/api/submit/monthly') {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve({
+              ok: true,
+              json: () => Promise.resolve({
+                sent: ['accountant@example.com'],
+                saved: '~/Documents/test-invoices/monthly/RPT-2026-03.pdf'
+              })
+            } as any)
+          }, 100)
+        })
+      }
+      return Promise.reject(new Error('Unexpected fetch'))
+    }) as any
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('prevents multiple concurrent submit requests from rapid clicks', async () => {
+    render(<App />)
+
+    // Wait for config to load
+    await waitFor(() => {
+      expect(screen.getByText(/Good (Morning|Afternoon), Test/i)).toBeInTheDocument()
+    })
+
+    // Navigate to monthly page
+    const monthlyButton = screen.getByText(/Monthly Report/i)
+    fireEvent.click(monthlyButton)
+
+    // Wait for monthly page to load and scan to complete
+    await waitFor(() => {
+      expect(screen.getByText(/Generate & Send Report/i)).toBeInTheDocument()
+    })
+
+    // Close scan popup if it appears
+    const gotItButton = screen.queryByText(/Got it/i)
+    if (gotItButton) {
+      fireEvent.click(gotItButton)
+    }
+
+    // Get the submit button
+    const submitButton = screen.getByText(/Generate & Send Report/i)
+
+    // Rapidly click the submit button 5 times
+    fireEvent.click(submitButton)
+    fireEvent.click(submitButton)
+    fireEvent.click(submitButton)
+    fireEvent.click(submitButton)
+    fireEvent.click(submitButton)
+
+    // Wait for the submit operation to complete
+    await waitFor(() => {
+      const submitCalls = (global.fetch as any).mock.calls.filter(
+        (call: any[]) => call[0] === '/api/submit/monthly'
+      )
+      expect(submitCalls.length).toBeGreaterThan(0)
+    })
+
+    // Verify that fetch was called only ONCE for monthly submit
+    const submitCalls = (global.fetch as any).mock.calls.filter(
+      (call: any[]) => call[0] === '/api/submit/monthly'
+    )
+    expect(submitCalls.length).toBe(1)
+  })
+
+  it('shows loading state during submission', async () => {
+    render(<App />)
+
+    // Wait for config to load
+    await waitFor(() => {
+      expect(screen.getByText(/Good (Morning|Afternoon), Test/i)).toBeInTheDocument()
+    })
+
+    // Navigate to monthly page
+    const monthlyButton = screen.getByText(/Monthly Report/i)
+    fireEvent.click(monthlyButton)
+
+    // Wait for monthly page to load
+    await waitFor(() => {
+      expect(screen.getByText(/Generate & Send Report/i)).toBeInTheDocument()
+    })
+
+    // Close scan popup if it appears
+    const gotItButton = screen.queryByText(/Got it/i)
+    if (gotItButton) {
+      fireEvent.click(gotItButton)
+    }
+
+    // Get the submit button
+    const submitButton = screen.getByText(/Generate & Send Report/i)
+
+    // Click submit
+    fireEvent.click(submitButton)
+
+    // Verify loading state appears
+    await waitFor(() => {
+      expect(screen.getByText(/Sending Report\.\.\./i)).toBeInTheDocument()
+    })
+
+    // Verify button is disabled during submission
+    const loadingButton = screen.getByText(/Sending Report\.\.\./i)
+    expect(loadingButton).toBeDisabled()
+
+    // Wait for submission to complete
+    await waitFor(() => {
+      expect(screen.queryByText(/Sending Report\.\.\./i)).not.toBeInTheDocument()
+    })
+  })
+})

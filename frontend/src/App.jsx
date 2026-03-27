@@ -662,6 +662,8 @@ function WeeklyPage({ config, onBack }) {
   const [alreadySaved,    setAlreadySaved]    = useState(false);
   const [savedDate,       setSavedDate]       = useState(null);
   const [showConfirm,     setShowConfirm]     = useState(false);
+  const [submitting,      setSubmitting]      = useState(false);
+  const submitInProgressRef = useRef(false);
 
   // Reset state when week changes, re-default hours to 8/day
   useEffect(()=>{
@@ -674,7 +676,15 @@ function WeeklyPage({ config, onBack }) {
   const setHour    = (day,v) => setHours(h=>({...h,[day]:v}));
 
   const doSend = async () => {
-    setNotification(null); setShowConfirm(false);
+    // Prevent race condition from rapid clicks - ref updates synchronously
+    if (submitInProgressRef.current) {
+      return;
+    }
+
+    submitInProgressRef.current = true;
+    setSubmitting(true);
+    setNotification(null);
+    setShowConfirm(false);
 
     try {
       // Build payload for weekly submit API
@@ -729,10 +739,19 @@ function WeeklyPage({ config, onBack }) {
       setNotification({
         error: error.message || 'Failed to submit weekly invoice. Please try again.'
       });
+    } finally {
+      // Always reset submitting state and ref in all code paths (success, error, or early return)
+      setSubmitting(false);
+      submitInProgressRef.current = false;
     }
   };
 
   const handleSubmit = async () => {
+    // Prevent multiple submissions
+    if (submitInProgressRef.current) {
+      return;
+    }
+
     // Pre-flight check: does this invoice already exist?
     try {
       const scanResponse = await fetch(`/api/scan?folder=${encodeURIComponent(config.saveFolder)}&invNum=${week.invNum}`);
@@ -849,8 +868,8 @@ function WeeklyPage({ config, onBack }) {
             <div style={{flex:1}}/>
           </div>
           <div style={{padding:"10px 16px 14px",borderTop:"1px solid #eee0d8",flexShrink:0,background:"#fdf8f4"}}>
-            <button onClick={handleSubmit} style={{width:"100%",fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`}}>
-              Save &amp; Submit ✉
+            <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+              {submitting ? "Submitting..." : "Save & Submit ✉"}
             </button>
           </div>
         </div>
@@ -870,6 +889,8 @@ function MonthlyPage({ config, onBack }) {
   const [savedDate,    setSavedDate]    = useState(null);
   const [showConfirm,  setShowConfirm]  = useState(false);
   const [scanPopup,    setScanPopup]    = useState(null); // null | results[]
+  const [submitting,   setSubmitting]   = useState(false);
+  const submitInProgressRef = useRef(false);
   const acc = config.accent;
 
   const weeks     = useMemo(()=>getWeeksForMonth(year,month),[year,month]);
@@ -929,6 +950,13 @@ function MonthlyPage({ config, onBack }) {
   const setWeekHour = (i,v) => setWeekHours(h=>{ const n=[...h]; n[i]=v; return n; });
 
   const doSend = async () => {
+    // Prevent race condition from rapid clicks - ref updates synchronously
+    if (submitInProgressRef.current) {
+      return;
+    }
+
+    submitInProgressRef.current = true;
+    setSubmitting(true);
     setNotification(null);
     setShowConfirm(false);
 
@@ -980,10 +1008,24 @@ function MonthlyPage({ config, onBack }) {
       setNotification({
         error: error.message || 'Failed to submit monthly report. Please try again.'
       });
+    } finally {
+      // Always reset submitting state and ref in all code paths (success, error, or early return)
+      setSubmitting(false);
+      submitInProgressRef.current = false;
     }
   };
 
-  const handleSubmit = async () => { if(alreadySaved){setShowConfirm(true);return;} await doSend(); };
+  const handleSubmit = async () => {
+    // Prevent multiple submissions
+    if (submitInProgressRef.current) {
+      return;
+    }
+    if (alreadySaved) {
+      setShowConfirm(true);
+      return;
+    }
+    await doSend();
+  };
   const prevMonth = () => { setNotification(null); if(month===0){setYear(y=>y-1);setMonth(11);}else setMonth(m=>m-1); };
   const nextMonth = () => { setNotification(null); if(month===11){setYear(y=>y+1);setMonth(0);}else setMonth(m=>m+1); };
 
@@ -1059,8 +1101,8 @@ function MonthlyPage({ config, onBack }) {
             <div style={{flex:"0 0 8px"}}/>
           </div>
           <div style={{padding:"10px 16px 14px",borderTop:"1px solid #eee0d8",flexShrink:0,background:"#fdf8f4"}}>
-            <button onClick={handleSubmit} style={{width:"100%",fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`}}>
-              Generate &amp; Send Report 📊
+            <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+              {submitting ? "Sending Report..." : "Generate & Send Report 📊"}
             </button>
           </div>
         </div>
