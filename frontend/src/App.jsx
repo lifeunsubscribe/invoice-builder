@@ -580,7 +580,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
         throw new Error(`Unable to save your profile settings. Please try again or contact support if the issue continues.`);
       }
       // Update local state only after successful save (pessimistic update for data integrity)
-      onSave(draft);
+      onSave({ ...draft, rate: Number(draft.rate) || 0 });
       onBack();
     } catch (error) {
       console.error('Save failed:', error);
@@ -1446,6 +1446,7 @@ export default function App() {
       fetch('/api/email-status', { signal: abortController.signal }).then(r => r.ok ? r.json() : null).catch(() => null)
     ])
       .then(([configData, emailStatus]) => {
+        if (configData.rate != null) configData.rate = Number(configData.rate) || 0;
         setConfig({ ...defaultConfig, ...configData });
         const configured = emailStatus ? emailStatus.configured : null;
         setEmailConfigured(configured);
