@@ -160,11 +160,31 @@ def request_entity_too_large(e):
         "message": "Request body exceeds maximum allowed size"
     }), 413
 
+_last_heartbeat = time.time()
+
+@app.route("/api/heartbeat", methods=["POST"])
+def heartbeat():
+    """Frontend pings this to signal it's still open."""
+    global _last_heartbeat
+    _last_heartbeat = time.time()
+    return "", 204
+
 @app.route("/api/shutdown", methods=["POST"])
 def shutdown():
     """Shut down the server when the user closes the app window."""
     logger.info("Shutdown requested, exiting.")
     os._exit(0)
+
+def _heartbeat_watchdog():
+    """Exit if no heartbeat received for 10 seconds."""
+    global _last_heartbeat
+    # Wait for first client to connect
+    time.sleep(15)
+    while True:
+        time.sleep(5)
+        if time.time() - _last_heartbeat > 10:
+            logger.info("No heartbeat for 10s, exiting.")
+            os._exit(0)
 
 @app.route("/")
 def index():
@@ -248,6 +268,9 @@ if __name__ == "__main__":
     # Launch browser in background thread (unless NO_BROWSER env var is set)
     if not os.getenv('NO_BROWSER'):
         threading.Thread(target=open_browser, args=(port,), daemon=True).start()
+
+    # Start heartbeat watchdog — exits if browser stops pinging
+    threading.Thread(target=_heartbeat_watchdog, daemon=True).start()
 
     # Start Flask server
     print(f"Starting Lisa Invoice Builder on port {port}...")

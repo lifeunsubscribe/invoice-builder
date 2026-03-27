@@ -1424,13 +1424,16 @@ export default function App() {
   const [emailConfigured, setEmailConfigured] = useState(null); // null=unknown, true/false
   const [emailSetupCount, setEmailSetupCount] = useState(0); // increments on successful setup
 
-  // Tell the server to shut down when the window/tab closes
+  // Heartbeat + shutdown: ping the server every 3s so it knows we're alive.
+  // When the tab closes, the pings stop and the server exits after 10s.
+  // Also try a shutdown beacon on unload as a fast path.
   useEffect(() => {
-    const handleUnload = () => {
-      navigator.sendBeacon("/api/shutdown");
-    };
+    const interval = setInterval(() => {
+      fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
+    }, 3000);
+    const handleUnload = () => navigator.sendBeacon("/api/shutdown");
     window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
+    return () => { clearInterval(interval); window.removeEventListener("beforeunload", handleUnload); };
   }, []);
 
   // Fetch config and email status on app mount
