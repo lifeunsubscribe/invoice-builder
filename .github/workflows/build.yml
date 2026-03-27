@@ -22,6 +22,11 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Install GTK3 runtime (needed by WeasyPrint)
+        run: |
+          choco install gtk-runtime --yes --no-progress
+          echo "C:\Program Files\GTK3-Runtime Win64\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
       - name: Install Python deps
         run: pip install -r requirements.txt
 
@@ -34,11 +39,46 @@ jobs:
 
       - name: Build exe
         run: |
+          $gtkBin = "C:\Program Files\GTK3-Runtime Win64\bin"
+
           pyinstaller --onefile --windowed `
             --icon=frontend/public/icon.ico `
             --name=InvoiceBuilder `
             --add-data "dist;dist" `
+            --add-data "app\templates;app\templates" `
+            --add-binary "$gtkBin\libgobject-2.0-0.dll;." `
+            --add-binary "$gtkBin\libcairo-2.dll;." `
+            --add-binary "$gtkBin\libcairo-gobject-2.dll;." `
+            --add-binary "$gtkBin\libpango-1.0-0.dll;." `
+            --add-binary "$gtkBin\libpangocairo-1.0-0.dll;." `
+            --add-binary "$gtkBin\libpangoft2-1.0-0.dll;." `
+            --add-binary "$gtkBin\libpangowin32-1.0-0.dll;." `
+            --add-binary "$gtkBin\libgdk_pixbuf-2.0-0.dll;." `
+            --add-binary "$gtkBin\libffi-8.dll;." `
+            --add-binary "$gtkBin\libgio-2.0-0.dll;." `
+            --add-binary "$gtkBin\libglib-2.0-0.dll;." `
+            --add-binary "$gtkBin\libgmodule-2.0-0.dll;." `
+            --add-binary "$gtkBin\libfontconfig-1.dll;." `
+            --add-binary "$gtkBin\libfreetype-6.dll;." `
+            --add-binary "$gtkBin\libharfbuzz-0.dll;." `
+            --add-binary "$gtkBin\libintl-8.dll;." `
+            --add-binary "$gtkBin\libpng16-16.dll;." `
+            --add-binary "$gtkBin\zlib1.dll;." `
+            --collect-all weasyprint `
+            --collect-all cairocffi `
+            --collect-all tinycss2 `
             app/main.py
+
+      - name: Verify exe starts
+        run: |
+          $proc = Start-Process -FilePath "dist\InvoiceBuilder.exe" -PassThru
+          Start-Sleep -Seconds 5
+          if ($proc.HasExited) {
+            Write-Error "Exe crashed on startup (exit code $($proc.ExitCode))"
+            exit 1
+          }
+          Stop-Process -Id $proc.Id -Force
+          Write-Host "Exe started successfully"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
