@@ -361,13 +361,17 @@ def submit_weekly():
                 total_pay=total_pay
             )
 
-            email_result = send_invoice_email(
-                recipients=recipients,
-                pdf_bytes=pdf_bytes,
-                filename=f"{inv_num}.pdf",
-                subject=email_subject,
-                body=email_body
-            )
+            try:
+                email_result = send_invoice_email(
+                    recipients=recipients,
+                    pdf_bytes=pdf_bytes,
+                    filename=f"{inv_num}.pdf",
+                    subject=email_subject,
+                    body=email_body
+                )
+            except Exception as e:
+                logger.exception("Email sending failed: %s", e)
+                email_result = {'success': False, 'error': str(e)}
 
             # Build response
             if email_result.get('success'):
@@ -643,13 +647,17 @@ def submit_monthly():
                 total_pay=total_pay
             )
 
-            email_result = send_invoice_email(
-                recipients=recipients,
-                pdf_bytes=pdf_bytes,
-                filename=os.path.basename(pdf_path),
-                subject=email_subject,
-                body=email_body
-            )
+            try:
+                email_result = send_invoice_email(
+                    recipients=recipients,
+                    pdf_bytes=pdf_bytes,
+                    filename=os.path.basename(pdf_path),
+                    subject=email_subject,
+                    body=email_body
+                )
+            except Exception as e:
+                logger.exception("Email sending failed: %s", e)
+                email_result = {'success': False, 'error': str(e)}
 
             # Build response
             if email_result.get('success'):

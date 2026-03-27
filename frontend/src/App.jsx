@@ -200,7 +200,7 @@ function InvoiceTable({ hours, config, rowEven, rowOdd, textColor, accentColor, 
   return (
     <table style={{width:"100%",borderCollapse:"collapse",fontSize:14,fontFamily:"sans-serif"}}>
       <thead><tr>{["Day","Hours","Rate","Amount"].map(h=>(
-        <th key={h} style={{padding:`11px 38px 11px ${h==="Day"?"38px":"0"}`,textAlign:h==="Day"?"left":"right",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:accentColor,fontWeight:700,borderBottom:"1.5px solid #e0e8e0"}}>{h}</th>
+        <th key={h} style={{padding:`11px ${h==="Amount"?"38px":"0"} 11px ${h==="Day"?"38px":"0"}`,textAlign:h==="Day"?"left":"right",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:accentColor,fontWeight:700,borderBottom:"1.5px solid #e0e8e0"}}>{h}</th>
       ))}</tr></thead>
       <tbody>{DAYS.filter(d=>hours[d]>0).map((day,i)=>(
         <tr key={day} style={{background:i%2===0?rowEven:rowOdd}}>
