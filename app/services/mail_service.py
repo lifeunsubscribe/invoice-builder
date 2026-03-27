@@ -28,13 +28,10 @@ SMTP_PORT = 587
 
 
 def _get_env_path():
-    """Resolve .env file path for both dev and PyInstaller environments."""
-    if getattr(sys, 'frozen', False):
-        base_dir = os.path.dirname(sys.executable)
-    else:
-        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        base_dir = os.path.dirname(app_dir)
-    return os.path.join(base_dir, '.env')
+    """Resolve .env file path — lives alongside config.json in the save folder."""
+    from app.api.config_api import get_config_path
+    config_path = get_config_path()
+    return os.path.join(os.path.dirname(config_path), '.env')
 
 
 # Load environment variables from .env file
