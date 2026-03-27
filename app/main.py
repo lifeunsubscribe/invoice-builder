@@ -162,7 +162,7 @@ def request_entity_too_large(e):
         "message": "Request body exceeds maximum allowed size"
     }), 413
 
-_last_heartbeat = time.time()
+_last_heartbeat = None  # None until first heartbeat received
 
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
@@ -178,10 +178,11 @@ def shutdown():
     os._exit(0)
 
 def _heartbeat_watchdog():
-    """Exit if no heartbeat received for 10 seconds."""
+    """Exit if no heartbeat received for 10 seconds after first ping."""
     global _last_heartbeat
-    # Wait for first client to connect
-    time.sleep(15)
+    # Wait until the frontend has actually connected and sent a heartbeat
+    while _last_heartbeat is None:
+        time.sleep(1)
     while True:
         time.sleep(5)
         if time.time() - _last_heartbeat > 10:
