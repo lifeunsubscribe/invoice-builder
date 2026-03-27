@@ -12,23 +12,22 @@ Uses in-memory storage (no Redis dependency) suitable for desktop applications.
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+# Create a module-level limiter instance that can be imported by blueprints
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri="memory://",
+    default_limits=["100 per minute"],  # Global default rate limit
+    storage_options={}
+)
+
 
 def get_rate_limiter():
     """
-    Create and configure Flask-Limiter instance.
+    Get the configured Flask-Limiter instance.
 
     Returns:
         Limiter: Configured Flask-Limiter instance with in-memory storage
     """
-    # Use in-memory storage (no Redis required for desktop app)
-    # Key function: get_remote_address for per-IP rate limiting
-    limiter = Limiter(
-        key_func=get_remote_address,
-        storage_uri="memory://",
-        default_limits=["100 per minute"],  # Global default rate limit
-        storage_options={}
-    )
-
     return limiter
 
 

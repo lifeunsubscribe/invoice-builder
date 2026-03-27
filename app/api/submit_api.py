@@ -27,6 +27,7 @@ from app.services.folder_service import (
     write_sidecar
 )
 from app.middleware.rate_limiter import limiter, SUBMIT_RATE_LIMIT
+from app.middleware.request_validator import validate_array_size
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,7 @@ def load_config():
 
 
 @submit_bp.route('/weekly', methods=['POST'])
+@limiter.limit(SUBMIT_RATE_LIMIT)
 def submit_weekly():
     """
     POST /api/submit/weekly
@@ -167,17 +169,6 @@ def submit_weekly():
                 "message": f"Missing fields: {', '.join(missing_fields)}"
             }), 400
 
-        # Validate array sizes to prevent DoS
-        from app.middleware.request_validator import validate_array_size
-        try:
-            validate_array_size(payload['hours'], 'hours')
-        except ValueError as e:
-            return jsonify({
-                "success": False,
-                "error": "Payload too large",
-                "message": str(e)
-            }), 400
-
         # Validate week structure
         week = payload['week']
         required_week_fields = ['start', 'end', 'invNum']
@@ -211,6 +202,16 @@ def submit_weekly():
                 "success": False,
                 "error": "Invalid hours data",
                 "message": "hours must be a dictionary"
+            }), 400
+
+        # Validate hours dictionary size to prevent DoS
+        try:
+            validate_array_size(payload['hours'], 'hours')
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "error": "Invalid hours data",
+                "message": str(e)
             }), 400
 
         for day, hours in payload['hours'].items():
@@ -375,6 +376,7 @@ def submit_weekly():
 
 
 @submit_bp.route('/monthly', methods=['POST'])
+@limiter.limit(SUBMIT_RATE_LIMIT)
 def submit_monthly():
     """
     POST /api/submit/monthly
@@ -435,23 +437,22 @@ def submit_monthly():
                 "message": "accountantEmail must be a valid email address"
             }), 400
 
-        # Validate array sizes to prevent DoS
-        from app.middleware.request_validator import validate_array_size
-        try:
-            validate_array_size(payload['weekData'], 'weekData')
-        except ValueError as e:
-            return jsonify({
-                "success": False,
-                "error": "Payload too large",
-                "message": str(e)
-            }), 400
-
         # Validate weekData is an array
         if not isinstance(payload['weekData'], list):
             return jsonify({
                 "success": False,
                 "error": "Invalid weekData",
                 "message": "weekData must be an array"
+            }), 400
+
+        # Validate weekData array size to prevent DoS
+        try:
+            validate_array_size(payload['weekData'], 'weekData')
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "error": "Invalid weekData",
+                "message": str(e)
             }), 400
 
         # Validate weekData array elements
