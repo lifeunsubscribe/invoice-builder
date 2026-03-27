@@ -67,7 +67,7 @@ jobs:
           cmd = [
               "pyinstaller", "--onefile", "--windowed",
               "--icon=frontend/public/icon.ico",
-              "--name="Invoice Builder"",
+              "--name=Invoice Builder",
               "--add-data", "dist;dist",
               "--add-data", "app\\templates;app\\templates",
               "--add-data", "app\\fonts.conf;app",
