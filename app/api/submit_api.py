@@ -27,7 +27,6 @@ from app.services.folder_service import (
     monthly_path,
     write_sidecar
 )
-from app.services.signing_service import sign_report
 from app.middleware.rate_limiter import limiter, SUBMIT_RATE_LIMIT
 from app.middleware.request_validator import validate_array_size
 
@@ -595,24 +594,12 @@ def submit_monthly():
         # Check if PDF already exists (for overwrite flag)
         overwrite = os.path.exists(pdf_path)
 
-        # Sign the report data
-        report_data = {
-            'provider': config.get('name', ''),
-            'month': month_label,
-            'rate': config.get('rate', 0),
-            'weeks': [{'label': w['label'], 'hours': w['hours']} for w in payload['weekData']],
-            'total_hours': sum(w.get('hours', 0) for w in payload['weekData']),
-            'total_pay': f"{sum(w.get('hours', 0) for w in payload['weekData']) * config.get('rate', 0):.2f}"
-        }
-        signature = sign_report(report_data)
-
         # Generate PDF
         try:
             pdf_bytes = render_monthly_pdf(
                 config=config,
                 week_data=payload['weekData'],
-                month_label=month_label,
-                signature=signature
+                month_label=month_label
             )
         except ValueError as e:
             error_str = str(e)
@@ -644,22 +631,6 @@ def submit_monthly():
                 "error": "File write failed",
                 "message": f"Could not save PDF: {str(e)}"
             }), 500
-
-        # Save digital signature file alongside the PDF
-        sig_path = os.path.splitext(pdf_path)[0] + '.sig'
-        try:
-            sig_data = {
-                'report': os.path.basename(pdf_path),
-                'signature': signature['signature'],
-                'fingerprint': signature['fingerprint'],
-                'timestamp': signature['timestamp'],
-                'data_hash': signature['data_hash'],
-                'signed_data': report_data
-            }
-            with open(sig_path, 'w', encoding='utf-8') as f:
-                json.dump(sig_data, f, indent=2, ensure_ascii=False)
-        except Exception as e:
-            logger.warning("Failed to write signature file: %s", e)
 
         # Send email to accountant (only if provided)
         if accountant_email:
@@ -695,8 +666,7 @@ def submit_monthly():
                     "success": True,
                     "saved": pdf_path,
                     "sent": recipients,
-                    "overwrite": overwrite,
-                    "signature": signature['fingerprint']
+                    "overwrite": overwrite
                 }), 200
             else:
                 return jsonify({
@@ -704,8 +674,7 @@ def submit_monthly():
                     "saved": pdf_path,
                     "sent": [],
                     "emailError": email_result.get('error', 'Unknown email error'),
-                    "overwrite": overwrite,
-                    "signature": signature['fingerprint']
+                    "overwrite": overwrite
                 }), 200
 
         # No recipient - just save PDF
@@ -713,8 +682,7 @@ def submit_monthly():
             "success": True,
             "saved": pdf_path,
             "sent": [],
-            "overwrite": overwrite,
-            "signature": signature['fingerprint']
+            "overwrite": overwrite
         }), 200
 
     except Exception as e:
