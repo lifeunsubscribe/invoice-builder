@@ -236,7 +236,7 @@ function TemplateMorningLight({ config, hours, week, totalHours, totalPay }) {
         <div><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC,marginBottom:7}}>Billed To</div>
           <div style={{fontSize:15,fontWeight:700,color:"#2c1810",fontFamily:"sans-serif"}}>{config.clientName}</div>
           <div style={{fontSize:13,fontFamily:"sans-serif",color:"#6a4a40",marginTop:3}}>{config.clientEmail}</div></div>
-        {config.patientName && <div><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC,marginBottom:7}}>Care Recipient</div>
+        {config.patientName && <div style={{marginRight:52}}><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC,marginBottom:7}}>Care Recipient</div>
           <div style={{fontSize:15,fontWeight:700,color:"#2c1810",fontFamily:"sans-serif"}}>{config.patientName}</div>
           {config.patientAddress && <div style={{fontSize:13,fontFamily:"sans-serif",color:"#6a4a40",marginTop:3}}>{config.patientAddress}</div>}</div>}
         <div><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC,marginBottom:7}}>Week Of</div>
@@ -275,7 +275,7 @@ function TemplateCaringHands({ config, hours, week, totalHours, totalPay }) {
         <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC,marginBottom:7}}>Billed To</div>
           <div style={{fontSize:15,fontWeight:700,color:"#1a2a3a"}}>{config.clientName}</div>
           <div style={{fontSize:13,color:"#4a6a60",marginTop:3}}>{config.clientEmail}</div></div>
-        {config.patientName && <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC,marginBottom:7}}>Care Recipient</div>
+        {config.patientName && <div style={{marginRight:52}}><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC,marginBottom:7}}>Care Recipient</div>
           <div style={{fontSize:15,fontWeight:700,color:"#1a2a3a"}}>{config.patientName}</div>
           {config.patientAddress && <div style={{fontSize:13,color:"#4a6a60",marginTop:3}}>{config.patientAddress}</div>}</div>}
         <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC,marginBottom:7}}>Service Period</div>
@@ -313,7 +313,7 @@ function TemplateGarden({ config, hours, week, totalHours, totalPay }) {
         <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:GD_ACC,marginBottom:7}}>Billed To</div>
           <div style={{fontSize:15,fontWeight:700,color:"#2d4a2d"}}>{config.clientName}</div>
           <div style={{fontSize:13,color:"#6a8a60",marginTop:3}}>{config.clientEmail}</div></div>
-        {config.patientName && <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:GD_ACC,marginBottom:7}}>Care Recipient</div>
+        {config.patientName && <div style={{marginRight:52}}><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:GD_ACC,marginBottom:7}}>Care Recipient</div>
           <div style={{fontSize:15,fontWeight:700,color:"#2d4a2d"}}>{config.patientName}</div>
           {config.patientAddress && <div style={{fontSize:13,color:"#6a8a60",marginTop:3}}>{config.patientAddress}</div>}</div>}
         <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:GD_ACC,marginBottom:7}}>Service Week</div>
