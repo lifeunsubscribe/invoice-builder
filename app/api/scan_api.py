@@ -147,9 +147,9 @@ def scan_invoice():
 
 def get_weeks_for_month(year: int, month: int) -> list:
     """
-    Generate all Tue-Mon weeks that overlap with the given month.
+    Generate all Mon-Sun weeks that overlap with the given month.
 
-    Weeks start on Tuesday. Only includes weeks where Tuesday falls within
+    Weeks start on Monday. Only includes weeks where Monday falls within
     or after the first day of the month.
 
     Args:
@@ -157,13 +157,13 @@ def get_weeks_for_month(year: int, month: int) -> list:
         month: Month (1-indexed, 1=January, 12=December)
 
     Returns:
-        List of dicts with keys: label, invNum, tuesday, monday
+        List of dicts with keys: label, invNum, monday, sunday
         Example: [
             {
-                "label": "Mar 3 – Mar 9, 2026",
-                "invNum": "INV-20260303",
-                "tuesday": date(2026, 3, 3),
-                "monday": date(2026, 3, 9)
+                "label": "Mar 2 – Mar 8, 2026",
+                "invNum": "INV-20260302",
+                "monday": date(2026, 3, 2),
+                "sunday": date(2026, 3, 8)
             },
             ...
         ]
@@ -177,36 +177,33 @@ def get_weeks_for_month(year: int, month: int) -> list:
     else:
         last_day = date(year, month + 1, 1) - timedelta(days=1)
 
-    # Find the Tuesday on or after the first day of the month
+    # Find the Monday on or after the first day of the month
     # weekday(): Monday=0, Tuesday=1, ..., Sunday=6
-    # If first_day is Wednesday (2), we go forward 6 days to next Tuesday
-    # If first_day is Tuesday (1), we start on that day
-    # If first_day is Monday (0), we go forward 1 day to Tuesday
-    days_until_tuesday = (1 - first_day.weekday()) % 7
-    start_day = first_day + timedelta(days=days_until_tuesday)
+    days_until_monday = (0 - first_day.weekday()) % 7
+    start_day = first_day + timedelta(days=days_until_monday)
 
     weeks = []
     current = start_day
 
     # Generate weeks until we pass the last day of the month
     while current <= last_day:
-        tuesday = current
-        monday = current + timedelta(days=6)
+        monday = current
+        sunday = current + timedelta(days=6)
 
-        # Format label: "Mar 3 – Mar 9, 2026"
-        # Show year only on the end date (Monday)
-        tuesday_fmt = tuesday.strftime("%b %-d" if os.name != 'nt' else "%b %d").replace(' 0', ' ')
-        monday_fmt = monday.strftime("%b %-d, %Y" if os.name != 'nt' else "%b %d, %Y").replace(' 0', ' ')
-        label = f"{tuesday_fmt} – {monday_fmt}"
+        # Format label: "Mar 2 – Mar 8, 2026"
+        # Show year only on the end date (Sunday)
+        monday_fmt = monday.strftime("%b %-d" if os.name != 'nt' else "%b %d").replace(' 0', ' ')
+        sunday_fmt = sunday.strftime("%b %-d, %Y" if os.name != 'nt' else "%b %d, %Y").replace(' 0', ' ')
+        label = f"{monday_fmt} – {sunday_fmt}"
 
-        # Generate invNum: INV-YYYYMMDD (Tuesday's date)
-        inv_num = f"INV-{tuesday.strftime('%Y%m%d')}"
+        # Generate invNum: INV-YYYYMMDD (Monday's date)
+        inv_num = f"INV-{monday.strftime('%Y%m%d')}"
 
         weeks.append({
             "label": label,
             "invNum": inv_num,
-            "tuesday": tuesday,
-            "monday": monday
+            "monday": monday,
+            "sunday": sunday
         })
 
         # Move to next week (7 days forward)
@@ -353,7 +350,12 @@ def scan_month():
                 "hours": hours
             })
 
-        return jsonify({"weeks": result_weeks}), 200
+        # Check if the monthly report PDF already exists
+        monthly_filename = f"RPT-{year:04d}-{month:02d}.pdf"
+        monthly_pdf_path = os.path.join(expanded_folder, "monthly", monthly_filename)
+        monthly_exists = os.path.isfile(monthly_pdf_path)
+
+        return jsonify({"weeks": result_weeks, "monthlyExists": monthly_exists}), 200
 
     except PermissionError as e:
         logger.exception("Permission denied scanning month: %s", e)

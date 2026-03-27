@@ -10,6 +10,7 @@ import sys
 import json
 import logging
 import re
+from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import BadRequest
 
@@ -330,11 +331,25 @@ def submit_weekly():
         total_hours = sum(payload['hours'].values())
         total_pay = total_hours * config.get('rate', 0)
 
-        email_subject = f"Invoice {inv_num} - {week['start']} to {week['end']}"
+        # Compute worked date range (only days with hours > 0)
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        monday_date = datetime.strptime(inv_num.replace('INV-', ''), '%Y%m%d')
+        worked_days = [i for i, day in enumerate(day_order) if payload['hours'].get(day, 0) > 0]
+
+        if worked_days:
+            first_worked = monday_date + timedelta(days=worked_days[0])
+            last_worked = monday_date + timedelta(days=worked_days[-1])
+            work_start = first_worked.strftime('%B %-d')
+            work_end = last_worked.strftime('%B %-d, %Y')
+        else:
+            work_start = week['start']
+            work_end = week['end']
+
+        email_subject = f"Invoice {inv_num} - {work_start} to {work_end}"
         email_body = create_weekly_email_body(
             name=config.get('name', 'Provider'),
-            week_start=week['start'],
-            week_end=week['end'],
+            week_start=work_start,
+            week_end=work_end,
             total_hours=total_hours,
             total_pay=total_pay
         )

@@ -1,5 +1,5 @@
 {
-  "name": "Your Full Name",
+  "name": "Your Name",
   "address": "123 Main St, City, State ZIP",
   "personalEmail": "your-email@example.com",
   "rate": 25.00,
@@ -8,5 +8,5 @@
   "accountantEmail": "accountant@example.com",
   "accent": "#b76e79",
   "invoiceNote": "Your custom note here",
-  "saveFolder": "~/Documents/your-invoices"
+  "saveFolder": "~/Documents/hha-invoices"
 }

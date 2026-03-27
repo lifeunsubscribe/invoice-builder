@@ -24,6 +24,9 @@ pyinstaller --onefile --windowed ^
   --icon=frontend/public/icon.ico ^
   --name="LisaInvoice" ^
   --add-data "frontend/dist;dist" ^
+  --collect-all weasyprint ^
+  --collect-all cairocffi ^
+  --collect-all tinycss2 ^
   app/main.py
 if errorlevel 1 (
     echo Packaging failed!

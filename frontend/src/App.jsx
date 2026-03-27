@@ -597,7 +597,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder }) {
               <div ref={folderRef} style={{marginBottom:13,scrollMarginTop:24}}>
                 <label style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",display:"block",marginBottom:4}}>
                   Save Folder
-                  {!folderOverridden && <span style={{marginLeft:8,fontSize:9,color:"#b0988a",fontStyle:"italic",textTransform:"none"}}>auto-derived from name</span>}
+                  {!folderOverridden && ""}
                 </label>
                 <input value={draft.saveFolder}
                   onChange={e=>{setFolderOverridden(true);setDraft(d=>({...d,saveFolder:e.target.value}));}}
@@ -795,8 +795,9 @@ function WeeklyPage({ config, onBack }) {
       if (scanResponse.ok) {
         const scanData = await scanResponse.json();
 
-        // If PDF already exists, show confirmation dialog before overwriting
+        // If PDF already exists, update saved status and show confirmation dialog
         if (scanData.found) {
+          setAlreadySaved(true);
           setShowConfirm(true);
           return;
         }

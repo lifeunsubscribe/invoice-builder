@@ -283,43 +283,45 @@ class TestScanMonthEndpoint:
         """
         Create a temporary folder structure for testing scan-month.
 
+        March 2026 Mon-Sun weeks: Mar 2, Mar 9, Mar 16, Mar 23, Mar 30.
+
         Creates:
-            {temp}/weekly/INV-20260303.pdf + .json (40 hours)
-            {temp}/weekly/INV-20260310.pdf + .json (35 hours)
-            {temp}/weekly/INV-20260317.pdf (no sidecar - pre-existing)
-            {temp}/weekly/INV-20260324.pdf + .json (0 hours - edge case)
-            (INV-20260331 does not exist)
+            {temp}/weekly/INV-20260302.pdf + .json (40 hours)
+            {temp}/weekly/INV-20260309.pdf + .json (35 hours)
+            {temp}/weekly/INV-20260316.pdf (no sidecar - pre-existing)
+            {temp}/weekly/INV-20260323.pdf + .json (0 hours - edge case)
+            (INV-20260330 does not exist)
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             weekly_dir = os.path.join(tmpdir, 'weekly')
             os.makedirs(weekly_dir)
 
             # Week 1: PDF + sidecar with 40 hours
-            pdf1 = os.path.join(weekly_dir, 'INV-20260303.pdf')
-            json1 = os.path.join(weekly_dir, 'INV-20260303.json')
+            pdf1 = os.path.join(weekly_dir, 'INV-20260302.pdf')
+            json1 = os.path.join(weekly_dir, 'INV-20260302.json')
             Path(pdf1).touch()
             with open(json1, 'w') as f:
                 json.dump({"totalHours": 40}, f)
 
             # Week 2: PDF + sidecar with 35 hours
-            pdf2 = os.path.join(weekly_dir, 'INV-20260310.pdf')
-            json2 = os.path.join(weekly_dir, 'INV-20260310.json')
+            pdf2 = os.path.join(weekly_dir, 'INV-20260309.pdf')
+            json2 = os.path.join(weekly_dir, 'INV-20260309.json')
             Path(pdf2).touch()
             with open(json2, 'w') as f:
                 json.dump({"totalHours": 35}, f)
 
             # Week 3: PDF without sidecar (pre-existing invoice)
-            pdf3 = os.path.join(weekly_dir, 'INV-20260317.pdf')
+            pdf3 = os.path.join(weekly_dir, 'INV-20260316.pdf')
             Path(pdf3).touch()
 
             # Week 4: PDF + sidecar with 0 hours (edge case)
-            pdf4 = os.path.join(weekly_dir, 'INV-20260324.pdf')
-            json4 = os.path.join(weekly_dir, 'INV-20260324.json')
+            pdf4 = os.path.join(weekly_dir, 'INV-20260323.pdf')
+            json4 = os.path.join(weekly_dir, 'INV-20260323.json')
             Path(pdf4).touch()
             with open(json4, 'w') as f:
                 json.dump({"totalHours": 0}, f)
 
-            # Week 5 (INV-20260331) does not exist
+            # Week 5 (INV-20260330) does not exist
 
             yield tmpdir
 
@@ -340,43 +342,43 @@ class TestScanMonthEndpoint:
         assert 'weeks' in data
         weeks = data['weeks']
 
-        # March 2026 should have 5 weeks (Mar 3, 10, 17, 24, 31)
+        # March 2026 should have 5 weeks (Mar 2, 9, 16, 23, 30)
         assert len(weeks) == 5
 
-        # Week 1: Mar 3-9 (found with 40 hours)
-        assert weeks[0]['label'] == 'Mar 3 – Mar 9, 2026'
-        assert weeks[0]['invNum'] == 'INV-20260303'
+        # Week 1: Mar 2-8 (found with 40 hours)
+        assert weeks[0]['label'] == 'Mar 2 – Mar 8, 2026'
+        assert weeks[0]['invNum'] == 'INV-20260302'
         assert weeks[0]['found'] is True
         assert weeks[0]['hours'] == 40
 
-        # Week 2: Mar 10-16 (found with 35 hours)
-        assert weeks[1]['label'] == 'Mar 10 – Mar 16, 2026'
-        assert weeks[1]['invNum'] == 'INV-20260310'
+        # Week 2: Mar 9-15 (found with 35 hours)
+        assert weeks[1]['label'] == 'Mar 9 – Mar 15, 2026'
+        assert weeks[1]['invNum'] == 'INV-20260309'
         assert weeks[1]['found'] is True
         assert weeks[1]['hours'] == 35
 
-        # Week 3: Mar 17-23 (found without sidecar - hours=null)
-        assert weeks[2]['label'] == 'Mar 17 – Mar 23, 2026'
-        assert weeks[2]['invNum'] == 'INV-20260317'
+        # Week 3: Mar 16-22 (found without sidecar - hours=null)
+        assert weeks[2]['label'] == 'Mar 16 – Mar 22, 2026'
+        assert weeks[2]['invNum'] == 'INV-20260316'
         assert weeks[2]['found'] is True
         assert weeks[2]['hours'] is None
 
-        # Week 4: Mar 24-30 (found with 0 hours)
-        assert weeks[3]['label'] == 'Mar 24 – Mar 30, 2026'
-        assert weeks[3]['invNum'] == 'INV-20260324'
+        # Week 4: Mar 23-29 (found with 0 hours)
+        assert weeks[3]['label'] == 'Mar 23 – Mar 29, 2026'
+        assert weeks[3]['invNum'] == 'INV-20260323'
         assert weeks[3]['found'] is True
         assert weeks[3]['hours'] == 0
 
-        # Week 5: Mar 31 - Apr 6 (not found - hours=0)
-        assert weeks[4]['label'] == 'Mar 31 – Apr 6, 2026'
-        assert weeks[4]['invNum'] == 'INV-20260331'
+        # Week 5: Mar 30 - Apr 5 (not found - hours=0)
+        assert weeks[4]['label'] == 'Mar 30 – Apr 5, 2026'
+        assert weeks[4]['invNum'] == 'INV-20260330'
         assert weeks[4]['found'] is False
         assert weeks[4]['hours'] == 0
 
     def test_scan_month_february_2026(self, client, temp_month_folder):
         """Test scan-month for February 2026 (month starting mid-week)."""
         # February 2026 starts on Sunday (Feb 1)
-        # First Tuesday is Feb 3
+        # First Monday is Feb 2
         response = client.get(
             '/api/scan-month',
             query_string={
@@ -392,12 +394,12 @@ class TestScanMonthEndpoint:
         weeks = data['weeks']
 
         # February 2026 should have 4 weeks
-        # (Feb 3, Feb 10, Feb 17, Feb 24)
+        # (Feb 2, Feb 9, Feb 16, Feb 23)
         assert len(weeks) == 4
 
-        # First week should start on Tuesday Feb 3
-        assert weeks[0]['invNum'] == 'INV-20260203'
-        assert 'Feb 3' in weeks[0]['label']
+        # First week should start on Monday Feb 2
+        assert weeks[0]['invNum'] == 'INV-20260202'
+        assert 'Feb 2' in weeks[0]['label']
 
         # All should be not found (no PDFs for Feb)
         for week in weeks:
@@ -558,7 +560,7 @@ class TestScanMonthEndpoint:
         weeks = data['weeks']
 
         # December 2026 starts on Tuesday (Dec 1)
-        # First Tuesday is Dec 1
+        # First Monday is Dec 7
         assert len(weeks) >= 4
 
         # Verify last week can span into January 2027
@@ -595,8 +597,8 @@ class TestScanMonthEndpoint:
             os.makedirs(weekly_dir)
 
             # Create PDF with malformed JSON sidecar
-            pdf = os.path.join(weekly_dir, 'INV-20260303.pdf')
-            json_file = os.path.join(weekly_dir, 'INV-20260303.json')
+            pdf = os.path.join(weekly_dir, 'INV-20260302.pdf')
+            json_file = os.path.join(weekly_dir, 'INV-20260302.json')
             Path(pdf).touch()
             with open(json_file, 'w') as f:
                 f.write('{ invalid json }')
@@ -625,8 +627,8 @@ class TestScanMonthEndpoint:
             os.makedirs(weekly_dir)
 
             # Create PDF with JSON sidecar missing totalHours
-            pdf = os.path.join(weekly_dir, 'INV-20260303.pdf')
-            json_file = os.path.join(weekly_dir, 'INV-20260303.json')
+            pdf = os.path.join(weekly_dir, 'INV-20260302.pdf')
+            json_file = os.path.join(weekly_dir, 'INV-20260302.json')
             Path(pdf).touch()
             with open(json_file, 'w') as f:
                 json.dump({"dailyHours": {"Monday": 8}}, f)
@@ -655,8 +657,8 @@ class TestScanMonthEndpoint:
             os.makedirs(weekly_dir)
 
             # Create PDF with JSON sidecar containing string totalHours
-            pdf = os.path.join(weekly_dir, 'INV-20260303.pdf')
-            json_file = os.path.join(weekly_dir, 'INV-20260303.json')
+            pdf = os.path.join(weekly_dir, 'INV-20260302.pdf')
+            json_file = os.path.join(weekly_dir, 'INV-20260302.json')
             Path(pdf).touch()
             with open(json_file, 'w') as f:
                 json.dump({"totalHours": "forty"}, f)
@@ -685,7 +687,7 @@ class TestScanMonthEndpoint:
             os.makedirs(weekly_dir)
 
             # Create a legitimate PDF in the weekly folder
-            pdf = os.path.join(weekly_dir, 'INV-20260303.pdf')
+            pdf = os.path.join(weekly_dir, 'INV-20260302.pdf')
             Path(pdf).touch()
 
             # Mock the weekly_path function to simulate path traversal
@@ -694,8 +696,8 @@ class TestScanMonthEndpoint:
             original_weekly_path = scan_api.weekly_path
 
             def mock_weekly_path(base_folder, inv_num):
-                # For the second week (INV-20260310), simulate path traversal
-                if inv_num == 'INV-20260310':
+                # For the second week (INV-20260309), simulate path traversal
+                if inv_num == 'INV-20260309':
                     # Return a path outside the base folder
                     return '/etc/passwd'
                 return original_weekly_path(base_folder, inv_num)
@@ -721,22 +723,22 @@ class TestScanMonthEndpoint:
                 # due to path traversal detection, leaving 4 weeks
                 assert len(weeks) == 4
 
-                # Week 1 (INV-20260303) should be found normally
-                assert weeks[0]['invNum'] == 'INV-20260303'
+                # Week 1 (INV-20260302) should be found normally
+                assert weeks[0]['invNum'] == 'INV-20260302'
                 assert weeks[0]['found'] is True
 
                 # Count invoice numbers returned
                 inv_nums = [w['invNum'] for w in weeks]
 
-                # The traversal attempt (INV-20260310) should be excluded
+                # The traversal attempt (INV-20260309) should be excluded
                 # The endpoint uses 'continue' which skips adding it to the result
-                assert 'INV-20260310' not in inv_nums
+                assert 'INV-20260309' not in inv_nums
 
                 # Other weeks should be present
-                assert 'INV-20260303' in inv_nums
-                assert 'INV-20260317' in inv_nums
-                assert 'INV-20260324' in inv_nums
-                assert 'INV-20260331' in inv_nums
+                assert 'INV-20260302' in inv_nums
+                assert 'INV-20260316' in inv_nums
+                assert 'INV-20260323' in inv_nums
+                assert 'INV-20260330' in inv_nums
 
             finally:
                 # Restore original function
