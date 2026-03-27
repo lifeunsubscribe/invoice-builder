@@ -211,23 +211,23 @@ def get_weeks_for_month(year: int, month: int) -> list:
     else:
         last_day = date(year, month + 1, 1) - timedelta(days=1)
 
-    # Find the Monday on or after the first day of the month
-    # weekday(): Monday=0, Tuesday=1, ..., Sunday=6
+    # A week belongs to whichever month contains its Monday.
+    # Find the first Monday that falls in this month.
     days_until_monday = (0 - first_day.weekday()) % 7
     start_day = first_day + timedelta(days=days_until_monday)
 
     weeks = []
     current = start_day
 
-    # Generate weeks until we pass the last day of the month
-    while current <= last_day:
+    # Generate weeks while Monday is still in this month
+    while current.month == month and current.year == year:
         monday = current
         sunday = current + timedelta(days=6)
 
         # Format label: "Mar 2 – Mar 8, 2026"
         # Show year only on the end date (Sunday)
-        monday_fmt = monday.strftime("%b %-d" if os.name != 'nt' else "%b %d").replace(' 0', ' ')
-        sunday_fmt = sunday.strftime("%b %-d, %Y" if os.name != 'nt' else "%b %d, %Y").replace(' 0', ' ')
+        monday_fmt = f"{monday.strftime('%b')} {monday.day}"
+        sunday_fmt = f"{sunday.strftime('%b')} {sunday.day}, {sunday.year}"
         label = f"{monday_fmt} – {sunday_fmt}"
 
         # Generate invNum: INV-YYYYMMDD (Monday's date)

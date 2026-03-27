@@ -55,13 +55,15 @@ function getWeekRange(weekOffset = 0) {
 }
 
 function getWeeksForMonth(year, month) {
+  // A week belongs to whichever month contains its Monday.
+  // Find the first Monday in this month.
   const firstDay = new Date(year, month, 1);
   const lastDay  = new Date(year, month+1, 0);
-  const startDay = new Date(firstDay);
-  startDay.setDate(firstDay.getDate() - ((firstDay.getDay()+6)%7));
+  const daysUntilMon = (8 - firstDay.getDay()) % 7; // 0 if already Monday
+  const firstMonday = new Date(year, month, 1 + daysUntilMon);
   const weeks = [];
-  let cur = new Date(startDay);
-  while (cur <= lastDay) {
+  let cur = new Date(firstMonday);
+  while (cur.getMonth() === month && cur.getFullYear() === year) {
     const monday = new Date(cur);
     const sunday = new Date(cur); sunday.setDate(cur.getDate()+6);
     const fmt = (d,sy) => d.toLocaleDateString("en-US",{month:"short",day:"numeric",...(sy?{year:"numeric"}:{})});
