@@ -1,6 +1,7 @@
 # Sensitive config (contains personal info, credentials)
 config.json
 .env
+.signing-key
 
 # Build outputs
 dist/

@@ -148,6 +148,20 @@
       </div>
     </div>
 
+    <!-- Digital signature -->
+    {% if signature %}
+    <div style="margin: 0 38px 12px; padding: 12px 16px; background: #f0f6f8; border: 1px solid #d0e4ec; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+      <div>
+        <div style="font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 4px;">Digital Signature</div>
+        <div style="font-family: monospace; font-size: 13px; font-weight: 700; color: #2c3e50; letter-spacing: 1px;">{{ signature.fingerprint|default('') }}</div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 4px;">Signed</div>
+        <div style="font-size: 11px; color: #4a6a70;">{{ signature.timestamp|default('') }}</div>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Footer note -->
     <div style="background: #f4f8fa; border-top: 1px solid #d8eaf0; padding: 13px 38px; font-size: 11px; color: #7a9aaa; text-align: center; font-style: italic;">
       This summary is provided for accounting and tax purposes. Weekly invoices are available upon request.

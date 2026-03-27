@@ -175,7 +175,7 @@ def render_weekly_pdf(config, hours, week, template_id):
         ) from e
 
 
-def render_monthly_pdf(config, week_data, month_label):
+def render_monthly_pdf(config, week_data, month_label, signature=None):
     """
     Render a monthly hours summary PDF.
 
@@ -191,6 +191,9 @@ def render_monthly_pdf(config, week_data, month_label):
         week_data: list of dicts with week information
             - Each dict: {'label': str (e.g., "Mar 3 – Mar 9"), 'hours': int}
         month_label: str, month and year (e.g., "March 2026")
+        signature: dict or None, digital signature info
+            - fingerprint: str, short display code (e.g., "A1B2-C3D4-E5F6-7890")
+            - timestamp: str, ISO 8601 signing timestamp
 
     Returns:
         bytes: PDF file contents
@@ -217,7 +220,8 @@ def render_monthly_pdf(config, week_data, month_label):
         'month_label': month_label,
         'total_hours': total_hours,
         'total_pay': total_pay,
-        'weeks_worked': weeks_worked
+        'weeks_worked': weeks_worked,
+        'signature': signature
     }
 
     # Load and render template

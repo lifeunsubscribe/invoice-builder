@@ -398,6 +398,16 @@ function MonthlyReportPDF({ config, weekData, monthLabel }) {
           <div style={{borderBottom:"1px solid #1a2a3a",height:1,width:"60%"}}/>
         </div>
       </div>
+      <div style={{margin:"0 38px 12px",padding:"12px 16px",background:"#f0f6f8",border:"1px solid #d0e4ec",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div>
+          <div style={{fontSize:9,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:4}}>Digital Signature</div>
+          <div style={{fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#2c3e50",letterSpacing:1}}>XXXX-XXXX-XXXX-XXXX</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div style={{fontSize:9,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:4}}>Signed</div>
+          <div style={{fontSize:11,color:"#4a6a70"}}>On generate</div>
+        </div>
+      </div>
       <div style={{background:"#f4f8fa",borderTop:"1px solid #d8eaf0",padding:"13px 38px",fontSize:11,color:"#7a9aaa",textAlign:"center",fontStyle:"italic"}}>
         This summary is provided for accounting and tax purposes. Weekly invoices are available upon request.
       </div>
@@ -500,6 +510,11 @@ function NotifCard({ notification, onDismiss, onOpenEmailSetup }) {
         <div style={{fontSize:13,color:"#4a7a50",marginTop:4,paddingTop:6,borderTop:"1px solid #c8e8c8",display:"flex",alignItems:"center",gap:5}}>
           <span>💾</span> <span style={{wordBreak:"break-word",overflowWrap:"break-word"}}>{notification.saved}</span>
         </div>
+        {notification.signature && (
+          <div style={{fontSize:12,color:"#5a90a8",marginTop:6,paddingTop:6,borderTop:"1px solid #c8e8c8",display:"flex",alignItems:"center",gap:5}}>
+            <span>🔏</span> <span style={{fontFamily:"monospace",letterSpacing:1}}>{notification.signature}</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -718,7 +733,8 @@ function handleSubmitResponse(data, savedPath, emails, setNotification, setAlrea
   if (data.saved && data.emailError) {
     setNotification({
       saved: data.saved,
-      emailError: data.emailError
+      emailError: data.emailError,
+      signature: data.signature || null
     });
     setAlreadySaved(true);
     setSavedDate(dateStr);
@@ -726,7 +742,8 @@ function handleSubmitResponse(data, savedPath, emails, setNotification, setAlrea
     // Full success - require at least one success indicator
     setNotification({
       sent: data.sent && data.sent.length ? data.sent : null,
-      saved: data.saved || savedPath
+      saved: data.saved || savedPath,
+      signature: data.signature || null
     });
     setAlreadySaved(true);
     setSavedDate(dateStr);
