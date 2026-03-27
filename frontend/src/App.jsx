@@ -537,7 +537,7 @@ function LandingPage({ config, onNav, emailConfigured, onOpenEmailSetup }) {
 // ── PROFILE PAGE ──────────────────────────────────────────────────────────
 function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, onOpenEmailSetup }) {
   const [draft, setDraft] = useState(config);
-  const [folderOverridden, setFolderOverridden] = useState(false);
+  const [folderOverridden, setFolderOverridden] = useState(config.saveFolder && config.name ? config.saveFolder !== deriveSaveFolder(config.name) : false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const folderRef = useRef(null);
@@ -1437,10 +1437,6 @@ export default function App() {
         setConfig({ ...defaultConfig, ...configData });
         const configured = emailStatus ? emailStatus.configured : null;
         setEmailConfigured(configured);
-        // Show email setup popup if credentials aren't configured
-        if (configured === false) {
-          setShowEmailSetup(true);
-        }
         setLoading(false);
       })
       .catch(error => {

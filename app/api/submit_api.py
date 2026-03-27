@@ -232,23 +232,23 @@ def submit_weekly():
         except FileNotFoundError:
             return jsonify({
                 "success": False,
-                "error": "Configuration not found",
+                "error": "Please fill out your profile in Settings before submitting.",
                 "message": "config.json does not exist"
-            }), 500
+            }), 400
         except json.JSONDecodeError:
             return jsonify({
                 "success": False,
-                "error": "Invalid configuration",
+                "error": "Your profile settings are invalid. Please re-enter your details in Settings.",
                 "message": "config.json contains malformed JSON"
-            }), 500
+            }), 400
 
         # Validate saveFolder in config
-        if 'saveFolder' not in config:
+        if 'saveFolder' not in config or not config['saveFolder']:
             return jsonify({
                 "success": False,
-                "error": "Configuration error",
+                "error": "Please set a save folder in Settings before submitting.",
                 "message": "saveFolder not specified in config.json"
-            }), 500
+            }), 400
 
         # Expand saveFolder path (handle ~)
         save_folder = expand_path(config['saveFolder'])
@@ -289,11 +289,16 @@ def submit_weekly():
                 template_id=payload['template']
             )
         except ValueError as e:
-            # Template validation or config validation error
+            # Missing config keys means profile is incomplete
+            error_str = str(e)
+            if "Missing required config keys" in error_str:
+                error_msg = "Please fill out your profile in Settings before submitting."
+            else:
+                error_msg = error_str
             return jsonify({
                 "success": False,
-                "error": "PDF generation failed",
-                "message": str(e)
+                "error": error_msg,
+                "message": error_str
             }), 400
         except Exception as e:
             logger.exception("PDF rendering error: %s", e)
@@ -541,23 +546,23 @@ def submit_monthly():
         except FileNotFoundError:
             return jsonify({
                 "success": False,
-                "error": "Configuration not found",
+                "error": "Please fill out your profile in Settings before submitting.",
                 "message": "config.json does not exist"
-            }), 500
+            }), 400
         except json.JSONDecodeError:
             return jsonify({
                 "success": False,
-                "error": "Invalid configuration",
+                "error": "Your profile settings are invalid. Please re-enter your details in Settings.",
                 "message": "config.json contains malformed JSON"
-            }), 500
+            }), 400
 
         # Validate saveFolder in config
-        if 'saveFolder' not in config:
+        if 'saveFolder' not in config or not config['saveFolder']:
             return jsonify({
                 "success": False,
-                "error": "Configuration error",
+                "error": "Please set a save folder in Settings before submitting.",
                 "message": "saveFolder not specified in config.json"
-            }), 500
+            }), 400
 
         # Expand saveFolder path
         save_folder = expand_path(config['saveFolder'])
@@ -594,10 +599,15 @@ def submit_monthly():
                 month_label=month_label
             )
         except ValueError as e:
+            error_str = str(e)
+            if "Missing required config keys" in error_str:
+                error_msg = "Please fill out your profile in Settings before submitting."
+            else:
+                error_msg = error_str
             return jsonify({
                 "success": False,
-                "error": "PDF generation failed",
-                "message": str(e)
+                "error": error_msg,
+                "message": error_str
             }), 400
         except Exception as e:
             logger.exception("PDF rendering error: %s", e)
