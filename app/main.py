@@ -242,17 +242,16 @@ def self_update():
     exe_name = os.path.basename(exe_path)
     new_exe = os.path.join(exe_dir, exe_name + ".new")
 
-    # Download the new exe using PowerShell (handles GitHub redirects reliably)
+    # Download the new exe using curl (built into Windows 10+, handles redirects reliably)
     try:
         import subprocess
         logger.info("Downloading update from %s", download_url)
         result = subprocess.run(
-            ['powershell', '-Command',
-             f'Invoke-WebRequest -Uri "{download_url}" -OutFile "{new_exe}" -UseBasicParsing'],
+            ['curl.exe', '-L', '-o', new_exe, '-f', download_url],
             capture_output=True, text=True, timeout=180
         )
         if result.returncode != 0:
-            logger.warning("PowerShell download failed: %s", result.stderr)
+            logger.warning("curl download failed (exit %d): %s", result.returncode, result.stderr)
             return jsonify({"error": f"Download failed: {result.stderr}"}), 500
         file_size = os.path.getsize(new_exe)
         logger.info("Download complete: %d bytes written to %s", file_size, new_exe)
