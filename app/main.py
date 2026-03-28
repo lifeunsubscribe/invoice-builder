@@ -225,14 +225,14 @@ def shutdown():
     os._exit(0)
 
 def _heartbeat_watchdog():
-    """Exit if no heartbeat received for 30 seconds after first ping."""
+    """Exit if no heartbeat received for 60 seconds after first ping."""
     global _last_heartbeat
     # Wait until the frontend has actually connected and sent a heartbeat
     while _last_heartbeat is None:
         time.sleep(1)
     while True:
         time.sleep(5)
-        if time.time() - _last_heartbeat > 30:
+        if time.time() - _last_heartbeat > 60:
             logger.info("No heartbeat for 10s, exiting.")
             os._exit(0)
 
@@ -314,15 +314,6 @@ if __name__ == "__main__":
     if port is None:
         print("ERROR: No available ports in range 5000-5010. Please close other applications.")
         sys.exit(1)
-
-    # Pre-warm WeasyPrint in background so first PDF render is fast
-    def _warm_weasyprint():
-        try:
-            from weasyprint import HTML
-            HTML(string='<html><body></body></html>').write_pdf()
-        except Exception:
-            pass
-    threading.Thread(target=_warm_weasyprint, daemon=True).start()
 
     # Launch browser in background thread (unless NO_BROWSER env var is set)
     if not os.getenv('NO_BROWSER'):
