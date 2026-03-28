@@ -393,8 +393,8 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
         <div style={{flex:1}}>
           <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:6}}>Provider Signature</div>
           {signatureFont
-            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:28,color:"#1a2a3a",paddingBottom:2}}>{config.name}</div>
-            : <div style={{height:20}}/>}
+            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:28,color:"#1a2a3a",paddingBottom:2,height:38,display:"flex",alignItems:"flex-end"}}>{config.name}</div>
+            : <div style={{height:38}}/>}
           <div style={{borderBottom:"1px solid #1a2a3a",height:1,width:"80%"}}/>
           <div style={{fontSize:11,color:"#7a9aaa",marginTop:5}}>{config.name}</div>
         </div>
