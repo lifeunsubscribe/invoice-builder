@@ -61,7 +61,7 @@
   </style>
 </head>
 <body>
-  <div style="font-family: sans-serif; background: white; width: 100%; min-height: 100%;">
+  <div style="font-family: sans-serif; background: white; width: 100%; min-height: 100%; display: flex; flex-direction: column;">
     <!-- Header with gradient background -->
     <div style="background: linear-gradient(135deg, #2c3e50, #3d5468); padding: 34px 38px 28px; position: relative;">
       <div style="font-size: 13px; color: #a8c8d8; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center;">
@@ -139,6 +139,9 @@
         <div style="font-size: 30px; font-weight: 700; color: white;">${{ total_pay|default('0.00') }}</div>
       </div>
     </div>
+
+    <!-- Spacer pushes signature and footer to bottom -->
+    <div style="flex: 1;"></div>
 
     <!-- Signature lines -->
     <div style="margin: 0 38px 20px; border-top: 1px dashed #c8dce8; padding-top: 16px; display: flex;">
