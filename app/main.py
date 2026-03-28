@@ -254,7 +254,13 @@ def self_update():
             logger.warning("curl download failed (exit %d): %s", result.returncode, result.stderr)
             return jsonify({"error": f"Download failed: {result.stderr}"}), 500
         file_size = os.path.getsize(new_exe)
-        logger.info("Download complete: %d bytes written to %s", file_size, new_exe)
+        with open(new_exe, 'rb') as f:
+            header = f.read(2)
+        logger.info("Download complete: %d bytes, header=%r, path=%s", file_size, header, new_exe)
+        if header != b'MZ':
+            logger.warning("Downloaded file is not a valid exe (header: %r)", header)
+            os.remove(new_exe)
+            return jsonify({"error": "Downloaded file is not a valid executable"}), 500
         if file_size < 10_000_000:
             os.remove(new_exe)
             return jsonify({"error": f"Download too small ({file_size} bytes), likely not a valid exe"}), 500
