@@ -935,7 +935,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
         </div>
         {/* Editor */}
         <div style={{width:360,background:"#fdf8f4",borderLeft:"1px solid #e8ddd4",display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
-          <div style={{flex:1,display:"flex",flexDirection:"column",padding:"13px 16px 0",overflowY:"auto"}}>
+          <div style={{flex:1,display:"flex",flexDirection:"column",padding:"20px 16px 0",overflowY:"auto"}}>
             <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Hours This Week</div>
             <div style={{flex:"0 0 auto"}}>
               {DAYS.map(day=>(
@@ -1194,7 +1194,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
         </div>
         {/* Editor */}
         <div style={{width:360,background:"#fdf8f4",borderLeft:"1px solid #e8ddd4",display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
-          <div style={{flex:1,display:"flex",flexDirection:"column",padding:"13px 16px 0",overflowY:"auto"}}>
+          <div style={{flex:1,display:"flex",flexDirection:"column",padding:"20px 16px 0",overflowY:"auto"}}>
             <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Hours Per Week</div>
             <div style={{flex:"0 0 auto",overflowY:"auto"}}>
               {weeksWithData.map((w,i)=>(
