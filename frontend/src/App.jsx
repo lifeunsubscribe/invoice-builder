@@ -639,7 +639,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
                 {label:"Patient Address",      key:"patientAddress"},
                 {label:"Invoice Footer Note",  key:"invoiceNote"},
               ].map(({label,key,type})=>(
-                <div key={key} style={{marginBottom:13}}>
+                <div key={key} style={{marginBottom:18}}>
                   <label style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",display:"block",marginBottom:4}}>{label}</label>
                   <input type={type||"text"} value={draft[key]} onChange={e=>updateField(key,e.target.value)}
                     style={{width:"100%",fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:8,padding:"9px 12px",color:"#2c1810",outline:"none",background:"#fdfaf8"}}/>
