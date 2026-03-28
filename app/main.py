@@ -258,20 +258,31 @@ def self_update():
         return jsonify({"error": f"Download failed: {e}"}), 500
 
     # Write a batch script that swaps the exe after this process exits
+    log_path = os.path.join(exe_dir, "_update.log")
     bat_path = os.path.join(exe_dir, "_update.bat")
     with open(bat_path, 'w') as f:
         f.write(f'''@echo off
-echo Updating Invoice Builder...
-timeout /t 3 /nobreak >nul
+echo Updating Invoice Builder... > "{log_path}"
+timeout /t 5 /nobreak >nul
+echo Attempting delete... >> "{log_path}"
+set retries=0
 :retry_del
 del "{exe_path}" >nul 2>&1
 if exist "{exe_path}" (
+    set /a retries+=1
+    echo Retry %retries%... >> "{log_path}"
+    if %retries% GEQ 15 (
+        echo Giving up after 15 retries >> "{log_path}"
+        exit /b 1
+    )
     timeout /t 2 /nobreak >nul
     goto retry_del
 )
-move "{new_exe}" "{exe_path}"
+echo Delete succeeded, moving new exe... >> "{log_path}"
+move "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
+echo Starting new exe... >> "{log_path}"
 start "" "{exe_path}"
-timeout /t 2 /nobreak >nul
+timeout /t 3 /nobreak >nul
 del "%~f0"
 ''')
 

@@ -1568,21 +1568,15 @@ export default function App() {
         alert(err.error || 'Update failed');
         setUpdating(false);
       }
-      // If successful, the server exits and relaunches — page will reload
     } catch {
-      // Server exited (expected during update) — poll until it comes back
-      const poll = () => {
-        fetch('/api/heartbeat', {method: 'POST'})
-          .then(() => window.location.reload())
-          .catch(() => setTimeout(poll, 2000));
-      };
-      setTimeout(poll, 5000);
+      // Server exited (expected) — the update script will swap the exe
+      // and relaunch, opening a new browser window. This tab can close.
     }
   };
   const UpdateBanner = updateInfo ? (
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#eef6ff",borderTop:"2px solid #6aa8d8",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
       <span style={{fontSize:17}}>🔄</span>
-      <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>{updating ? "Downloading update..." : "A new version of Invoice Builder is available."}</div>
+      <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>{updating ? "Updating — the app will restart in a new window." : "A new version of Invoice Builder is available."}</div>
       {!updating && <button onClick={doSelfUpdate}
         style={{fontSize:13,fontWeight:700,color:"#fff",background:"#4a90c8",border:"none",borderRadius:6,padding:"6px 14px",cursor:"pointer"}}>Install Update</button>}
       {updating && <span style={{fontSize:13,color:"#4a80a8"}}>Please wait...</span>}
