@@ -1469,16 +1469,13 @@ export default function App() {
   const [updateInfo, setUpdateInfo] = useState(null); // {downloadUrl, latestVersion}
   const [updating, setUpdating] = useState(false);
 
-  // Heartbeat + shutdown: ping the server every 3s so it knows we're alive.
-  // When the tab closes, the pings stop and the server exits after 10s.
-  // Also try a shutdown beacon on unload as a fast path.
+  // Heartbeat: ping the server every 3s so it knows we're alive.
+  // When the tab closes, the pings stop and the server exits after 60s.
   useEffect(() => {
     const interval = setInterval(() => {
       fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
     }, 3000);
-    const handleUnload = () => navigator.sendBeacon("/api/shutdown");
-    window.addEventListener("beforeunload", handleUnload);
-    return () => { clearInterval(interval); window.removeEventListener("beforeunload", handleUnload); };
+    return () => clearInterval(interval);
   }, []);
 
   // Check for updates on mount
