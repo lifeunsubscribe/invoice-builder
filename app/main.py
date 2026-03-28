@@ -240,7 +240,11 @@ def self_update():
     exe_path = sys.executable
     exe_dir = os.path.dirname(exe_path)
     exe_name = os.path.basename(exe_path)
-    new_exe = os.path.join(exe_dir, exe_name + ".new")
+    # Use local temp dir to avoid OneDrive interference
+    import tempfile
+    update_dir = os.path.join(tempfile.gettempdir(), 'invoice-builder-update')
+    os.makedirs(update_dir, exist_ok=True)
+    new_exe = os.path.join(update_dir, exe_name)
 
     # Download the new exe using curl (built into Windows 10+, handles redirects reliably)
     try:
@@ -278,10 +282,10 @@ def self_update():
         logger.warning("Download failed: %s", e)
         return jsonify({"error": f"Download failed: {e}"}), 500
 
-    # Write a batch script that swaps the exe after this process exits
-    log_path = os.path.join(exe_dir, "_update.log")
+    # Write a batch script in temp dir that swaps the exe after this process exits
+    log_path = os.path.join(update_dir, "_update.log")
     old_exe = exe_path + ".old"
-    bat_path = os.path.join(exe_dir, "_update.bat")
+    bat_path = os.path.join(update_dir, "_update.bat")
     with open(bat_path, 'w') as f:
         f.write(f'''@echo off
 echo Updating Invoice Builder... > "{log_path}"
@@ -290,20 +294,10 @@ timeout /t 5 /nobreak >nul
 
 echo. >> "{log_path}"
 echo --- Pre-swap diagnostics --- >> "{log_path}"
-echo Old exe: >> "{log_path}"
-if exist "{exe_path}" (
-    for %%F in ("{exe_path}") do echo   size=%%~zF >> "{log_path}"
-    certutil -hashfile "{exe_path}" SHA256 >> "{log_path}" 2>&1
-) else (
-    echo   NOT FOUND >> "{log_path}"
-)
-echo New exe: >> "{log_path}"
-if exist "{new_exe}" (
-    for %%F in ("{new_exe}") do echo   size=%%~zF >> "{log_path}"
-    certutil -hashfile "{new_exe}" SHA256 >> "{log_path}" 2>&1
-) else (
-    echo   NOT FOUND >> "{log_path}"
-)
+echo Old exe: "{exe_path}" >> "{log_path}"
+for %%F in ("{exe_path}") do echo   size=%%~zF >> "{log_path}"
+echo New exe: "{new_exe}" >> "{log_path}"
+for %%F in ("{new_exe}") do echo   size=%%~zF >> "{log_path}"
 
 echo. >> "{log_path}"
 echo --- Swapping --- >> "{log_path}"
@@ -322,25 +316,25 @@ if exist "{exe_path}" (
     goto retry_rename
 )
 echo Old exe renamed to .old >> "{log_path}"
-rename "{new_exe}" "{os.path.basename(exe_path)}" >> "{log_path}" 2>&1
-echo New exe renamed to final name >> "{log_path}"
+echo Copying new exe from temp to desktop... >> "{log_path}"
+copy /y "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
+if errorlevel 1 (
+    echo Copy failed, restoring old exe >> "{log_path}"
+    rename "{old_exe}" "{os.path.basename(exe_path)}" >nul 2>&1
+    exit /b 1
+)
+echo Copy succeeded >> "{log_path}"
 
 echo. >> "{log_path}"
 echo --- Post-swap diagnostics --- >> "{log_path}"
-if exist "{exe_path}" (
-    for %%F in ("{exe_path}") do echo   final size=%%~zF >> "{log_path}"
-    certutil -hashfile "{exe_path}" SHA256 >> "{log_path}" 2>&1
-) else (
-    echo   FINAL EXE NOT FOUND >> "{log_path}"
-)
+for %%F in ("{exe_path}") do echo   final size=%%~zF >> "{log_path}"
 
 echo. >> "{log_path}"
-echo Waiting for file to settle (OneDrive)... >> "{log_path}"
-timeout /t 10 /nobreak >nul
 echo Starting new exe... >> "{log_path}"
 start "" "{exe_path}"
-timeout /t 3 /nobreak >nul
+timeout /t 5 /nobreak >nul
 del "{old_exe}" >nul 2>&1
+del "{new_exe}" >nul 2>&1
 del "%~f0"
 ''')
 
