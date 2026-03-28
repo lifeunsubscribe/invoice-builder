@@ -335,6 +335,8 @@ if exist "{exe_path}" (
 )
 
 echo. >> "{log_path}"
+echo Waiting for file to settle (OneDrive)... >> "{log_path}"
+timeout /t 10 /nobreak >nul
 echo Starting new exe... >> "{log_path}"
 start "" "{exe_path}"
 timeout /t 3 /nobreak >nul
