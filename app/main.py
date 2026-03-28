@@ -262,15 +262,25 @@ def self_update():
     with open(bat_path, 'w') as f:
         f.write(f'''@echo off
 echo Updating Invoice Builder...
-timeout /t 2 /nobreak >nul
-del "{exe_path}"
+timeout /t 3 /nobreak >nul
+:retry_del
+del "{exe_path}" >nul 2>&1
+if exist "{exe_path}" (
+    timeout /t 2 /nobreak >nul
+    goto retry_del
+)
 move "{new_exe}" "{exe_path}"
-del "{bat_path}" & start "" "{exe_path}"
+start "" "{exe_path}"
+timeout /t 2 /nobreak >nul
+del "%~f0"
 ''')
 
     # Launch the update script and exit
     import subprocess
-    subprocess.Popen(['cmd', '/c', bat_path], creationflags=0x00000008)
+    subprocess.Popen(
+        ['cmd', '/c', bat_path],
+        creationflags=0x00000008 | 0x00000200,  # DETACHED + CREATE_NEW_PROCESS_GROUP
+    )
     logger.info("Self-update initiated, exiting.")
     os._exit(0)
 

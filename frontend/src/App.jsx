@@ -1568,8 +1568,13 @@ export default function App() {
       }
       // If successful, the server exits and relaunches — page will reload
     } catch {
-      // Server exited (expected during update) — wait for it to come back
-      setTimeout(()=>window.location.reload(), 5000);
+      // Server exited (expected during update) — poll until it comes back
+      const poll = () => {
+        fetch('/api/heartbeat', {method: 'POST'})
+          .then(() => window.location.reload())
+          .catch(() => setTimeout(poll, 2000));
+      };
+      setTimeout(poll, 5000);
     }
   };
   const UpdateBanner = updateInfo ? (
