@@ -242,19 +242,25 @@ def self_update():
     exe_name = os.path.basename(exe_path)
     new_exe = os.path.join(exe_dir, exe_name + ".new")
 
-    # Download the new exe
+    # Download the new exe using PowerShell (handles GitHub redirects reliably)
     try:
-        import ssl
-        ctx = ssl._create_unverified_context()
-        req = urllib.request.Request(download_url, headers={"User-Agent": "InvoiceBuilder"})
-        with urllib.request.urlopen(req, timeout=120, context=ctx) as resp:
-            with open(new_exe, 'wb') as f:
-                while True:
-                    chunk = resp.read(65536)
-                    if not chunk:
-                        break
-                    f.write(chunk)
+        import subprocess
+        logger.info("Downloading update from %s", download_url)
+        result = subprocess.run(
+            ['powershell', '-Command',
+             f'Invoke-WebRequest -Uri "{download_url}" -OutFile "{new_exe}" -UseBasicParsing'],
+            capture_output=True, text=True, timeout=180
+        )
+        if result.returncode != 0:
+            logger.warning("PowerShell download failed: %s", result.stderr)
+            return jsonify({"error": f"Download failed: {result.stderr}"}), 500
+        file_size = os.path.getsize(new_exe)
+        logger.info("Download complete: %d bytes written to %s", file_size, new_exe)
+        if file_size < 10_000_000:
+            os.remove(new_exe)
+            return jsonify({"error": f"Download too small ({file_size} bytes), likely not a valid exe"}), 500
     except Exception as e:
+        logger.warning("Download failed: %s", e)
         return jsonify({"error": f"Download failed: {e}"}), 500
 
     # Write a batch script that swaps the exe after this process exits
