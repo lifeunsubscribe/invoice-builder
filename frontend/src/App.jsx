@@ -340,7 +340,7 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
   const totalPay   = (totalHours*config.rate).toFixed(2);
   const worked     = weekData.filter(w=>w.hours>0);
   return (
-    <div style={{fontFamily:"sans-serif",background:"white",width:"100%",minHeight:"100%"}}>
+    <div style={{fontFamily:"sans-serif",background:"white",width:"100%",minHeight:"100%",display:"flex",flexDirection:"column"}}>
       <div style={{background:"linear-gradient(135deg,#2c3e50,#3d5468)",padding:"34px 38px 28px",position:"relative"}}>
         <div style={{fontSize:13,color:"#a8c8d8",letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>📋</span> Monthly Hours Summary</div>
         <div style={{fontSize:27,fontWeight:700,color:"white",marginBottom:7}}>{config.name}</div>
@@ -387,6 +387,7 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
           <div style={{fontSize:30,fontWeight:700,color:"white"}}>${totalPay}</div>
         </div>
       </div>
+      <div style={{flex:1}}/>
       <div style={{margin:"0 38px 20px",borderTop:"1px dashed #c8dce8",paddingTop:16,display:"flex",gap:48}}>
         <div style={{flex:1}}>
           <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:6}}>Provider Signature</div>
@@ -399,8 +400,8 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
         <div style={{flex:1}}>
           <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:6}}>Date</div>
           {signatureFont
-            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:28,color:"#1a2a3a",paddingBottom:2}}>{new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
-            : <div style={{height:20}}/>}
+            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:22,color:"#1a2a3a",paddingBottom:2,height:38,display:"flex",alignItems:"flex-end"}}>{new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
+            : <div style={{height:38}}/>}
           <div style={{borderBottom:"1px solid #1a2a3a",height:1,width:"60%"}}/>
         </div>
       </div>

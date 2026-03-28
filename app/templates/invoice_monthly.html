@@ -58,10 +58,26 @@
       border-collapse: collapse;
       width: 100%;
     }
+    /* Full-page table layout to pin footer to bottom */
+    .page-layout {
+      width: 100%;
+      height: 100vh;
+      font-family: sans-serif;
+      background: white;
+    }
+    .page-layout > tbody > tr:first-child > td {
+      vertical-align: top;
+    }
+    .page-layout > tbody > tr:last-child > td {
+      vertical-align: bottom;
+    }
   </style>
 </head>
 <body>
-  <div style="font-family: sans-serif; background: white; width: 100%;">
+  <table class="page-layout" cellpadding="0" cellspacing="0">
+    <tbody>
+      <!-- Main content row (grows to fill page) -->
+      <tr><td>
     <!-- Header with gradient background -->
     <div style="background: linear-gradient(135deg, #2c3e50, #3d5468); padding: 34px 38px 28px; position: relative;">
       <div style="font-size: 13px; color: #a8c8d8; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center;">
@@ -139,16 +155,16 @@
         <div style="font-size: 30px; font-weight: 700; color: white;">${{ total_pay|default('0.00') }}</div>
       </div>
     </div>
+      </td></tr>
 
-    <!-- Signature and footer pinned to bottom of page -->
-    <div style="position: fixed; bottom: 0; left: 0; right: 0;">
-
+      <!-- Bottom row: signature + footer (pinned to page bottom) -->
+      <tr><td>
     <!-- Signature lines -->
     <div style="margin: 0 38px 20px; border-top: 1px dashed #c8dce8; padding-top: 16px; display: flex;">
       <div style="flex: 1; margin-right: 48px;">
         <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 6px;">Provider Signature</div>
         {% if signature_font|default('') %}
-        <div style="font-family: '{{ signature_font }}', cursive; font-size: 9px; color: #c04040; padding-bottom: 2px;">{{ config.name|default('') }}</div>
+        <div style="font-family: '{{ signature_font }}', cursive; font-size: 16px; color: #1a2a3a; padding-bottom: 2px;">{{ config.name|default('') }}</div>
         {% else %}
         <div style="height: 20px;"></div>
         {% endif %}
@@ -158,7 +174,7 @@
       <div style="flex: 1;">
         <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 6px;">Date</div>
         {% if sign_date|default('') %}
-        <div style="font-family: '{{ signature_font|default('') }}', cursive; font-size: 9px; color: #c04040; padding-bottom: 2px;">{{ sign_date }}</div>
+        <div style="font-family: '{{ signature_font|default('') }}', cursive; font-size: 14px; color: #1a2a3a; padding-bottom: 2px; height: 24px; display: flex; align-items: flex-end;">{{ sign_date }}</div>
         {% else %}
         <div style="height: 20px;"></div>
         {% endif %}
@@ -170,7 +186,8 @@
     <div style="background: #f4f8fa; border-top: 1px solid #d8eaf0; padding: 13px 38px; font-size: 11px; color: #7a9aaa; text-align: center; font-style: italic;">
       This summary is provided for accounting and tax purposes. Weekly invoices are available upon request.
     </div>
-    </div><!-- end pinned bottom wrapper -->
-  </div>
+      </td></tr>
+    </tbody>
+  </table>
 </body>
 </html>
