@@ -296,12 +296,12 @@ app.register_blueprint(email_config_bp)
 
 if __name__ == "__main__":
     # Check if this app is already running on port 5000
-    if not is_port_available(5000):
-        if is_this_app_running_on_port(5000):
-            print("Lisa Invoice Builder is already running on port 5000.")
+    if not is_port_available(5001):
+        if is_this_app_running_on_port(5001):
+            print("Lisa Invoice Builder is already running on port 5001.")
             if not os.getenv('NO_BROWSER'):
                 print("Opening browser to existing instance...")
-                webbrowser.open("http://localhost:5000")
+                webbrowser.open("http://localhost:5001")
             print("Exiting.")
             sys.exit(0)
         else:
@@ -309,7 +309,7 @@ if __name__ == "__main__":
             print("Looking for alternative port...")
 
     # Find an available port (will skip 5000 if occupied by another app)
-    port = find_available_port(5000, 11)
+    port = find_available_port(5001, 10)
 
     if port is None:
         print("ERROR: No available ports in range 5000-5010. Please close other applications.")
