@@ -1233,7 +1233,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                 {["Dancing Script","Great Vibes","Sacramento","Pacifico","Satisfy"].map(f=>(
                   <button key={f} onClick={()=>{setSignatureFont(f);localStorage.setItem("signatureFont",f);}}
                     style={{textAlign:"left",padding:"7px 12px",borderRadius:7,border:signatureFont===f?`2px solid ${acc}`:"1.5px solid #e8ddd8",background:signatureFont===f?"#fff5f0":"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <span style={{fontFamily:`'${f}', cursive`,fontSize:20,color:"#2c1810"}}>{config.name||"Your Name"}</span>
+                    <span style={{fontFamily:`'${f}', cursive`,fontSize:20,color:"#2c1810",lineHeight:"28px"}}>{config.name||"Your Name"}</span>
                     <span style={{fontSize:11,color:"#b0988a"}}>{f}</span>
                   </button>
                 ))}
