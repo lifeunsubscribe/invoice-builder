@@ -145,7 +145,7 @@
       <div style="flex: 1; margin-right: 48px;">
         <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 6px;">Provider Signature</div>
         {% if signature_font|default('') %}
-        <div style="font-family: '{{ signature_font }}', cursive; font-size: 20px; color: #1a2a3a; padding-bottom: 2px;">{{ config.name|default('') }}</div>
+        <div style="font-family: '{{ signature_font }}', cursive; font-size: 16px; color: #1a2a3a; padding-bottom: 2px;">{{ config.name|default('') }}</div>
         {% else %}
         <div style="height: 20px;"></div>
         {% endif %}
@@ -155,7 +155,7 @@
       <div style="flex: 1;">
         <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 6px;">Date</div>
         {% if sign_date|default('') %}
-        <div style="font-family: '{{ signature_font|default('') }}', cursive; font-size: 20px; color: #1a2a3a; padding-bottom: 2px;">{{ sign_date }}</div>
+        <div style="font-family: '{{ signature_font|default('') }}', cursive; font-size: 16px; color: #1a2a3a; padding-bottom: 2px;">{{ sign_date }}</div>
         {% else %}
         <div style="height: 20px;"></div>
         {% endif %}

@@ -947,7 +947,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
               </div>
             </div>
             {/* Saved status pill */}
-            <div style={{flexShrink:0,marginTop:14,marginBottom:14}}>
+            <div style={{flexShrink:0,marginTop:24,marginBottom:24}}>
               {alreadySaved ? (
                 <div style={{display:"flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#4a7a50",maxWidth:"100%",overflow:"hidden",width:"fit-content"}}>
                   <span>💾</span>
@@ -966,7 +966,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
                 <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
               </div>
             </div>
-            <div style={{flexShrink:0}}>
+            <div style={{flexShrink:0,marginBottom:24}}>
               <div>
                 <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
                 {[{label:"Client",value:clientEmail,set:setClientEmail},{label:"Accountant",value:accountantEmail,set:setAccountantEmail}].map(({label,value,set})=>(
@@ -1206,7 +1206,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
               </div>
             </div>
             {/* Saved status pill */}
-            <div style={{flexShrink:0,marginTop:14,marginBottom:14}}>
+            <div style={{flexShrink:0,marginTop:24,marginBottom:24}}>
               {alreadySaved ? (
                 <div style={{display:"flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#4a7a50",maxWidth:"100%",overflow:"hidden",width:"fit-content"}}>
                   <span>💾</span>
@@ -1225,7 +1225,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                 <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
               </div>
             </div>
-            <div style={{flexShrink:0,marginBottom:14}}>
+            <div style={{flexShrink:0,marginBottom:24}}>
               <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Signature Font</div>
               <div style={{display:"flex",flexDirection:"column",gap:4}}>
                 {["Dancing Script","Great Vibes","Sacramento","Pacifico","Satisfy"].map(f=>(
@@ -1237,7 +1237,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                 ))}
               </div>
             </div>
-            <div style={{flexShrink:0}}>
+            <div style={{flexShrink:0,marginBottom:24}}>
               <div>
                 <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
                 <div style={{marginBottom:7}}>
