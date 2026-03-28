@@ -340,7 +340,7 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
   const totalPay   = (totalHours*config.rate).toFixed(2);
   const worked     = weekData.filter(w=>w.hours>0);
   return (
-    <div style={{fontFamily:"sans-serif",background:"white",width:"100%",minHeight:"100%",display:"flex",flexDirection:"column"}}>
+    <div style={{fontFamily:"sans-serif",background:"white",width:"100%",minHeight:880,display:"flex",flexDirection:"column"}}>
       <div style={{background:"linear-gradient(135deg,#2c3e50,#3d5468)",padding:"34px 38px 28px",position:"relative"}}>
         <div style={{fontSize:13,color:"#a8c8d8",letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>📋</span> Monthly Hours Summary</div>
         <div style={{fontSize:27,fontWeight:700,color:"white",marginBottom:7}}>{config.name}</div>
@@ -387,8 +387,9 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
           <div style={{fontSize:30,fontWeight:700,color:"white"}}>${totalPay}</div>
         </div>
       </div>
+      <div style={{margin:"0 38px",borderTop:"1px dashed #c8dce8"}}/>
       <div style={{flex:1}}/>
-      <div style={{margin:"0 38px 20px",borderTop:"1px dashed #c8dce8",paddingTop:16,display:"flex",gap:48}}>
+      <div style={{margin:"0 38px 20px",paddingTop:16,display:"flex",gap:48}}>
         <div style={{flex:1}}>
           <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:6}}>Provider Signature</div>
           {signatureFont
