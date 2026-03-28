@@ -8,7 +8,7 @@ import time
 import webbrowser
 import urllib.request
 import urllib.error
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
 
 # On Windows PyInstaller bundles, point fontconfig at system fonts
