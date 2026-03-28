@@ -287,8 +287,12 @@ del "%~f0"
 ''')
 
     # Launch the update script and exit
+    import subprocess
     logger.info("Self-update initiated, launching %s", bat_path)
-    os.startfile(bat_path)
+    if sys.platform == 'win32':
+        os.startfile(bat_path)
+    else:
+        subprocess.Popen(['bash', bat_path], start_new_session=True)
     logger.info("Batch script launched, exiting.")
     os._exit(0)
 
