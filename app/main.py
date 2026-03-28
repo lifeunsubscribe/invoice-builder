@@ -253,10 +253,20 @@ def self_update():
         if result.returncode != 0:
             logger.warning("curl download failed (exit %d): %s", result.returncode, result.stderr)
             return jsonify({"error": f"Download failed: {result.stderr}"}), 500
+        import hashlib
         file_size = os.path.getsize(new_exe)
         with open(new_exe, 'rb') as f:
-            header = f.read(2)
-        logger.info("Download complete: %d bytes, header=%r, path=%s", file_size, header, new_exe)
+            file_data = f.read()
+        header = file_data[:2]
+        file_hash = hashlib.sha256(file_data).hexdigest()[:16]
+        logger.info("Download complete: %d bytes, header=%r, sha256=%s, path=%s",
+                     file_size, header, file_hash, new_exe)
+        # Also log the currently running exe for comparison
+        running_size = os.path.getsize(exe_path)
+        with open(exe_path, 'rb') as f:
+            running_hash = hashlib.sha256(f.read()).hexdigest()[:16]
+        logger.info("Currently running exe: %d bytes, sha256=%s, path=%s",
+                     running_size, running_hash, exe_path)
         if header != b'MZ':
             logger.warning("Downloaded file is not a valid exe (header: %r)", header)
             os.remove(new_exe)
@@ -270,30 +280,65 @@ def self_update():
 
     # Write a batch script that swaps the exe after this process exits
     log_path = os.path.join(exe_dir, "_update.log")
+    old_exe = exe_path + ".old"
     bat_path = os.path.join(exe_dir, "_update.bat")
     with open(bat_path, 'w') as f:
         f.write(f'''@echo off
 echo Updating Invoice Builder... > "{log_path}"
+echo Waiting for server to exit... >> "{log_path}"
 timeout /t 5 /nobreak >nul
-echo Attempting delete... >> "{log_path}"
+
+echo. >> "{log_path}"
+echo --- Pre-swap diagnostics --- >> "{log_path}"
+echo Old exe: >> "{log_path}"
+if exist "{exe_path}" (
+    for %%F in ("{exe_path}") do echo   size=%%~zF >> "{log_path}"
+    certutil -hashfile "{exe_path}" SHA256 >> "{log_path}" 2>&1
+) else (
+    echo   NOT FOUND >> "{log_path}"
+)
+echo New exe: >> "{log_path}"
+if exist "{new_exe}" (
+    for %%F in ("{new_exe}") do echo   size=%%~zF >> "{log_path}"
+    certutil -hashfile "{new_exe}" SHA256 >> "{log_path}" 2>&1
+) else (
+    echo   NOT FOUND >> "{log_path}"
+)
+
+echo. >> "{log_path}"
+echo --- Swapping --- >> "{log_path}"
+if exist "{old_exe}" del "{old_exe}" >nul 2>&1
 set retries=0
-:retry_del
-del "{exe_path}" >nul 2>&1
+:retry_rename
+rename "{exe_path}" "{os.path.basename(old_exe)}" >nul 2>&1
 if exist "{exe_path}" (
     set /a retries+=1
-    echo Retry %retries%... >> "{log_path}"
+    echo Retry rename %retries%... >> "{log_path}"
     if %retries% GEQ 15 (
         echo Giving up after 15 retries >> "{log_path}"
         exit /b 1
     )
     timeout /t 2 /nobreak >nul
-    goto retry_del
+    goto retry_rename
 )
-echo Delete succeeded, moving new exe... >> "{log_path}"
-move "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
+echo Old exe renamed to .old >> "{log_path}"
+rename "{new_exe}" "{os.path.basename(exe_path)}" >> "{log_path}" 2>&1
+echo New exe renamed to final name >> "{log_path}"
+
+echo. >> "{log_path}"
+echo --- Post-swap diagnostics --- >> "{log_path}"
+if exist "{exe_path}" (
+    for %%F in ("{exe_path}") do echo   final size=%%~zF >> "{log_path}"
+    certutil -hashfile "{exe_path}" SHA256 >> "{log_path}" 2>&1
+) else (
+    echo   FINAL EXE NOT FOUND >> "{log_path}"
+)
+
+echo. >> "{log_path}"
 echo Starting new exe... >> "{log_path}"
 start "" "{exe_path}"
 timeout /t 3 /nobreak >nul
+del "{old_exe}" >nul 2>&1
 del "%~f0"
 ''')
 
