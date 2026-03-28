@@ -1467,6 +1467,7 @@ export default function App() {
   const [emailConfigured, setEmailConfigured] = useState(null); // null=unknown, true/false
   const [emailSetupCount, setEmailSetupCount] = useState(0); // increments on successful setup
   const [updateInfo, setUpdateInfo] = useState(null); // {downloadUrl, latestVersion}
+  const [updating, setUpdating] = useState(false);
 
   // Heartbeat + shutdown: ping the server every 3s so it knows we're alive.
   // When the tab closes, the pings stop and the server exits after 10s.
@@ -1555,7 +1556,6 @@ export default function App() {
     </div>
   ) : null;
 
-  const [updating, setUpdating] = useState(false);
   const doSelfUpdate = async () => {
     setUpdating(true);
     try {
