@@ -1555,13 +1555,34 @@ export default function App() {
     </div>
   ) : null;
 
+  const [updating, setUpdating] = useState(false);
+  const doSelfUpdate = async () => {
+    setUpdating(true);
+    try {
+      const resp = await fetch('/api/self-update', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({downloadUrl: updateInfo.downloadUrl})
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({}));
+        alert(err.error || 'Update failed');
+        setUpdating(false);
+      }
+      // If successful, the server exits and relaunches — page will reload
+    } catch {
+      // Server exited (expected during update) — wait for it to come back
+      setTimeout(()=>window.location.reload(), 5000);
+    }
+  };
   const UpdateBanner = updateInfo ? (
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#eef6ff",borderTop:"2px solid #6aa8d8",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
       <span style={{fontSize:17}}>🔄</span>
-      <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>A new version of Invoice Builder is available.</div>
-      <a href={updateInfo.downloadUrl} target="_blank" rel="noreferrer"
-        style={{fontSize:13,fontWeight:700,color:"#fff",background:"#4a90c8",border:"none",borderRadius:6,padding:"6px 14px",textDecoration:"none",cursor:"pointer"}}>Download Update</a>
-      <button onClick={()=>setUpdateInfo(null)} style={{fontSize:12,color:"#4a80a8",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+      <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>{updating ? "Downloading update..." : "A new version of Invoice Builder is available."}</div>
+      {!updating && <button onClick={doSelfUpdate}
+        style={{fontSize:13,fontWeight:700,color:"#fff",background:"#4a90c8",border:"none",borderRadius:6,padding:"6px 14px",cursor:"pointer"}}>Install Update</button>}
+      {updating && <span style={{fontSize:13,color:"#4a80a8"}}>Please wait...</span>}
+      {!updating && <button onClick={()=>setUpdateInfo(null)} style={{fontSize:12,color:"#4a80a8",background:"none",border:"none",cursor:"pointer"}}>✕</button>}
     </div>
   ) : null;
 

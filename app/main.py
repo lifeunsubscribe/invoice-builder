@@ -202,12 +202,14 @@ def check_update():
         with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
             data = json.loads(resp.read().decode())
         remote = data.get("body", "").replace("Build ", "").strip()
+        assets = data.get("assets", [])
+        download_url = assets[0].get("browser_download_url", DOWNLOAD_URL) if assets else DOWNLOAD_URL
         if remote and remote != local:
             return jsonify({
                 "updateAvailable": True,
                 "currentVersion": local,
                 "latestVersion": remote,
-                "downloadUrl": DOWNLOAD_URL
+                "downloadUrl": download_url
             }), 200
     except Exception:
         pass
@@ -219,6 +221,54 @@ def heartbeat():
     global _last_heartbeat
     _last_heartbeat = time.time()
     return "", 204
+
+@app.route("/api/self-update", methods=["POST"])
+def self_update():
+    """Download the latest exe and replace this one."""
+    if not getattr(sys, 'frozen', False):
+        return jsonify({"error": "Not supported in dev mode"}), 400
+
+    data = request.get_json() or {}
+    download_url = data.get("downloadUrl", "")
+    if not download_url:
+        return jsonify({"error": "No download URL"}), 400
+
+    exe_path = sys.executable
+    exe_dir = os.path.dirname(exe_path)
+    exe_name = os.path.basename(exe_path)
+    new_exe = os.path.join(exe_dir, exe_name + ".new")
+
+    # Download the new exe
+    try:
+        import ssl
+        ctx = ssl._create_unverified_context()
+        req = urllib.request.Request(download_url, headers={"User-Agent": "InvoiceBuilder"})
+        with urllib.request.urlopen(req, timeout=120, context=ctx) as resp:
+            with open(new_exe, 'wb') as f:
+                while True:
+                    chunk = resp.read(65536)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+    except Exception as e:
+        return jsonify({"error": f"Download failed: {e}"}), 500
+
+    # Write a batch script that swaps the exe after this process exits
+    bat_path = os.path.join(exe_dir, "_update.bat")
+    with open(bat_path, 'w') as f:
+        f.write(f'''@echo off
+echo Updating Invoice Builder...
+timeout /t 2 /nobreak >nul
+del "{exe_path}"
+move "{new_exe}" "{exe_path}"
+del "{bat_path}" & start "" "{exe_path}"
+''')
+
+    # Launch the update script and exit
+    import subprocess
+    subprocess.Popen(['cmd', '/c', bat_path], creationflags=0x00000008)
+    logger.info("Self-update initiated, exiting.")
+    os._exit(0)
 
 @app.route("/api/shutdown", methods=["POST"])
 def shutdown():
