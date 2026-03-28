@@ -184,6 +184,8 @@ def _get_local_version():
 def check_update():
     """Check if a newer version is available on GitHub."""
     local = _get_local_version()
+    if local == "dev":
+        return jsonify({"updateAvailable": False, "currentVersion": "dev"}), 200
     try:
         import ssl
         ctx = ssl.create_default_context()
