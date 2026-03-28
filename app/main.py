@@ -185,11 +185,19 @@ def check_update():
     """Check if a newer version is available on GitHub."""
     local = _get_local_version()
     try:
+        import ssl
+        ctx = ssl.create_default_context()
+        # PyInstaller bundles may not include CA certs; fall back to unverified
+        if getattr(sys, 'frozen', False):
+            try:
+                ctx.load_default_certs()
+            except Exception:
+                ctx = ssl._create_unverified_context()
         req = urllib.request.Request(
             "https://api.github.com/repos/lifeunsubscribe/invoice-builder/releases/latest",
             headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "InvoiceBuilder"}
         )
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
             data = json.loads(resp.read().decode())
         remote = data.get("body", "").replace("Build ", "").strip()
         if remote and remote != local:
