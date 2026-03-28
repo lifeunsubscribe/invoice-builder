@@ -287,12 +287,9 @@ del "%~f0"
 ''')
 
     # Launch the update script and exit
-    import subprocess
-    subprocess.Popen(
-        ['cmd', '/c', bat_path],
-        creationflags=0x00000008 | 0x00000200,  # DETACHED + CREATE_NEW_PROCESS_GROUP
-    )
-    logger.info("Self-update initiated, exiting.")
+    logger.info("Self-update initiated, launching %s", bat_path)
+    os.startfile(bat_path)
+    logger.info("Batch script launched, exiting.")
     os._exit(0)
 
 @app.route("/api/shutdown", methods=["POST"])
