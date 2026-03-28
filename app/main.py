@@ -21,6 +21,11 @@ if getattr(sys, 'frozen', False) and sys.platform == 'win32':
 from app.middleware.rate_limiter import get_rate_limiter
 from app.middleware.request_validator import MAX_CONTENT_LENGTH_BYTES
 
+if getattr(sys, 'frozen', False):
+    # Log to file next to the exe so we can debug the packaged app
+    _log_path = os.path.join(os.path.dirname(sys.executable), 'invoice_builder.log')
+    logging.basicConfig(filename=_log_path, level=logging.INFO,
+                        format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 def get_base_paths():
@@ -184,17 +189,16 @@ def _get_local_version():
 def check_update():
     """Check if a newer version is available on GitHub."""
     local = _get_local_version()
+    logger.info("Update check: local version = %r", local)
     if local == "dev":
         return jsonify({"updateAvailable": False, "currentVersion": "dev"}), 200
     try:
         import ssl
-        ctx = ssl.create_default_context()
-        # PyInstaller bundles may not include CA certs; fall back to unverified
+        # PyInstaller bundles may not include CA certs; use unverified context
         if getattr(sys, 'frozen', False):
-            try:
-                ctx.load_default_certs()
-            except Exception:
-                ctx = ssl._create_unverified_context()
+            ctx = ssl._create_unverified_context()
+        else:
+            ctx = ssl.create_default_context()
         req = urllib.request.Request(
             "https://api.github.com/repos/lifeunsubscribe/invoice-builder/releases/latest",
             headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "InvoiceBuilder"}
@@ -211,8 +215,8 @@ def check_update():
                 "latestVersion": remote,
                 "downloadUrl": download_url
             }), 200
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Update check failed: %s", e)
     return jsonify({"updateAvailable": False, "currentVersion": local}), 200
 
 @app.route("/api/heartbeat", methods=["POST"])
