@@ -251,6 +251,10 @@ def self_update():
     # Use local temp dir to avoid OneDrive interference
     import tempfile
     update_dir = os.path.join(tempfile.gettempdir(), 'invoice-builder-update')
+    # Clean out old update attempts
+    import shutil
+    if os.path.exists(update_dir):
+        shutil.rmtree(update_dir, ignore_errors=True)
     os.makedirs(update_dir, exist_ok=True)
     new_exe = os.path.join(update_dir, exe_name)
 
