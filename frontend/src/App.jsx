@@ -245,7 +245,7 @@ function TemplateMorningLight({ config, hours, week, totalHours, totalPay }) {
           <div style={{fontSize:14,color:"#2c1810",fontFamily:"sans-serif"}}>{week.start} – {week.end}</div></div>
       </div>
       <div style={{paddingTop:6}}><InvoiceTable hours={hours} config={config} rowEven="white" rowOdd="#fdf8f4" accentColor={ML_ACC} textColor="#2c1810" dayDates={week.dayDates}/></div>
-      <div style={{margin:"0 38px",borderTop:`2px solid ${ML_ACC}44`,marginTop:8,paddingTop:20,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+      <div style={{margin:"0 38px",borderTop:`2px solid ${ML_ACC}44`,marginTop:16,paddingTop:20,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
         <div style={{fontFamily:"sans-serif",fontSize:13,color:"#9a8070"}}>{totalHours} hrs · ${config.rate.toFixed(2)}/hr</div>
         <div style={{textAlign:"right"}}>
           <div style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC,marginBottom:4}}>Total Due</div>
@@ -284,7 +284,7 @@ function TemplateCaringHands({ config, hours, week, totalHours, totalPay }) {
           <div style={{fontSize:14,color:"#1a2a3a"}}>{week.start} – {week.end}</div></div>
       </div>
       <div style={{paddingTop:6}}><InvoiceTable hours={hours} config={config} rowEven="white" rowOdd="#f4f9f8" accentColor={CH_ACC} textColor="#1a2a3a" dayDates={week.dayDates}/></div>
-      <div style={{margin:"26px 38px 18px",display:"flex",justifyContent:"flex-end"}}>
+      <div style={{margin:"32px 38px 18px",display:"flex",justifyContent:"flex-end"}}>
         <div style={{background:"#1a2a3a",borderRadius:10,padding:"16px 28px",textAlign:"right"}}>
           <div style={{fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC,marginBottom:6}}>{totalHours} hours · Total Due</div>
           <div style={{fontSize:30,fontWeight:700,color:"white"}}>${totalPay}</div>
@@ -322,7 +322,7 @@ function TemplateGarden({ config, hours, week, totalHours, totalPay }) {
           <div style={{fontSize:14,color:"#2d4a2d"}}>{week.start} – {week.end}</div></div>
       </div>
       <div style={{paddingTop:6}}><InvoiceTable hours={hours} config={config} rowEven="#fffef8" rowOdd="#f4f8f0" accentColor={GD_ACC} textColor="#2d4a2d" dayDates={week.dayDates}/></div>
-      <div style={{margin:"0 38px",borderTop:"2px dashed #b8d8b0",marginTop:8,paddingTop:20,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{margin:"0 38px",borderTop:"2px dashed #b8d8b0",marginTop:16,paddingTop:20,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{fontSize:13,color:"#7a9a70"}}>{totalHours} hrs · ${config.rate.toFixed(2)}/hr</div>
         <div style={{textAlign:"right"}}>
           <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:GD_ACC,marginBottom:4}}>Total Due</div>
@@ -380,7 +380,7 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
           ))}</tbody>
         </table>
       </div>
-      <div style={{margin:"20px 38px 18px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+      <div style={{margin:"28px 38px 18px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
         <div style={{fontSize:13,color:"#7a9aaa"}}>{worked.length} week{worked.length!==1?"s":""} worked · ${config.rate.toFixed(2)}/hr</div>
         <div style={{background:"#2c3e50",borderRadius:10,padding:"16px 28px",textAlign:"right"}}>
           <div style={{fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:"#a8c8d8",marginBottom:6}}>{totalHours} total hours · Amount Due</div>
@@ -949,7 +949,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
               </div>
             </div>
             {/* Saved status pill */}
-            <div style={{flexShrink:0,marginTop:24,marginBottom:24}}>
+            <div style={{flexShrink:0,marginTop:32,marginBottom:32}}>
               {alreadySaved ? (
                 <div style={{display:"flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#4a7a50",maxWidth:"100%",overflow:"hidden",width:"fit-content"}}>
                   <span>💾</span>
@@ -968,7 +968,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
                 <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
               </div>
             </div>
-            <div style={{flexShrink:0,marginBottom:24}}>
+            <div style={{flexShrink:0,marginBottom:32}}>
               <div>
                 <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
                 {[{label:"Client",value:clientEmail,set:setClientEmail},{label:"Accountant",value:accountantEmail,set:setAccountantEmail}].map(({label,value,set})=>(
@@ -1208,7 +1208,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
               </div>
             </div>
             {/* Saved status pill */}
-            <div style={{flexShrink:0,marginTop:24,marginBottom:24}}>
+            <div style={{flexShrink:0,marginTop:32,marginBottom:32}}>
               {alreadySaved ? (
                 <div style={{display:"flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#4a7a50",maxWidth:"100%",overflow:"hidden",width:"fit-content"}}>
                   <span>💾</span>
@@ -1227,7 +1227,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                 <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
               </div>
             </div>
-            <div style={{flexShrink:0,marginBottom:24}}>
+            <div style={{flexShrink:0,marginBottom:32}}>
               <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Signature Font</div>
               <div style={{display:"flex",flexDirection:"column",gap:4}}>
                 {["Dancing Script","Great Vibes","Sacramento","Pacifico","Satisfy"].map(f=>(
@@ -1239,7 +1239,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                 ))}
               </div>
             </div>
-            <div style={{flexShrink:0,marginBottom:24}}>
+            <div style={{flexShrink:0,marginBottom:32}}>
               <div>
                 <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
                 <div style={{marginBottom:7}}>
