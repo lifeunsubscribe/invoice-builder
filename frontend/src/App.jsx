@@ -1470,6 +1470,17 @@ export default function App() {
   const [emailSetupCount, setEmailSetupCount] = useState(0); // increments on successful setup
   const [updateInfo, setUpdateInfo] = useState(null); // {downloadUrl, latestVersion}
   const [updating, setUpdating] = useState(false);
+  const [updateComplete, setUpdateComplete] = useState(false);
+
+  // Show "Update complete" toast if redirected after update
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('updated')) {
+      setUpdateComplete(true);
+      window.history.replaceState({}, '', '/');
+      setTimeout(() => setUpdateComplete(false), 5000);
+    }
+  }, []);
 
   // Heartbeat: ping the server every 3s so it knows we're alive.
   // On unload, send shutdown request — server waits 5s before acting,
@@ -1575,13 +1586,18 @@ export default function App() {
       // Server exited (expected) — poll until the new server is up, then reload
       const poll = () => {
         fetch('/api/heartbeat', {method: 'POST'})
-          .then(() => window.location.reload())
+          .then(() => { window.location.href = '/?updated=1'; })
           .catch(() => setTimeout(poll, 2000));
       };
       setTimeout(poll, 8000);
     }
   };
-  const UpdateBanner = updateInfo ? (
+  const UpdateBanner = updateComplete ? (
+    <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#eef9ee",borderTop:"2px solid #6ac86a",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
+      <span style={{fontSize:17}}>✅</span>
+      <div style={{flex:1,fontSize:13,color:"#1a4a2a"}}>Update complete.</div>
+    </div>
+  ) : updateInfo ? (
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#eef6ff",borderTop:"2px solid #6aa8d8",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
       <span style={{fontSize:17}}>🔄</span>
       <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>{updating ? "Installing update — this page will reload automatically." : "A new version of Invoice Builder is available."}</div>
