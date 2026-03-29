@@ -224,7 +224,7 @@ function TemplateMorningLight({ config, hours, week, totalHours, totalPay }) {
   return (
     <div style={{fontFamily:"'Georgia',serif",background:"white",width:"100%",minHeight:"100%"}}>
       <div style={{background:`linear-gradient(135deg,${ML_ACC}28,${ML_ACC}48)`,borderBottom:`4px solid ${ML_ACC}`,padding:"34px 38px 28px",position:"relative"}}>
-        <div style={{fontSize:13,color:ML_ACC,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7,fontFamily:"sans-serif"}}><span style={{fontSize:15}}>🌸</span> Home Health Invoice</div>
+        <div style={{fontSize:13,color:ML_ACC,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7,fontFamily:"sans-serif"}}><span style={{fontSize:15}}>🌸</span> Contractor Invoice</div>
         <h1 style={{margin:0,fontSize:27,fontWeight:700,color:"#2c1810",letterSpacing:-0.5}}>{config.name}</h1>
         <p style={{margin:"7px 0 3px",fontSize:13,color:"#6a4a40",fontFamily:"sans-serif"}}>{config.address}</p>
         <p style={{margin:0,fontSize:13,color:"#6a4a40",fontFamily:"sans-serif"}}>{config.personalEmail}</p>
@@ -262,7 +262,7 @@ function TemplateCaringHands({ config, hours, week, totalHours, totalPay }) {
   return (
     <div style={{fontFamily:"sans-serif",background:"white",width:"100%",minHeight:"100%"}}>
       <div style={{background:"#1a2a3a",padding:"34px 38px 28px",position:"relative"}}>
-        <div style={{fontSize:13,color:CH_ACC,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>🤍</span> Home Health Invoice</div>
+        <div style={{fontSize:13,color:CH_ACC,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>🤍</span> Contractor Invoice</div>
         <div style={{fontSize:27,fontWeight:700,color:"white",marginBottom:7}}>{config.name}</div>
         <div style={{fontSize:13,color:"#8aacaa"}}>{config.address}</div>
         <div style={{fontSize:13,color:"#8aacaa",marginTop:2}}>{config.personalEmail}</div>
@@ -300,7 +300,7 @@ function TemplateGarden({ config, hours, week, totalHours, totalPay }) {
   return (
     <div style={{fontFamily:"sans-serif",background:"#fffef8",width:"100%",minHeight:"100%"}}>
       <div style={{background:"linear-gradient(135deg,#2d4a2d,#3d6b3d)",padding:"34px 38px 28px",position:"relative"}}>
-        <div style={{fontSize:13,color:"#a8d8a0",letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>🌿</span> Home Health Invoice</div>
+        <div style={{fontSize:13,color:"#a8d8a0",letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>🌿</span> Contractor Invoice</div>
         <div style={{fontSize:27,fontWeight:400,color:"#e8f5e4",letterSpacing:0.5}}>{config.name}</div>
         <div style={{fontSize:13,color:"#a8c8a0",marginTop:6}}>{config.address}</div>
         <div style={{fontSize:13,color:"#a8c8a0",marginTop:2}}>{config.personalEmail}</div>
@@ -525,7 +525,7 @@ function LandingPage({ config, onNav, emailConfigured, onOpenEmailSetup }) {
     { id:"profile", emoji:"👤", label:"Edit Profile",    desc:"Name, rate, contacts & folder",        primary:false },
   ];
   return (
-    <Shell config={config} title="Home Health Invoice" subtitle={config.name} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
+    <Shell config={config} title="Contractor Invoice" subtitle={config.name} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
       <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:"32px 24px",background:"linear-gradient(160deg,#f9f3ee,#f2ebe4)"}}>
         <div style={{textAlign:"center",marginBottom:8}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:29,color:"#2c1810",fontWeight:700,marginBottom:4}}>

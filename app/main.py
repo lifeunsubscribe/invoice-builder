@@ -467,7 +467,7 @@ if __name__ == "__main__":
     # Check if this app is already running on port 5000
     if not is_port_available(5001):
         if is_this_app_running_on_port(5001):
-            print("Lisa Invoice Builder is already running on port 5001.")
+            print("Invoice Builder is already running on port 5001.")
             if not os.getenv('NO_BROWSER'):
                 print("Opening browser to existing instance...")
                 webbrowser.open("http://localhost:5001")
@@ -495,7 +495,7 @@ if __name__ == "__main__":
     threading.Thread(target=_heartbeat_watchdog, daemon=True).start()
 
     # Start Flask server
-    print(f"Starting Lisa Invoice Builder on port {port}...")
+    print(f"Starting Invoice Builder on port {port}...")
     print(f"Config directory: {BASE_DIR}")
     print(f"Static files directory: {DIST_FOLDER}")
     app.run(port=port, debug=False, threaded=True)
