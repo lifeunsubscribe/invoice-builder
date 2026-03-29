@@ -316,25 +316,13 @@ if exist "{exe_path}" (
     goto retry_rename
 )
 echo Old exe renamed to .old >> "{log_path}"
-echo Copying new exe from temp to desktop... >> "{log_path}"
+echo Launching new exe from temp dir... >> "{log_path}"
+start "" "{new_exe}"
+echo Waiting for new exe to start... >> "{log_path}"
+timeout /t 10 /nobreak >nul
+echo Moving new exe to desktop... >> "{log_path}"
 copy /y "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
-if errorlevel 1 (
-    echo Copy failed, restoring old exe >> "{log_path}"
-    rename "{old_exe}" "{os.path.basename(exe_path)}" >nul 2>&1
-    exit /b 1
-)
-echo Copy succeeded >> "{log_path}"
-
-echo. >> "{log_path}"
-echo --- Post-swap diagnostics --- >> "{log_path}"
-for %%F in ("{exe_path}") do echo   final size=%%~zF >> "{log_path}"
-
-echo. >> "{log_path}"
-echo Starting new exe... >> "{log_path}"
-start "" "{exe_path}"
-timeout /t 5 /nobreak >nul
 del "{old_exe}" >nul 2>&1
-del "{new_exe}" >nul 2>&1
 del "%~f0"
 ''')
 
