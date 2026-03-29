@@ -357,14 +357,18 @@ del "{log_path}" >nul 2>&1
 del "%~f0"
 ''')
 
-    # Launch the update script and exit
+    # Launch the update script silently (no visible terminal window)
     import subprocess
     logger.info("Self-update initiated, launching %s", bat_path)
     if sys.platform == 'win32':
-        os.startfile(bat_path)
+        # Use a VBScript wrapper to run the bat hidden
+        vbs_path = os.path.join(update_dir, "_update.vbs")
+        with open(vbs_path, 'w') as f:
+            f.write(f'CreateObject("Wscript.Shell").Run """{bat_path}""", 0, False\n')
+        os.startfile(vbs_path)
     else:
         subprocess.Popen(['bash', bat_path], start_new_session=True)
-    logger.info("Batch script launched, exiting.")
+    logger.info("Update script launched, exiting.")
     os._exit(0)
 
 _shutdown_pending = False
