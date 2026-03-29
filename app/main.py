@@ -334,7 +334,11 @@ echo Waiting for new exe to start... >> "{log_path}"
 timeout /t 10 /nobreak >nul
 echo Moving new exe to desktop... >> "{log_path}"
 copy /y "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
+echo Cleaning up... >> "{log_path}"
 del "{old_exe}" >nul 2>&1
+if exist "{os.path.join(exe_dir, '_update.log')}" del "{os.path.join(exe_dir, '_update.log')}" >nul 2>&1
+del "{new_exe}" >nul 2>&1
+del "{log_path}" >nul 2>&1
 del "%~f0"
 ''')
 

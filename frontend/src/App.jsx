@@ -1470,6 +1470,7 @@ export default function App() {
   const [emailSetupCount, setEmailSetupCount] = useState(0); // increments on successful setup
   const [updateInfo, setUpdateInfo] = useState(null); // {downloadUrl, latestVersion}
   const [updating, setUpdating] = useState(false);
+  const [updateDone, setUpdateDone] = useState(false);
 
   // Heartbeat: ping the server every 3s so it knows we're alive.
   // When the tab closes, the pings stop and the server exits after 60s.
@@ -1570,10 +1571,16 @@ export default function App() {
       }
     } catch {
       // Server exited (expected) — the update script will swap the exe
-      // and relaunch, opening a new browser window. This tab can close.
+      // and relaunch, opening a new browser window.
+      setUpdateDone(true);
     }
   };
-  const UpdateBanner = updateInfo ? (
+  const UpdateBanner = updateDone ? (
+    <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#eef6ff",borderTop:"2px solid #6aa8d8",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
+      <span style={{fontSize:17}}>✅</span>
+      <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>Update installed. You can close this tab.</div>
+    </div>
+  ) : updateInfo ? (
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#eef6ff",borderTop:"2px solid #6aa8d8",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
       <span style={{fontSize:17}}>🔄</span>
       <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>{updating ? "Updating — the app will restart in a new window." : "A new version of Invoice Builder is available."}</div>
