@@ -352,6 +352,9 @@ echo Copying new exe to desktop for next launch... >> "{log_path}"
 copy /y "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
 echo Cleaning up... >> "{log_path}"
 del "{old_exe}" >nul 2>&1
+del "{new_exe}" >nul 2>&1
+del "{log_path}" >nul 2>&1
+del "%~f0"
 ''')
 
     # Launch the update script and exit
@@ -497,8 +500,11 @@ if __name__ == "__main__":
         print("ERROR: No available ports in range 5000-5010. Please close other applications.")
         sys.exit(1)
 
-    # Launch browser in background thread (unless NO_BROWSER env var is set)
-    if not os.getenv('NO_BROWSER'):
+    # Launch browser in background thread (unless NO_BROWSER env var is set,
+    # or running from temp dir during self-update — existing tab will reconnect)
+    import tempfile
+    _is_temp_launch = getattr(sys, 'frozen', False) and sys.executable.startswith(tempfile.gettempdir())
+    if not os.getenv('NO_BROWSER') and not _is_temp_launch:
         threading.Thread(target=open_browser, args=(port,), daemon=True).start()
 
     # Start heartbeat watchdog — exits if browser stops pinging
