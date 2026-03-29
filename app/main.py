@@ -332,7 +332,7 @@ echo Old exe renamed to .old >> "{log_path}"
 echo Cleaning up old _MEI temp folders... >> "{log_path}"
 for /d %%D in ("%TEMP%\\_MEI*") do rmdir /s /q "%%D" >nul 2>&1
 echo Launching new exe from temp... >> "{log_path}"
-start "" "{new_exe}"
+start /b "" "{new_exe}"
 echo Waiting for new exe to start... >> "{log_path}"
 timeout /t 10 /nobreak >nul
 echo Checking if server is running... >> "{log_path}"
@@ -345,7 +345,7 @@ if errorlevel 1 (
     echo crash > "{os.path.join(exe_dir, '.crash_report_pending')}"
     copy /y "{log_path}" "{os.path.join(exe_dir, '.crash_log')}" >nul 2>&1
     echo Starting restored exe... >> "{log_path}"
-    start "" "{exe_path}"
+    start /b "" "{exe_path}"
     exit /b 1
 )
 echo Copying new exe to desktop for next launch... >> "{log_path}"
