@@ -22,8 +22,8 @@ from app.middleware.rate_limiter import get_rate_limiter
 from app.middleware.request_validator import MAX_CONTENT_LENGTH_BYTES
 
 if getattr(sys, 'frozen', False):
-    # Log to file next to the exe so we can debug the packaged app
-    _log_path = os.path.join(os.path.dirname(sys.executable), 'invoice_builder.log')
+    import tempfile
+    _log_path = os.path.join(tempfile.gettempdir(), 'invoice_builder.log')
     logging.basicConfig(filename=_log_path, level=logging.INFO,
                         format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -352,7 +352,6 @@ echo Copying new exe to desktop for next launch... >> "{log_path}"
 copy /y "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
 echo Cleaning up... >> "{log_path}"
 del "{old_exe}" >nul 2>&1
-if exist "{os.path.join(exe_dir, 'invoice_builder.log')}" del "{os.path.join(exe_dir, 'invoice_builder.log')}" >nul 2>&1
 ''')
 
     # Launch the update script and exit
