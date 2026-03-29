@@ -227,9 +227,8 @@ def check_update():
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
     """Frontend pings this to signal it's still open."""
-    global _last_heartbeat, _shutdown_pending
+    global _last_heartbeat
     _last_heartbeat = time.time()
-    _shutdown_pending = False
     return "", 204
 
 @app.route("/api/self-update", methods=["POST"])
@@ -371,35 +370,16 @@ del "%~f0"
     logger.info("Update script launched, exiting.")
     os._exit(0)
 
-_shutdown_pending = False
-
-@app.route("/api/shutdown", methods=["POST"])
-def shutdown():
-    """Shut down the server when the user closes the app window.
-    Delays 5 seconds so a reload can cancel via heartbeat."""
-    global _shutdown_pending
-    if _shutdown_pending:
-        return "", 204
-    _shutdown_pending = True
-    logger.info("Shutdown requested, waiting 10s for possible reload...")
-    def _delayed_shutdown():
-        global _shutdown_pending
-        time.sleep(10)
-        if _shutdown_pending:
-            logger.info("No reload detected, exiting.")
-            os._exit(0)
-    threading.Thread(target=_delayed_shutdown, daemon=True).start()
-    return "", 204
 
 def _heartbeat_watchdog():
-    """Exit if no heartbeat received for 15 seconds after first ping."""
+    """Exit if no heartbeat received for 10 seconds after first ping."""
     global _last_heartbeat
     # Wait until the frontend has actually connected and sent a heartbeat
     while _last_heartbeat is None:
         time.sleep(1)
     while True:
-        time.sleep(5)
-        if time.time() - _last_heartbeat > 15:
+        time.sleep(2)
+        if time.time() - _last_heartbeat > 10:
             logger.info("No heartbeat for 10s, exiting.")
             os._exit(0)
 

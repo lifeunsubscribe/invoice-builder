@@ -1483,15 +1483,14 @@ export default function App() {
   }, []);
 
   // Heartbeat: ping the server every 3s so it knows we're alive.
-  // On unload, send shutdown request — server waits 5s before acting,
-  // so a reload will cancel it via the next heartbeat.
+  // When the tab closes, pings stop and the server exits after 10s.
+  // Reloads keep working because the page remounts and resumes pinging.
   useEffect(() => {
+    fetch("/api/heartbeat", { method: "POST" }).catch(() => {}); // immediate ping
     const interval = setInterval(() => {
       fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
     }, 3000);
-    const handleUnload = () => navigator.sendBeacon("/api/shutdown");
-    window.addEventListener("beforeunload", handleUnload);
-    return () => { clearInterval(interval); window.removeEventListener("beforeunload", handleUnload); };
+    return () => clearInterval(interval);
   }, []);
 
   // Check for updates on mount
