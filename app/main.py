@@ -336,7 +336,7 @@ start /b "" "{new_exe}"
 echo Waiting for new exe to start... >> "{log_path}"
 timeout /t 10 /nobreak >nul
 echo Checking if server is running... >> "{log_path}"
-curl.exe -s -o nul http://127.0.0.1:5001/ >nul 2>&1
+powershell -WindowStyle Hidden -Command "try {{ (Invoke-WebRequest -Uri http://127.0.0.1:5001/ -UseBasicParsing -TimeoutSec 5).StatusCode; exit 0 }} catch {{ exit 1 }}" >nul 2>&1
 if errorlevel 1 (
     echo CRASH DETECTED - server not responding >> "{log_path}"
     echo Restoring old exe... >> "{log_path}"
