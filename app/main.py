@@ -294,6 +294,19 @@ def self_update():
         logger.warning("Download failed: %s", e)
         return jsonify({"error": f"Download failed: {e}"}), 500
 
+    # Write health check VBScript (runs invisible, no console)
+    healthcheck_path = os.path.join(update_dir, "_healthcheck.vbs")
+    with open(healthcheck_path, 'w') as f:
+        f.write('''On Error Resume Next
+Set http = CreateObject("MSXML2.XMLHTTP")
+http.Open "GET", "http://127.0.0.1:5001/", False
+http.Send
+If Err.Number <> 0 Or http.Status <> 200 Then
+    WScript.Quit 1
+End If
+WScript.Quit 0
+''')
+
     # Write a batch script in temp dir that swaps the exe after this process exits
     log_path = os.path.join(update_dir, "_update.log")
     old_exe = exe_path + ".old"
@@ -335,7 +348,7 @@ start /b "" "{new_exe}"
 echo Waiting for new exe to start... >> "{log_path}"
 timeout /t 10 /nobreak >nul
 echo Checking if server is running... >> "{log_path}"
-powershell -WindowStyle Hidden -Command "try {{ (Invoke-WebRequest -Uri http://127.0.0.1:5001/ -UseBasicParsing -TimeoutSec 5).StatusCode; exit 0 }} catch {{ exit 1 }}" >nul 2>&1
+cscript //nologo //e:vbscript "{os.path.join(update_dir, '_healthcheck.vbs')}" >nul 2>&1
 if errorlevel 1 (
     echo CRASH DETECTED - server not responding >> "{log_path}"
     echo Restoring old exe... >> "{log_path}"
