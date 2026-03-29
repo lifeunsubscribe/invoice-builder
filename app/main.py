@@ -339,6 +339,9 @@ if errorlevel 1 (
     echo CRASH DETECTED - server not responding >> "{log_path}"
     echo Restoring old exe... >> "{log_path}"
     if exist "{old_exe}" rename "{old_exe}" "{os.path.basename(exe_path)}" >nul 2>&1
+    echo Saving crash log... >> "{log_path}"
+    echo crash > "{os.path.join(exe_dir, '.crash_report_pending')}"
+    copy /y "{log_path}" "{os.path.join(exe_dir, '.crash_log')}" >nul 2>&1
     echo Starting restored exe... >> "{log_path}"
     start "" "{exe_path}"
     exit /b 1
@@ -450,7 +453,53 @@ app.register_blueprint(scan_bp)
 app.register_blueprint(submit_bp)
 app.register_blueprint(email_config_bp)
 
+def _check_and_send_crash_report():
+    """If a previous update crashed, email the crash log to the developer."""
+    if not getattr(sys, 'frozen', False):
+        return
+    exe_dir = os.path.dirname(sys.executable)
+    marker = os.path.join(exe_dir, '.crash_report_pending')
+    crash_log_path = os.path.join(exe_dir, '.crash_log')
+    if not os.path.exists(marker):
+        return
+    logger.info("Crash report pending from failed update")
+    crash_log = ""
+    if os.path.exists(crash_log_path):
+        with open(crash_log_path, 'r') as f:
+            crash_log = f.read()
+    try:
+        from app.services.mail_service import send_invoice_email
+        # Load config to get developer email
+        config_path = os.path.join(exe_dir, 'config.json')
+        dev_email = None
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+            dev_email = config.get('personalEmail', '')
+        if dev_email:
+            subject = "Invoice Builder: Auto-update crash report"
+            body = f"A self-update failed and was rolled back.\n\nCrash log:\n{crash_log}"
+            # Send as plain text with a dummy PDF (mail service requires it)
+            result = send_invoice_email(
+                [dev_email], b'crash report', 'crash_log.txt', subject, body
+            )
+            if result.get('success'):
+                logger.info("Crash report emailed to %s", dev_email)
+            else:
+                logger.warning("Failed to email crash report: %s", result.get('error'))
+    except Exception as e:
+        logger.warning("Could not send crash report: %s", e)
+    # Clean up marker files regardless
+    try:
+        os.remove(marker)
+        if os.path.exists(crash_log_path):
+            os.remove(crash_log_path)
+    except Exception:
+        pass
+
 if __name__ == "__main__":
+    _check_and_send_crash_report()
+
     # Check if this app is already running on port 5000
     if not is_port_available(5001):
         if is_this_app_running_on_port(5001):
