@@ -1483,14 +1483,22 @@ export default function App() {
   }, []);
 
   // Heartbeat: ping the server every 3s so it knows we're alive.
-  // When the tab closes, pings stop and the server exits after 10s.
-  // Reloads keep working because the page remounts and resumes pinging.
+  // On close: beacon tells server to shut down after 5s.
+  // On reload: page remounts, immediate ping cancels the shutdown.
+  // On tab focus: immediate ping keeps server alive after background throttling.
   useEffect(() => {
-    fetch("/api/heartbeat", { method: "POST" }).catch(() => {}); // immediate ping
-    const interval = setInterval(() => {
-      fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
-    }, 3000);
-    return () => clearInterval(interval);
+    const ping = () => fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
+    ping();
+    const interval = setInterval(ping, 3000);
+    const onVisible = () => { if (!document.hidden) ping(); };
+    const onUnload = () => navigator.sendBeacon("/api/shutdown");
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("beforeunload", onUnload);
+    };
   }, []);
 
   // Check for updates on mount

@@ -224,11 +224,34 @@ def check_update():
         logger.warning("Update check failed: %s", e)
     return jsonify({"updateAvailable": False, "currentVersion": local}), 200
 
+_shutdown_timer = None
+
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
     """Frontend pings this to signal it's still open."""
-    global _last_heartbeat
+    global _last_heartbeat, _shutdown_timer
     _last_heartbeat = time.time()
+    # Cancel any pending shutdown (e.g. from reload)
+    if _shutdown_timer is not None:
+        _shutdown_timer = None
+        logger.info("Shutdown cancelled by heartbeat")
+    return "", 204
+
+@app.route("/api/shutdown", methods=["POST"])
+def shutdown():
+    """Shut down after 5s unless a heartbeat cancels it (reload)."""
+    global _shutdown_timer
+    if _shutdown_timer is not None:
+        return "", 204
+    logger.info("Shutdown requested, waiting 5s...")
+    _shutdown_timer = True
+    def _delayed():
+        global _shutdown_timer
+        time.sleep(5)
+        if _shutdown_timer is not None:
+            logger.info("No heartbeat received, exiting.")
+            os._exit(0)
+    threading.Thread(target=_delayed, daemon=True).start()
     return "", 204
 
 @app.route("/api/self-update", methods=["POST"])
@@ -385,14 +408,15 @@ del "%~f0"
 
 
 def _heartbeat_watchdog():
-    """Exit if no heartbeat received for 10 seconds after first ping."""
+    """Exit if no heartbeat received for 90 seconds after first ping.
+    Generous timeout because browsers throttle background tab intervals."""
     global _last_heartbeat
     # Wait until the frontend has actually connected and sent a heartbeat
     while _last_heartbeat is None:
         time.sleep(1)
     while True:
-        time.sleep(2)
-        if time.time() - _last_heartbeat > 10:
+        time.sleep(5)
+        if time.time() - _last_heartbeat > 90:
             logger.info("No heartbeat for 10s, exiting.")
             os._exit(0)
 
