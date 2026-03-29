@@ -329,22 +329,25 @@ if exist "{exe_path}" (
     goto retry_rename
 )
 echo Old exe renamed to .old >> "{log_path}"
-echo Copying new exe to desktop... >> "{log_path}"
-copy /y "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
+echo Launching new exe from temp... >> "{log_path}"
+start "" "{new_exe}"
+echo Waiting for new exe to start... >> "{log_path}"
+timeout /t 10 /nobreak >nul
+echo Checking if server is running... >> "{log_path}"
+curl.exe -s -o nul http://127.0.0.1:5001/ >nul 2>&1
 if errorlevel 1 (
-    echo Copy failed, restoring old exe >> "{log_path}"
-    rename "{old_exe}" "{os.path.basename(exe_path)}" >nul 2>&1
+    echo CRASH DETECTED - server not responding >> "{log_path}"
+    echo Restoring old exe... >> "{log_path}"
+    if exist "{old_exe}" rename "{old_exe}" "{os.path.basename(exe_path)}" >nul 2>&1
+    echo Starting restored exe... >> "{log_path}"
+    start "" "{exe_path}"
     exit /b 1
 )
-echo Waiting for file to settle... >> "{log_path}"
-timeout /t 5 /nobreak >nul
-echo Launching updated exe... >> "{log_path}"
-start "" "{exe_path}"
+echo Copying new exe to desktop for next launch... >> "{log_path}"
+copy /y "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
 echo Cleaning up... >> "{log_path}"
-timeout /t 5 /nobreak >nul
 del "{old_exe}" >nul 2>&1
 if exist "{os.path.join(exe_dir, 'invoice_builder.log')}" del "{os.path.join(exe_dir, 'invoice_builder.log')}" >nul 2>&1
-rmdir /s /q "{update_dir}" >nul 2>&1
 ''')
 
     # Launch the update script and exit
