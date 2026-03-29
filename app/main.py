@@ -227,8 +227,9 @@ def check_update():
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
     """Frontend pings this to signal it's still open."""
-    global _last_heartbeat
+    global _last_heartbeat, _shutdown_pending
     _last_heartbeat = time.time()
+    _shutdown_pending = False
     return "", 204
 
 @app.route("/api/self-update", methods=["POST"])
@@ -328,18 +329,22 @@ if exist "{exe_path}" (
     goto retry_rename
 )
 echo Old exe renamed to .old >> "{log_path}"
-echo Launching new exe from temp dir... >> "{log_path}"
-start "" "{new_exe}"
-echo Waiting for new exe to start... >> "{log_path}"
-timeout /t 10 /nobreak >nul
-echo Moving new exe to desktop... >> "{log_path}"
+echo Copying new exe to desktop... >> "{log_path}"
 copy /y "{new_exe}" "{exe_path}" >> "{log_path}" 2>&1
+if errorlevel 1 (
+    echo Copy failed, restoring old exe >> "{log_path}"
+    rename "{old_exe}" "{os.path.basename(exe_path)}" >nul 2>&1
+    exit /b 1
+)
+echo Waiting for file to settle... >> "{log_path}"
+timeout /t 5 /nobreak >nul
+echo Launching updated exe... >> "{log_path}"
+start "" "{exe_path}"
 echo Cleaning up... >> "{log_path}"
+timeout /t 5 /nobreak >nul
 del "{old_exe}" >nul 2>&1
-if exist "{os.path.join(exe_dir, '_update.log')}" del "{os.path.join(exe_dir, '_update.log')}" >nul 2>&1
-del "{new_exe}" >nul 2>&1
-del "{log_path}" >nul 2>&1
-del "%~f0"
+if exist "{os.path.join(exe_dir, 'invoice_builder.log')}" del "{os.path.join(exe_dir, 'invoice_builder.log')}" >nul 2>&1
+rmdir /s /q "{update_dir}" >nul 2>&1
 ''')
 
     # Launch the update script and exit
@@ -352,21 +357,35 @@ del "%~f0"
     logger.info("Batch script launched, exiting.")
     os._exit(0)
 
+_shutdown_pending = False
+
 @app.route("/api/shutdown", methods=["POST"])
 def shutdown():
-    """Shut down the server when the user closes the app window."""
-    logger.info("Shutdown requested, exiting.")
-    os._exit(0)
+    """Shut down the server when the user closes the app window.
+    Delays 5 seconds so a reload can cancel via heartbeat."""
+    global _shutdown_pending
+    if _shutdown_pending:
+        return "", 204
+    _shutdown_pending = True
+    logger.info("Shutdown requested, waiting 5s for possible reload...")
+    def _delayed_shutdown():
+        global _shutdown_pending
+        time.sleep(5)
+        if _shutdown_pending:
+            logger.info("No reload detected, exiting.")
+            os._exit(0)
+    threading.Thread(target=_delayed_shutdown, daemon=True).start()
+    return "", 204
 
 def _heartbeat_watchdog():
-    """Exit if no heartbeat received for 60 seconds after first ping."""
+    """Exit if no heartbeat received for 15 seconds after first ping."""
     global _last_heartbeat
     # Wait until the frontend has actually connected and sent a heartbeat
     while _last_heartbeat is None:
         time.sleep(1)
     while True:
         time.sleep(5)
-        if time.time() - _last_heartbeat > 60:
+        if time.time() - _last_heartbeat > 15:
             logger.info("No heartbeat for 10s, exiting.")
             os._exit(0)
 

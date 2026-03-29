@@ -1470,15 +1470,17 @@ export default function App() {
   const [emailSetupCount, setEmailSetupCount] = useState(0); // increments on successful setup
   const [updateInfo, setUpdateInfo] = useState(null); // {downloadUrl, latestVersion}
   const [updating, setUpdating] = useState(false);
-  const [updateDone, setUpdateDone] = useState(false);
 
   // Heartbeat: ping the server every 3s so it knows we're alive.
-  // When the tab closes, the pings stop and the server exits after 60s.
+  // On unload, send shutdown request — server waits 5s before acting,
+  // so a reload will cancel it via the next heartbeat.
   useEffect(() => {
     const interval = setInterval(() => {
       fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
     }, 3000);
-    return () => clearInterval(interval);
+    const handleUnload = () => navigator.sendBeacon("/api/shutdown");
+    window.addEventListener("beforeunload", handleUnload);
+    return () => { clearInterval(interval); window.removeEventListener("beforeunload", handleUnload); };
   }, []);
 
   // Check for updates on mount
@@ -1570,20 +1572,19 @@ export default function App() {
         setUpdating(false);
       }
     } catch {
-      // Server exited (expected) — the update script will swap the exe
-      // and relaunch, opening a new browser window.
-      setUpdateDone(true);
+      // Server exited (expected) — poll until the new server is up, then reload
+      const poll = () => {
+        fetch('/api/heartbeat', {method: 'POST'})
+          .then(() => window.location.reload())
+          .catch(() => setTimeout(poll, 2000));
+      };
+      setTimeout(poll, 8000);
     }
   };
-  const UpdateBanner = updateDone ? (
-    <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#eef6ff",borderTop:"2px solid #6aa8d8",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
-      <span style={{fontSize:17}}>✅</span>
-      <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>Update installed. You can close this tab.</div>
-    </div>
-  ) : updateInfo ? (
+  const UpdateBanner = updateInfo ? (
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#eef6ff",borderTop:"2px solid #6aa8d8",padding:"10px 20px",zIndex:1000,display:"flex",alignItems:"center",gap:10}}>
       <span style={{fontSize:17}}>🔄</span>
-      <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>{updating ? "Updating — the app will restart in a new window." : "A new version of Invoice Builder is available."}</div>
+      <div style={{flex:1,fontSize:13,color:"#1a4a6a"}}>{updating ? "Installing update — this page will reload automatically." : "A new version of Invoice Builder is available."}</div>
       {!updating && <button onClick={doSelfUpdate}
         style={{fontSize:13,fontWeight:700,color:"#fff",background:"#4a90c8",border:"none",borderRadius:6,padding:"6px 14px",cursor:"pointer"}}>Install Update</button>}
       {updating && <span style={{fontSize:13,color:"#4a80a8"}}>Please wait...</span>}
