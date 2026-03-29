@@ -189,9 +189,14 @@ def _get_local_version():
 def check_update():
     """Check if a newer version is available on GitHub."""
     local = _get_local_version()
-    logger.info("Update check: local version = %r", local)
+    logger.info("Update check: local version = %r, exe=%s", local, sys.executable)
     if local == "dev":
         return jsonify({"updateAvailable": False, "currentVersion": "dev"}), 200
+    # Skip update check if running from temp dir (just updated, waiting for copy back)
+    import tempfile
+    if getattr(sys, 'frozen', False) and sys.executable.startswith(tempfile.gettempdir()):
+        logger.info("Running from temp dir, skipping update check")
+        return jsonify({"updateAvailable": False, "currentVersion": local}), 200
     try:
         import ssl
         # PyInstaller bundles may not include CA certs; use unverified context
@@ -231,6 +236,9 @@ def self_update():
     """Download the latest exe and replace this one."""
     if not getattr(sys, 'frozen', False):
         return jsonify({"error": "Not supported in dev mode"}), 400
+    import tempfile
+    if sys.executable.startswith(tempfile.gettempdir()):
+        return jsonify({"error": "Cannot update while running from temp dir"}), 400
 
     data = request.get_json() or {}
     download_url = data.get("downloadUrl", "")
