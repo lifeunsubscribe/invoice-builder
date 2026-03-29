@@ -329,6 +329,8 @@ if exist "{exe_path}" (
     goto retry_rename
 )
 echo Old exe renamed to .old >> "{log_path}"
+echo Cleaning up old _MEI temp folders... >> "{log_path}"
+for /d %%D in ("%TEMP%\\_MEI*") do rmdir /s /q "%%D" >nul 2>&1
 echo Launching new exe from temp... >> "{log_path}"
 start "" "{new_exe}"
 echo Waiting for new exe to start... >> "{log_path}"
@@ -373,10 +375,10 @@ def shutdown():
     if _shutdown_pending:
         return "", 204
     _shutdown_pending = True
-    logger.info("Shutdown requested, waiting 5s for possible reload...")
+    logger.info("Shutdown requested, waiting 10s for possible reload...")
     def _delayed_shutdown():
         global _shutdown_pending
-        time.sleep(5)
+        time.sleep(10)
         if _shutdown_pending:
             logger.info("No reload detected, exiting.")
             os._exit(0)
