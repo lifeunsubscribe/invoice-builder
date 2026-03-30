@@ -1740,6 +1740,10 @@ function DailyLogPage({ config, onBack }) {
     setSaveStatus("idle");
     setUndoStack([]); setRedoStack([]);
     locallyRemovedRef.current = new Set();
+  }, [dateInfo.dateStr]);
+
+  // Merge sections with sectionNames whenever either changes
+  useEffect(() => {
     const ac = new AbortController();
     fetch(`/api/log?date=${dateInfo.dateStr}`, { signal: ac.signal })
       .then(r => r.json())
@@ -1748,6 +1752,8 @@ function DailyLogPage({ config, onBack }) {
         if (sectionNames) {
           const byName = {};
           loaded.forEach(s => { byName[s.name] = s.content; });
+          // Preserve any in-progress edits for sections we already have
+          sectionsRef.current.forEach(s => { if (s.content) byName[s.name] = s.content; });
           const removed = locallyRemovedRef.current;
           const merged = sectionNames.filter(name => !removed.has(name)).map(name => ({ name, content: byName[name] || "" }));
           loaded.forEach(s => { if (!sectionNames.includes(s.name) && !removed.has(s.name)) merged.push(s); });
