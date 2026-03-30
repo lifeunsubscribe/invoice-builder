@@ -110,7 +110,7 @@
       <div>
         <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #5a90a8; margin-bottom: 7px;">Rate</div>
         <div style="font-size: 16px; font-weight: 700; color: #1a2a3a;">
-          ${{ "%.2f"|format(config.rate|default(0)) }}<span style="font-size: 11px; font-weight: 400; color: #5a8090;">/hr</span>
+          ${{ "%.2f"|format(config.rate|default(0)) }}<span style="font-size: 11px; font-weight: 500; color: #5a8090;">/hr</span>
         </div>
       </div>
     </div>
@@ -134,7 +134,7 @@
             <td style="padding: 12px 0; color: #4a6a70; font-size: 12px;">{{ week.label|default('') }}</td>
             <td style="padding: 12px 0; text-align: right; color: #1a2a3a;">{{ week.hours|default(0) }}</td>
             <td style="padding: 12px 0; text-align: right; color: #5a90a8; opacity: 0.8;">${{ "%.2f"|format(config.rate|default(0)) }}</td>
-            <td style="padding: 12px 38px 12px 0; text-align: right; color: {% if week.hours|default(0) > 0 %}#1a2a3a{% else %}#aaa{% endif %}; font-weight: {% if week.hours|default(0) > 0 %}600{% else %}400{% endif %};">
+            <td style="padding: 12px 38px 12px 0; text-align: right; color: {% if week.hours|default(0) > 0 %}#1a2a3a{% else %}#aaa{% endif %}; font-weight: {% if week.hours|default(0) > 0 %}600{% else %}500{% endif %};">
               {% if week.hours|default(0) > 0 %}${{ "%.2f"|format(week.hours|default(0) * config.rate|default(0)) }}{% else %}—{% endif %}
             </td>
           </tr>

@@ -3,12 +3,12 @@ import { useState, useMemo, useEffect, useRef } from "react";
 // ── CONSTANTS ─────────────────────────────────────────────────────────────
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const PALETTES = [
-  { label:"Rose",       value:"#b76e79" },
-  { label:"Sage",       value:"#7a9e7e" },
-  { label:"Dusty Blue", value:"#6a8caf" },
-  { label:"Terracotta", value:"#c4714f" },
-  { label:"Lavender",   value:"#8e7ab5" },
-  { label:"Marigold",   value:"#c9972a" },
+  { label:"Rose",       value:"#c47a86" },
+  { label:"Sage",       value:"#82ab86" },
+  { label:"Dusty Blue", value:"#7498bc" },
+  { label:"Terracotta", value:"#cf7d5c" },
+  { label:"Lavender",   value:"#9a86c0" },
+  { label:"Marigold",   value:"#d4a438" },
 ];
 const TEMPLATES = [
   { id:"morning-light", label:"🌸 Morning Light" },
@@ -84,7 +84,7 @@ const defaultConfig = {
   accountantEmail:"accountant@cpa.com",
   patientName:    "",
   patientAddress: "",
-  accent:         "#b76e79",
+  accent:         "#c47a86",
   invoiceNote:    "Thank you for the privilege of caring for your clients.",
   saveFolder:     deriveSaveFolder("Jane Doe"),
 };
@@ -109,7 +109,7 @@ function HourRow({ label, sublabel, value, onChange, accent }) {
   return (
     <div className="day-row" style={{display:"flex",alignItems:"center",padding:"6px 3px",borderBottom:"1px solid #f0e6e0",transition:"background 0.1s",borderRadius:4}}>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:15,color:"#4a3028",fontWeight:value>0?700:400}}>{label}</div>
+        <div style={{fontSize:15,color:"#4a3028",fontWeight:value>0?700:500}}>{label}</div>
         {sublabel && <div style={{fontSize:12,color:"#b0988a",marginTop:1}}>{sublabel}</div>}
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0,marginLeft:8}}>
@@ -134,7 +134,7 @@ function HourRow({ label, sublabel, value, onChange, accent }) {
 }
 
 // ── CONFIRM MODAL ─────────────────────────────────────────────────────────
-function ConfirmModal({ savedPath, onConfirm, onCancel }) {
+function ConfirmModal({ savedPath, onConfirm, onCancel, accent }) {
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:16}}>
       <div style={{background:"white",borderRadius:16,maxWidth:360,width:"100%",overflow:"hidden",boxShadow:"0 8px 48px rgba(0,0,0,0.25)"}}>
@@ -150,7 +150,7 @@ function ConfirmModal({ savedPath, onConfirm, onCancel }) {
           </div>
           <div style={{display:"flex",gap:9}}>
             <button onClick={onCancel} style={{flex:1,fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"1.5px solid #e8ddd8",background:"white",color:"#9a8070",cursor:"pointer"}}>Cancel</button>
-            <button onClick={onConfirm} style={{flex:1,fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"none",background:"#c4714f",color:"white",cursor:"pointer"}}>Send Anyway</button>
+            <button onClick={onConfirm} style={{flex:1,fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"none",background:accent,color:"white",cursor:"pointer"}}>Send Anyway</button>
           </div>
         </div>
       </div>
@@ -301,7 +301,7 @@ function TemplateGarden({ config, hours, week, totalHours, totalPay }) {
     <div style={{fontFamily:"sans-serif",background:"#fffef8",width:"100%",minHeight:"100%"}}>
       <div style={{background:"linear-gradient(135deg,#2d4a2d,#3d6b3d)",padding:"34px 38px 28px",position:"relative"}}>
         <div style={{fontSize:13,color:"#a8d8a0",letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>🌿</span> Contractor Invoice</div>
-        <div style={{fontSize:27,fontWeight:400,color:"#e8f5e4",letterSpacing:0.5}}>{config.name}</div>
+        <div style={{fontSize:27,fontWeight:500,color:"#e8f5e4",letterSpacing:0.5}}>{config.name}</div>
         <div style={{fontSize:13,color:"#a8c8a0",marginTop:6}}>{config.address}</div>
         <div style={{fontSize:13,color:"#a8c8a0",marginTop:2}}>{config.personalEmail}</div>
         <div style={{position:"absolute",right:38,top:34,background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"13px 20px",textAlign:"right"}}>
@@ -360,7 +360,7 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
           <div style={{fontSize:13,fontWeight:700,color:"#1a2a3a"}}>Accountant of Record</div>
           <div style={{fontSize:12,color:"#4a6a70",marginTop:2}}>{config.accountantEmail}</div></div>
         <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:7}}>Rate</div>
-          <div style={{fontSize:16,fontWeight:700,color:"#1a2a3a"}}>${config.rate.toFixed(2)}<span style={{fontSize:11,fontWeight:400,color:"#5a8090"}}>/hr</span></div></div>
+          <div style={{fontSize:16,fontWeight:700,color:"#1a2a3a"}}>${config.rate.toFixed(2)}<span style={{fontSize:11,fontWeight:500,color:"#5a8090"}}>/hr</span></div></div>
       </div>
       <div style={{paddingTop:6}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
@@ -373,7 +373,7 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
               <td style={{padding:"12px 0",color:"#4a6a70",fontSize:12}}>{w.label}</td>
               <td style={{padding:"12px 0",textAlign:"right",color:"#1a2a3a"}}>{w.hours}</td>
               <td style={{padding:"12px 0",textAlign:"right",color:"#5a90a8",opacity:0.8}}>${config.rate.toFixed(2)}</td>
-              <td style={{padding:"12px 38px 12px 0",textAlign:"right",color:w.hours>0?"#1a2a3a":"#aaa",fontWeight:w.hours>0?600:400}}>
+              <td style={{padding:"12px 38px 12px 0",textAlign:"right",color:w.hours>0?"#1a2a3a":"#aaa",fontWeight:w.hours>0?600:500}}>
                 {w.hours>0?`$${(w.hours*config.rate).toFixed(2)}`:"—"}
               </td>
             </tr>
@@ -417,7 +417,7 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
 function Shell({ config, title, subtitle, onBack, emailConfigured, onOpenEmailSetup, children }) {
   return (
     <div style={{height:"100vh",display:"flex",flexDirection:"column",background:chrome.titleBar,overflow:"hidden"}}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Sacramento&family=Pacifico&family=Satisfy&display=swap');*{box-sizing:border-box}.day-row:hover{background:#fbeee8!important}.tmpl-btn,.bsm{transition:all 0.15s}.tmpl-btn:hover,.bsm:hover{opacity:0.85}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#d0c0b8;border-radius:3px}@keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 rgba(196,113,79,0.4)}50%{box-shadow:0 0 0 6px rgba(196,113,79,0)}}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Sacramento&family=Pacifico&family=Satisfy&display=swap');*{box-sizing:border-box}.day-row:hover{background:#fbeee8!important}.tmpl-btn,.bsm{transition:all 0.15s}.tmpl-btn:hover,.bsm:hover{opacity:0.85}::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:#d0c0b8;border-radius:3px}@keyframes pulse-glow{0%,100%{box-shadow:0 0 0 0 ${tint(config.accent,0.4)}}50%{box-shadow:0 0 0 6px ${tint(config.accent,0)}}}`}</style>
       <div style={{background:chrome.toolbar,borderBottom:`1px solid ${chrome.border}`,padding:"10px 20px",display:"flex",alignItems:"center",gap:14,flexShrink:0}}>
         <button onClick={onBack||undefined} style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${onBack?chrome.border:"transparent"}`,borderRadius:6,padding:"5px 12px",cursor:onBack?"pointer":"default",visibility:onBack?"visible":"hidden"}}>← Back</button>
         <span style={{fontSize:14,letterSpacing:3,textTransform:"uppercase",color:config.accent,display:"flex",alignItems:"center",gap:6}}><span>♥</span> {title}</span>
@@ -425,7 +425,7 @@ function Shell({ config, title, subtitle, onBack, emailConfigured, onOpenEmailSe
         <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
         {onOpenEmailSetup && emailConfigured === false && (
           <button onClick={onOpenEmailSetup}
-            style={{fontSize:14,fontWeight:700,color:"#fff",background:"#c4714f",border:"none",borderRadius:20,padding:"6px 15px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,animation:"pulse-glow 2s ease-in-out infinite"}}>
+            style={{fontSize:14,fontWeight:700,color:"#fff",background:config.accent,border:"none",borderRadius:20,padding:"6px 15px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,animation:"pulse-glow 2s ease-in-out infinite"}}>
             <span style={{fontSize:16}}>✉</span> Set Up Email
           </button>
         )}
@@ -445,7 +445,7 @@ function Shell({ config, title, subtitle, onBack, emailConfigured, onOpenEmailSe
 }
 
 // ── NOTIFICATION CARD ─────────────────────────────────────────────────────
-function NotifCard({ notification, onDismiss, onOpenEmailSetup }) {
+function NotifCard({ notification, onDismiss, onOpenEmailSetup, accent }) {
   // Handle partial success: PDF saved but email failed
   if (notification.saved && notification.emailError) {
     const isCredentialError = notification.emailError.includes('.env') || notification.emailError.includes('not found');
@@ -468,7 +468,7 @@ function NotifCard({ notification, onDismiss, onOpenEmailSetup }) {
           </div>
           {isCredentialError && onOpenEmailSetup && (
             <button onClick={onOpenEmailSetup}
-              style={{marginTop:10,fontSize:13,fontWeight:700,color:"#fff",background:"#c4714f",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",width:"100%"}}>
+              style={{marginTop:10,fontSize:13,fontWeight:700,color:"#fff",background:accent,border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",width:"100%"}}>
               Set Up Email Now
             </button>
           )}
@@ -897,7 +897,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
 
   return (
     <Shell config={config} title="Weekly Invoice" subtitle={weekLabel} onBack={onBack} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
-      {showConfirm && <ConfirmModal savedPath={savedPath} onConfirm={doSend} onCancel={()=>setShowConfirm(false)}/>}
+      {showConfirm && <ConfirmModal savedPath={savedPath} onConfirm={doSend} onCancel={()=>setShowConfirm(false)} accent={acc}/>}
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
         {/* PDF */}
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -912,7 +912,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
             <div style={{display:"flex",alignItems:"center",gap:12}}>
               <div style={{display:"flex",alignItems:"center",gap:7}}>
                 <button className="bsm" onClick={()=>setWeekOffset(o=>o-1)} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-                <span style={{fontSize:15,color:isCurrent?acc:chrome.mutedText,fontWeight:isCurrent?700:400,minWidth:60,textAlign:"center"}}>
+                <span style={{fontSize:15,color:isCurrent?acc:chrome.mutedText,fontWeight:isCurrent?700:500,minWidth:60,textAlign:"center"}}>
                   {isCurrent?"This week":weekOffset<0?`${Math.abs(weekOffset)}w ago`:`+${weekOffset}w`}
                 </span>
                 <button className="bsm" onClick={()=>setWeekOffset(o=>o+1)} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
@@ -934,7 +934,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
           </div>
         </div>
         {/* Editor */}
-        <div style={{width:360,background:"#fdf8f4",borderLeft:"1px solid #e8ddd4",display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
+        <div style={{width:360,background:"#fdf8f4",borderLeft:`1px solid ${acc}18`,display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
           <div style={{flex:1,display:"flex",flexDirection:"column",padding:"20px 16px 0",overflowY:"auto"}}>
             <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Hours This Week</div>
             <div style={{flex:"0 0 auto"}}>
@@ -975,17 +975,17 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
                   <div key={label} style={{marginBottom:7}}>
                     <div style={{fontSize:13,color:"#b0988a",marginBottom:3}}>{label}</div>
                     <input value={value} onChange={e=>set(e.target.value)}
-                        style={{width:"100%",fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
+                        style={{width:"100%",fontSize:15,border:`1.5px solid ${acc}30`,borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
                         onFocus={e=>{e.target.style.borderColor=acc;e.target.style.boxShadow=`0 0 0 2px ${tint(acc,0.12)}`;}}
-                        onBlur={e=>{e.target.style.borderColor="#e8ddd8";e.target.style.boxShadow="none";}}/>
+                        onBlur={e=>{e.target.style.borderColor=`${acc}30`;e.target.style.boxShadow="none";}}/>
                     </div>
                   ))}
               </div>
             </div>
             <div style={{flex:1}}/>
           </div>
-          <div style={{flexShrink:0,borderTop:"1px solid #eee0d8",background:"#fdf8f4"}}>
-            {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup}/></div>}
+          <div style={{flexShrink:0,borderTop:`1px solid ${acc}18`,background:"#fdf8f4"}}>
+            {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup} accent={acc}/></div>}
             <div style={{padding:"10px 16px 14px"}}>
               <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
                 {submitting ? "Submitting..." : "Save & Submit ✉"}
@@ -1156,7 +1156,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
 
   return (
     <Shell config={config} title="Monthly Report" subtitle={isCurrentMonth ? monthLabel : monthOffset < 0 ? `${monthLabel} (past)` : `${monthLabel} (future)`} onBack={onBack} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
-      {showConfirm && <ConfirmModal savedPath={savedPath} onConfirm={doSend} onCancel={()=>setShowConfirm(false)}/>}
+      {showConfirm && <ConfirmModal savedPath={savedPath} onConfirm={doSend} onCancel={()=>setShowConfirm(false)} accent={acc}/>}
       {scanPopup   && <ScanPopup results={scanPopup} onClose={()=>setScanPopup(null)}/>}
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
         {/* PDF */}
@@ -1173,7 +1173,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
             <div style={{display:"flex",alignItems:"center",gap:12}}>
               <div style={{display:"flex",alignItems:"center",gap:7}}>
                 <button className="bsm" onClick={prevMonth} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 12px",cursor:"pointer"}}>‹</button>
-                <span style={{fontSize:15,color:isCurrentMonth?acc:chrome.mutedText,fontWeight:isCurrentMonth?700:400,minWidth:80,textAlign:"center"}}>{monthNavLabel}</span>
+                <span style={{fontSize:15,color:isCurrentMonth?acc:chrome.mutedText,fontWeight:isCurrentMonth?700:500,minWidth:80,textAlign:"center"}}>{monthNavLabel}</span>
                 <button className="bsm" onClick={nextMonth} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 12px",cursor:"pointer"}}>›</button>
               </div>
               <div style={{width:1,height:18,background:chrome.border}}/>
@@ -1193,7 +1193,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
           </div>
         </div>
         {/* Editor */}
-        <div style={{width:360,background:"#fdf8f4",borderLeft:"1px solid #e8ddd4",display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
+        <div style={{width:360,background:"#fdf8f4",borderLeft:`1px solid ${acc}18`,display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
           <div style={{flex:1,display:"flex",flexDirection:"column",padding:"20px 16px 0",overflowY:"auto"}}>
             <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Hours Per Week</div>
             <div style={{flex:"0 0 auto",overflowY:"auto"}}>
@@ -1232,7 +1232,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
               <div style={{display:"flex",flexDirection:"column",gap:4}}>
                 {["Dancing Script","Great Vibes","Sacramento","Pacifico","Satisfy"].map(f=>(
                   <button key={f} onClick={()=>{setSignatureFont(f);localStorage.setItem("signatureFont",f);}}
-                    style={{textAlign:"left",padding:"7px 12px",borderRadius:7,border:signatureFont===f?`2px solid ${acc}`:"1.5px solid #e8ddd8",background:signatureFont===f?"#fff5f0":"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    style={{textAlign:"left",padding:"7px 12px",borderRadius:7,border:signatureFont===f?`2px solid ${acc}`:`1.5px solid ${acc}30`,background:signatureFont===f?"#fff5f0":"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <span style={{fontFamily:`'${f}', cursive`,fontSize:20,color:"#2c1810",lineHeight:"28px"}}>{config.name||"Your Name"}</span>
                     <span style={{fontSize:11,color:"#b0988a"}}>{f}</span>
                   </button>
@@ -1245,17 +1245,17 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                 <div style={{marginBottom:7}}>
                   <div style={{fontSize:13,color:"#b0988a",marginBottom:3}}>Accountant</div>
                   <input value={accountantEmail} onChange={e=>setAccountantEmail(e.target.value)}
-                    style={{width:"100%",fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
+                    style={{width:"100%",fontSize:15,border:`1.5px solid ${acc}30`,borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
                     onFocus={e=>{e.target.style.borderColor=acc;e.target.style.boxShadow=`0 0 0 2px ${tint(acc,0.12)}`;}}
-                    onBlur={e=>{e.target.style.borderColor="#e8ddd8";e.target.style.boxShadow="none";}}/>
+                    onBlur={e=>{e.target.style.borderColor=`${acc}30`;e.target.style.boxShadow="none";}}/>
                 </div>
                 <div style={{fontSize:13,color:"#c0a898",fontStyle:"italic"}}>Monthly reports go to your accountant only.</div>
               </div>
             </div>
             <div style={{flex:1}}/>
           </div>
-          <div style={{flexShrink:0,borderTop:"1px solid #eee0d8",background:"#fdf8f4"}}>
-            {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup}/></div>}
+          <div style={{flexShrink:0,borderTop:`1px solid ${acc}18`,background:"#fdf8f4"}}>
+            {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup} accent={acc}/></div>}
             <div style={{padding:"10px 16px 14px"}}>
               <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
                 {submitting ? "Sending Report..." : "Generate & Send Report 📊"}

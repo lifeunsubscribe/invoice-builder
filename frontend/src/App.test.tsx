@@ -84,7 +84,7 @@ describe('Profile Save - Race Condition Prevention', () => {
             clientName: 'Test Client',
             clientEmail: 'client@example.com',
             accountantEmail: 'accountant@example.com',
-            accent: '#b76e79',
+            accent: '#c47a86',
             invoiceNote: 'Test note',
             saveFolder: '~/Documents/test-invoices'
           })
@@ -164,7 +164,7 @@ describe('Weekly Submit - Loading State', () => {
             clientName: 'Test Client',
             clientEmail: 'client@example.com',
             accountantEmail: 'accountant@example.com',
-            accent: '#b76e79',
+            accent: '#c47a86',
             invoiceNote: 'Test note',
             saveFolder: '~/Documents/test-invoices'
           })
@@ -295,7 +295,7 @@ describe('Monthly Submit - Loading State', () => {
             clientName: 'Test Client',
             clientEmail: 'client@example.com',
             accountantEmail: 'accountant@example.com',
-            accent: '#b76e79',
+            accent: '#c47a86',
             invoiceNote: 'Test note',
             saveFolder: '~/Documents/test-invoices'
           })

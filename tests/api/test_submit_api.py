@@ -39,7 +39,7 @@ def temp_config():
             "clientName": "Test Client",
             "clientEmail": "client@example.com",
             "accountantEmail": "accountant@example.com",
-            "accent": "#b76e79",
+            "accent": "#c47a86",
             "invoiceNote": "Thank you!",
             "saveFolder": tmpdir
         }

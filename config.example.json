@@ -6,7 +6,7 @@
   "clientName": "Client Agency Name",
   "clientEmail": "client-billing@example.com",
   "accountantEmail": "accountant@example.com",
-  "accent": "#b76e79",
+  "accent": "#c47a86",
   "invoiceNote": "Your custom note here",
   "saveFolder": "~/Documents/hha-invoices"
 }
