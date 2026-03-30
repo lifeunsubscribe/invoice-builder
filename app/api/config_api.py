@@ -95,7 +95,8 @@ def get_or_create_config(config_path):
                 "patientName": "",
                 "patientAddress": "",
                 "invoiceNote": "",
-                "saveFolder": ""
+                "saveFolder": "",
+                "logSections": []
             }, f, indent=2)
 
 @config_bp.route('/config', methods=['GET'])

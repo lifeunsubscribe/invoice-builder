@@ -112,9 +112,34 @@ def monthly_path(base: str, year: int, month: int) -> str:
     return path
 
 
+def logs_path(base: str, date_str: str) -> str:
+    """
+    Generate the full path for a daily service log JSON file.
+
+    Args:
+        base: Base folder path (e.g., "~/Documents/lisa-w-invoices")
+        date_str: Date string in YYYY-MM-DD format (e.g., "2026-03-29")
+
+    Returns:
+        Full path to the log JSON (e.g., "{base}/logs/LOG-2026-03-29.json")
+
+    Raises:
+        ValueError: If the generated path would escape the base directory
+    """
+    if '..' in date_str or os.path.isabs(date_str):
+        raise ValueError(
+            f"Path traversal detected: date_str '{date_str}' contains "
+            f"invalid path components"
+        )
+
+    path = f"{base}/logs/LOG-{date_str}.json"
+    validate_safe_path(base, path)
+    return path
+
+
 def ensure_folders(base: str) -> None:
     """
-    Create weekly/ and monthly/ subdirectories if they don't exist.
+    Create weekly/, monthly/, and logs/ subdirectories if they don't exist.
 
     Args:
         base: Base folder path (e.g., "~/Documents/lisa-w-invoices")
@@ -122,20 +147,24 @@ def ensure_folders(base: str) -> None:
     Creates:
         {base}/weekly/
         {base}/monthly/
+        {base}/logs/
 
     Raises:
         ValueError: If subdirectory paths would escape base directory
     """
     weekly_dir = os.path.join(base, "weekly")
     monthly_dir = os.path.join(base, "monthly")
+    logs_dir = os.path.join(base, "logs")
 
     # Security: Validate that subdirectories stay within base
     # This prevents path traversal if base contains malicious path components
     validate_safe_path(base, weekly_dir)
     validate_safe_path(base, monthly_dir)
+    validate_safe_path(base, logs_dir)
 
     os.makedirs(weekly_dir, exist_ok=True)
     os.makedirs(monthly_dir, exist_ok=True)
+    os.makedirs(logs_dir, exist_ok=True)
 
 
 def expand_path(path: str) -> str:

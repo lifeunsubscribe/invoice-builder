@@ -474,11 +474,13 @@ from app.api.config_api import config_bp
 from app.api.scan_api import scan_bp
 from app.api.submit_api import submit_bp
 from app.api.email_config_api import email_config_bp
+from app.api.log_api import log_bp
 
 app.register_blueprint(config_bp)
 app.register_blueprint(scan_bp)
 app.register_blueprint(submit_bp)
 app.register_blueprint(email_config_bp)
+app.register_blueprint(log_bp)
 
 def _check_crash_report():
     """If a previous update crashed, log it and clean up marker files."""

@@ -95,6 +95,111 @@ const chrome = {
   border:"#4a3828", mutedText:"#a08878", brightText:"#e8d8cc",
 };
 
+// ── CALENDAR PICKER ──────────────────────────────────────────────────────
+function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYear, initialMonth, mode }) {
+  // mode: "day" (default) picks a day, "week" picks a week (Monday), "month" picks a month
+  const m = mode || "day";
+  const [year, setYear] = useState(initialYear || new Date().getFullYear());
+  const [month, setMonth] = useState(initialMonth != null ? initialMonth : new Date().getMonth());
+  const [loadedHL, setLoadedHL] = useState(highlightedDays || []);
+  const [fetchKey, setFetchKey] = useState(null);
+
+  // If highlightedDays is a function, call it when month/year changes
+  useEffect(() => {
+    if (typeof highlightedDays === "function") {
+      let cancelled = false;
+      highlightedDays(year, month).then(days => { if (!cancelled) setLoadedHL(days); });
+      return () => { cancelled = true; };
+    } else if (Array.isArray(highlightedDays)) {
+      setLoadedHL(highlightedDays);
+    }
+  }, [year, month, highlightedDays]);
+
+  const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); };
+  const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); };
+
+  // Month picker mode
+  if (m === "month") {
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return (
+      <div style={{position:"absolute",top:"100%",left:0,zIndex:100,background:"white",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",padding:16,minWidth:240,marginTop:6}} onClick={e => e.stopPropagation()}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <button onClick={() => setYear(y => y - 1)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#9a8070"}}>‹</button>
+          <span style={{fontSize:15,fontWeight:700,color:"#2c1810"}}>{year}</span>
+          <button onClick={() => setYear(y => y + 1)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#9a8070"}}>›</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+          {months.map((ml, i) => {
+            const isHL = loadedHL.includes(i);
+            const now = new Date();
+            const isCurrent = year === now.getFullYear() && i === now.getMonth();
+            return (
+              <button key={i} onClick={() => { onSelect(year, i); onClose(); }}
+                style={{padding:"8px 4px",borderRadius:8,border:isCurrent ? `2px solid ${accent}` : "1px solid #e8ddd4",background:isHL ? `${accent}18` : "white",color:"#2c1810",cursor:"pointer",fontSize:13,fontWeight:isCurrent ? 700 : 400}}>
+                {ml}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Day/week picker
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7; // 0=Mon
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= lastDay.getDate(); d++) cells.push(d);
+  const monthName = firstDay.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const today = new Date();
+  const isThisMonth = year === today.getFullYear() && month === today.getMonth();
+
+  // For week mode, compute which Monday each day belongs to
+  const getMondayForDay = (day) => {
+    const d = new Date(year, month, day);
+    const dow = (d.getDay() + 6) % 7;
+    const mon = new Date(d); mon.setDate(d.getDate() - dow);
+    return mon;
+  };
+
+  return (
+    <div style={{position:"absolute",top:"100%",left:0,zIndex:100,background:"white",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",padding:16,minWidth:260,marginTop:6}} onClick={e => e.stopPropagation()}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+        <button onClick={prevMonth} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#9a8070"}}>‹</button>
+        <span style={{fontSize:15,fontWeight:700,color:"#2c1810"}}>{monthName}</span>
+        <button onClick={nextMonth} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#9a8070"}}>›</button>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,textAlign:"center"}}>
+        {["M","T","W","T","F","S","S"].map((d,i) => (
+          <div key={i} style={{fontSize:11,color:"#9a8070",padding:"4px 0",fontWeight:600}}>{d}</div>
+        ))}
+        {cells.map((day, i) => {
+          if (!day) return <div key={i}/>;
+          const isToday = isThisMonth && day === today.getDate();
+          const isHL = loadedHL.includes(day);
+          const handleClick = () => {
+            if (m === "week") {
+              const mon = getMondayForDay(day);
+              onSelect(mon);
+            } else {
+              onSelect(year, month, day);
+            }
+            onClose();
+          };
+          return (
+            <button key={i} onClick={handleClick}
+              style={{width:32,height:32,borderRadius:"50%",border:isToday ? `2px solid ${accent}` : "none",background:isHL ? `${accent}25` : "transparent",color:isToday ? accent : "#2c1810",cursor:"pointer",fontSize:13,fontWeight:isToday ? 700 : 400,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto"}}>
+              {day}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── SHARED: HOUR INPUT ROW ────────────────────────────────────────────────
 function HourRow({ label, sublabel, value, onChange, accent }) {
   const [editing, setEditing] = useState(false);
@@ -518,14 +623,20 @@ function LandingPage({ config, onNav, emailConfigured, onOpenEmailSetup }) {
   const acc  = config.accent;
   const week = getWeekRange(0);
   const now  = new Date();
+  const todayFormatted = now.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
   const monthName = now.toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const cards = [
-    { id:"weekly",  emoji:"📄", label:"Weekly Invoice",  desc:`Week of ${week.start} – ${week.end}`, primary:true  },
-    { id:"monthly", emoji:"📊", label:"Monthly Report",  desc:monthName,                              primary:false },
-    { id:"profile", emoji:"👤", label:"Edit Profile",    desc:"Name, rate, contacts & folder",        primary:false },
+    { id:"log",     emoji:"📓", label:"Daily Service Log", desc:todayFormatted,                         primary:true  },
+    { id:"weekly",  emoji:"📄", label:"Weekly Invoice",    desc:`Week of ${week.start}`,               primary:false },
+    { id:"monthly", emoji:"📊", label:"Monthly Report",    desc:monthName,                              primary:false },
+    { id:"profile", emoji:"👤", label:"Edit Profile",      desc:"Invoice & Custom Settings",     primary:false },
   ];
   return (
     <Shell config={config} title="Contractor Invoice" subtitle={config.name} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
+      <style>{`
+        .landing-cards{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:520px}
+        @media(min-width:700px){.landing-cards{display:grid;grid-template-columns:1fr 1fr;max-width:760px;gap:16px}}
+      `}</style>
       <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,padding:"32px 24px",background:"linear-gradient(160deg,#f9f3ee,#f2ebe4)"}}>
         <div style={{textAlign:"center",marginBottom:8}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:29,color:"#2c1810",fontWeight:700,marginBottom:4}}>
@@ -533,18 +644,20 @@ function LandingPage({ config, onNav, emailConfigured, onOpenEmailSetup }) {
           </div>
           <div style={{fontFamily:"sans-serif",fontSize:15,color:"#9a8070"}}>What would you like to do today?</div>
         </div>
-        {cards.map(c=>(
-          <button key={c.id} onClick={()=>onNav(c.id)} style={{width:"100%",maxWidth:480,padding:"22px 32px",borderRadius:16,cursor:"pointer",border:c.primary?`2px solid ${acc}`:"2px solid #e8ddd4",background:c.primary?`linear-gradient(135deg,${acc},${tint(acc,0.85)})`:"white",color:c.primary?"white":"#2c1810",textAlign:"left",display:"flex",alignItems:"center",gap:18,boxShadow:c.primary?`0 6px 24px ${tint(acc,0.3)}`:"0 2px 12px rgba(0,0,0,0.06)",transition:"transform 0.1s,box-shadow 0.1s"}}
-            onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=c.primary?`0 10px 28px ${tint(acc,0.35)}`:"0 6px 20px rgba(0,0,0,0.1)";}}
-            onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=c.primary?`0 6px 24px ${tint(acc,0.3)}`:"0 2px 12px rgba(0,0,0,0.06)";}}>
-            <span style={{fontSize:35}}>{c.emoji}</span>
-            <div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:21,fontWeight:700,marginBottom:3}}>{c.label}</div>
-              <div style={{fontFamily:"sans-serif",fontSize:15,opacity:0.75}}>{c.desc}</div>
-            </div>
-            <span style={{marginLeft:"auto",fontSize:21,opacity:0.5}}>→</span>
-          </button>
-        ))}
+        <div className="landing-cards">
+          {cards.map(c=>(
+            <button key={c.id} onClick={()=>onNav(c.id)} style={{width:"100%",padding:"22px 32px",borderRadius:16,cursor:"pointer",border:c.primary?`2px solid ${acc}`:"2px solid #e8ddd4",background:c.primary?`linear-gradient(135deg,${acc},${tint(acc,0.85)})`:"white",color:c.primary?"white":"#2c1810",textAlign:"left",display:"flex",alignItems:"center",gap:18,boxShadow:c.primary?`0 6px 24px ${tint(acc,0.3)}`:"0 2px 12px rgba(0,0,0,0.06)",transition:"transform 0.1s,box-shadow 0.1s"}}
+              onMouseEnter={e=>{e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow=c.primary?`0 10px 28px ${tint(acc,0.35)}`:"0 6px 20px rgba(0,0,0,0.1)";}}
+              onMouseLeave={e=>{e.currentTarget.style.transform="translateY(0)";e.currentTarget.style.boxShadow=c.primary?`0 6px 24px ${tint(acc,0.3)}`:"0 2px 12px rgba(0,0,0,0.06)";}}>
+              <span style={{fontSize:35}}>{c.emoji}</span>
+              <div>
+                <div style={{fontFamily:"'Playfair Display',serif",fontSize:21,fontWeight:700,marginBottom:3}}>{c.label}</div>
+                <div style={{fontFamily:"sans-serif",fontSize:15,opacity:0.75}}>{c.desc}</div>
+              </div>
+              <span style={{marginLeft:"auto",fontSize:21,opacity:0.5}}>→</span>
+            </button>
+          ))}
+        </div>
         {/* Clickable "Saving to" — navigates to profile folder section */}
         <button onClick={()=>onNav("profile-folder")}
           style={{fontSize:13,color:"#9a8070",background:"none",border:"1px dashed #d0c0b0",borderRadius:8,padding:"7px 15px",cursor:"pointer",marginTop:4,transition:"all 0.15s"}}
@@ -749,6 +862,7 @@ function handleSubmitResponse(data, savedPath, emails, setNotification, setAlrea
 // ── WEEKLY PAGE ───────────────────────────────────────────────────────────
 function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSetupCount }) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [showCalendar, setShowCalendar] = useState(false);
   const week  = useMemo(()=>getWeekRange(weekOffset),[weekOffset]);
   const acc   = config.accent;
   const savedPath = weeklyPath(config.saveFolder, week.invNum);
@@ -910,7 +1024,25 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
             <div style={{flex:1}}/>
             {/* Week nav + Zoom — right */}
             <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:7}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,position:"relative"}}>
+                <button className="bsm" onClick={() => setShowCalendar(!showCalendar)}
+                  style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer"}}>📅</button>
+                {showCalendar && <CalendarPicker accent={acc} initialYear={week.monday.getFullYear()} initialMonth={week.monday.getMonth()} mode="week"
+                  highlightedDays={async (y, m) => {
+                    try {
+                      const r = await fetch(`/api/scan-month?year=${y}&month=${m+1}&folder=${encodeURIComponent(config.saveFolder)}`);
+                      const data = await r.json();
+                      return (data.weeks||[]).filter(w => w.found).map(w => { const d = new Date(y, m, 1); const parts = w.invNum.replace("INV-",""); return parseInt(parts.slice(6,8)); });
+                    } catch { return []; }
+                  }}
+                  onSelect={(monday) => {
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const todayDay = today.getDay();
+                    const todayMonday = new Date(today); todayMonday.setDate(today.getDate() - ((todayDay+6)%7));
+                    const diff = Math.round((monday - todayMonday) / (7*86400000));
+                    setWeekOffset(diff);
+                  }}
+                  onClose={() => setShowCalendar(false)} />}
                 <button className="bsm" onClick={()=>setWeekOffset(o=>o-1)} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,width:30,height:30,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
                 <span style={{fontSize:15,color:isCurrent?acc:chrome.mutedText,fontWeight:isCurrent?700:500,minWidth:60,textAlign:"center"}}>
                   {isCurrent?"This week":weekOffset<0?`${Math.abs(weekOffset)}w ago`:`+${weekOffset}w`}
@@ -1003,6 +1135,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
   const now = new Date();
   const [year,  setYear]  = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
+  const [showCalendar, setShowCalendar] = useState(false);
   const [zoom,  setZoom]  = useState(()=>{const s=localStorage.getItem("invoiceZoom");return s?parseFloat(s):0.9;});
   const [notification, setNotification] = useState(null);
   const [alreadySaved, setAlreadySaved] = useState(false);
@@ -1171,7 +1304,24 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
             <div style={{flex:1}}/>
             {/* Month nav + Zoom — right */}
             <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:7}}>
+              <div style={{display:"flex",alignItems:"center",gap:7,position:"relative"}}>
+                <button className="bsm" onClick={() => setShowCalendar(!showCalendar)}
+                  style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer"}}>📅</button>
+                {showCalendar && <CalendarPicker accent={acc} initialYear={year} initialMonth={month} mode="month"
+                  highlightedDays={async (y) => {
+                    // Highlight months that have any weekly invoices
+                    const months = [];
+                    for (let m = 0; m < 12; m++) {
+                      try {
+                        const r = await fetch(`/api/scan-month?year=${y}&month=${m+1}&folder=${encodeURIComponent(config.saveFolder)}`);
+                        const data = await r.json();
+                        if (data.monthlyExists || (data.weeks||[]).some(w => w.found)) months.push(m);
+                      } catch {}
+                    }
+                    return months;
+                  }}
+                  onSelect={(y, m) => { setYear(y); setMonth(m); setNotification(null); }}
+                  onClose={() => setShowCalendar(false)} />}
                 <button className="bsm" onClick={prevMonth} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 12px",cursor:"pointer"}}>‹</button>
                 <span style={{fontSize:15,color:isCurrentMonth?acc:chrome.mutedText,fontWeight:isCurrentMonth?700:500,minWidth:80,textAlign:"center"}}>{monthNavLabel}</span>
                 <button className="bsm" onClick={nextMonth} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 12px",cursor:"pointer"}}>›</button>
@@ -1459,6 +1609,418 @@ function EmailSetupModal({ onDone, onSkip, isEditing }) {
   );
 }
 
+// ── AUTO-RESIZE TEXTAREA ──────────────────────────────────────────────────
+function makeTimestamp() {
+  const now = new Date();
+  return now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).toLowerCase();
+}
+
+function AutoTextarea({ value, onChange, placeholder, style, timestamped, ...props }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) { ref.current.style.height = "auto"; ref.current.style.height = ref.current.scrollHeight + "px"; }
+  }, [value]);
+
+  const handleFocus = (e) => {
+    if (!timestamped) return;
+    // If empty, seed with a timestamp
+    if (!value.trim()) {
+      const stamp = `${makeTimestamp()} — `;
+      const synth = { target: { value: stamp } };
+      onChange(synth);
+      // Move cursor to end after React re-renders
+      setTimeout(() => { if (ref.current) { ref.current.selectionStart = ref.current.selectionEnd = stamp.length; } }, 0);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (!timestamped) return;
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const ta = ref.current;
+      const pos = ta.selectionStart;
+      const before = value.slice(0, pos);
+      const after = value.slice(ta.selectionEnd);
+      const stamp = `${makeTimestamp()} — `;
+      const inserted = `\n\n${stamp}`;
+      const newVal = before + inserted + after;
+      const synth = { target: { value: newVal } };
+      onChange(synth);
+      const newPos = pos + inserted.length;
+      setTimeout(() => { ta.selectionStart = ta.selectionEnd = newPos; }, 0);
+    }
+  };
+
+  return <textarea ref={ref} value={value} onChange={onChange} placeholder={placeholder}
+    onFocus={handleFocus} onKeyDown={handleKeyDown} {...props}
+    style={{...style, overflow:"hidden", resize:"none"}} />;
+}
+
+// ── DAILY SERVICE LOG ─────────────────────────────────────────────────────
+function DailyLogPage({ config, onBack }) {
+  const acc = config.accent;
+  const [dayOffset, setDayOffset] = useState(0);
+  const [sections, setSections] = useState([]);
+  const [sectionNames, setSectionNames] = useState(null);
+  const [saveStatus, setSaveStatus] = useState("idle");
+  const [editingNewIdx, setEditingNewIdx] = useState(null);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
+
+  // Undo/redo
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
+  const pushUndo = (snapshot) => { setUndoStack(prev => [...prev.slice(-50), snapshot]); setRedoStack([]); };
+
+  const timerRef = useRef(null);
+  const abortRef = useRef(null);
+  const dirtyRef = useRef(false);
+  const sectionsRef = useRef(sections);
+  const sectionNamesRef = useRef(sectionNames);
+  const locallyRemovedRef = useRef(new Set());
+  sectionsRef.current = sections;
+  sectionNamesRef.current = sectionNames;
+
+  // Compute date
+  const dateInfo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    const dateStr = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const abs = Math.abs(dayOffset);
+    const navLabel = dayOffset === 0 ? "Today"
+      : dayOffset === -1 ? "Yesterday"
+      : dayOffset === 1 ? "Tomorrow"
+      : dayOffset < 0 ? `${abs} days ago`
+      : `In ${abs} days`;
+    const fullDate = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    return { dateStr, navLabel, fullDate, year: d.getFullYear(), month: d.getMonth() };
+  }, [dayOffset]);
+
+  // Flush pending save
+  const flush = (overrideSections) => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (!dirtyRef.current) return Promise.resolve();
+    dirtyRef.current = false;
+    const data = overrideSections || sectionsRef.current;
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    const ds = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
+    return fetch("/api/log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: ds, sections: data }),
+      signal: abortRef.current.signal,
+    }).then(r => { if (r.ok) setSaveStatus("saved"); else setSaveStatus("error"); })
+      .catch(e => { if (e.name !== "AbortError") setSaveStatus("error"); });
+  };
+
+  const scheduleSave = () => {
+    dirtyRef.current = true;
+    setSaveStatus("idle");
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      setSaveStatus("saving");
+      flush();
+    }, 1500);
+  };
+
+  // Load section names (once)
+  useEffect(() => {
+    fetch("/api/log-sections").then(r => r.json()).then(data => {
+      setSectionNames(data.sections || []);
+    }).catch(() => setSectionNames([]));
+  }, []);
+
+  // Load log when date changes
+  useEffect(() => {
+    setSaveStatus("idle");
+    setUndoStack([]); setRedoStack([]);
+    locallyRemovedRef.current = new Set();
+    const ac = new AbortController();
+    fetch(`/api/log?date=${dateInfo.dateStr}`, { signal: ac.signal })
+      .then(r => r.json())
+      .then(data => {
+        const loaded = data.sections || [];
+        if (sectionNames) {
+          const byName = {};
+          loaded.forEach(s => { byName[s.name] = s.content; });
+          const removed = locallyRemovedRef.current;
+          const merged = sectionNames.filter(name => !removed.has(name)).map(name => ({ name, content: byName[name] || "" }));
+          loaded.forEach(s => { if (!sectionNames.includes(s.name) && !removed.has(s.name)) merged.push(s); });
+          setSections(merged);
+        } else {
+          setSections(loaded);
+        }
+        dirtyRef.current = false;
+      })
+      .catch(e => { if (e.name !== "AbortError") console.error("Failed to load log:", e); });
+    return () => ac.abort();
+  }, [dateInfo.dateStr, sectionNames]);
+
+  useEffect(() => () => { flush(); }, []);
+
+  const handleBack = () => { flush(); onBack(); };
+  const prevDay = () => { flush(); setDayOffset(o => o - 1); };
+  const nextDay = () => { flush(); setDayOffset(o => o + 1); };
+  const goToday = () => { if (dayOffset !== 0) { flush(); setDayOffset(0); } };
+  const jumpToDate = (y, m, d) => {
+    flush();
+    const target = new Date(y, m, d);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diff = Math.round((target - today) / 86400000);
+    setDayOffset(diff);
+  };
+
+  const isToday = dayOffset === 0;
+
+  // Auto-capitalize helper
+  const autoCapitalize = (str) => str.replace(/(?:^|\s)\S/g, c => c.toUpperCase());
+
+  // Section content change with undo
+  const updateContent = (realIdx, content) => {
+    pushUndo({ type: "content", sections: sections.map(s => ({...s})) });
+    setSections(prev => prev.map((s, i) => i === realIdx ? { ...s, content } : s));
+    scheduleSave();
+  };
+
+  // Add section
+  const addSection = () => {
+    let name = "Notes"; let n = 2;
+    while (sectionNames.includes(name)) { name = `Notes ${n}`; n++; }
+    const updated = [...sectionNames, name];
+    pushUndo({ type: "structure", sections: sections.map(s => ({...s})), names: [...sectionNames] });
+    setSectionNames(updated);
+    setSections(prev => [...prev, { name, content: "" }]);
+    setEditingNewIdx(updated.length - 1);
+  };
+
+  // Finalize section name
+  const finalizeSectionName = (idx, newName) => {
+    const trimmed = autoCapitalize(newName.trim() || "Notes");
+    let final = trimmed; let n = 2;
+    while (sectionNames.some((name, i) => i !== idx && name === final)) { final = `${trimmed} ${n}`; n++; }
+    const oldName = sectionNames[idx];
+    const updatedNames = sectionNames.map((name, i) => i === idx ? final : name);
+    setSectionNames(updatedNames);
+    setSections(prev => prev.map(s => s.name === oldName ? { ...s, name: final } : s));
+    setEditingNewIdx(null);
+    fetch("/api/log-sections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: updatedNames }) }).catch(() => {});
+    scheduleSave();
+  };
+
+  const liveRenameSection = (idx, newName) => {
+    const oldName = sectionNames[idx];
+    const updatedNames = sectionNames.map((name, i) => i === idx ? newName : name);
+    setSectionNames(updatedNames);
+    setSections(prev => prev.map(s => s.name === oldName ? { ...s, name: newName } : s));
+  };
+
+  // Remove section from current day's log only (trash icon on card)
+  const removeSectionFromLog = (name) => {
+    pushUndo({ type: "content", sections: sections.map(s => ({...s})), locallyRemoved: new Set(locallyRemovedRef.current) });
+    locallyRemovedRef.current.add(name);
+    setSections(prev => prev.filter(s => s.name !== name));
+    scheduleSave();
+  };
+
+  // Remove section from config — affects all future logs (pill "x" button)
+  const removeSectionFromConfig = (name) => {
+    pushUndo({ type: "structure", sections: sections.map(s => ({...s})), names: [...sectionNames] });
+    const updated = sectionNames.filter(n => n !== name);
+    setSectionNames(updated);
+    // Don't remove from current sections array — just from config
+    // The display filter will hide it, but it stays in the saved file
+    fetch("/api/log-sections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: updated }) }).catch(() => {});
+  };
+
+  // Undo
+  const undo = () => {
+    if (undoStack.length === 0) return;
+    const snapshot = undoStack[undoStack.length - 1];
+    setRedoStack(prev => [...prev, { type: snapshot.type, sections: sections.map(s => ({...s})), names: sectionNames ? [...sectionNames] : null, locallyRemoved: new Set(locallyRemovedRef.current) }]);
+    setUndoStack(prev => prev.slice(0, -1));
+    setSections(snapshot.sections);
+    if (snapshot.locallyRemoved) locallyRemovedRef.current = snapshot.locallyRemoved;
+    if (snapshot.names) {
+      setSectionNames(snapshot.names);
+      fetch("/api/log-sections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: snapshot.names }) }).catch(() => {});
+    }
+    scheduleSave();
+  };
+
+  // Redo
+  const redo = () => {
+    if (redoStack.length === 0) return;
+    const snapshot = redoStack[redoStack.length - 1];
+    setUndoStack(prev => [...prev, { type: snapshot.type, sections: sections.map(s => ({...s})), names: sectionNames ? [...sectionNames] : null, locallyRemoved: new Set(locallyRemovedRef.current) }]);
+    setRedoStack(prev => prev.slice(0, -1));
+    setSections(snapshot.sections);
+    if (snapshot.locallyRemoved) locallyRemovedRef.current = snapshot.locallyRemoved;
+    if (snapshot.names) {
+      setSectionNames(snapshot.names);
+      fetch("/api/log-sections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: snapshot.names }) }).catch(() => {});
+    }
+    scheduleSave();
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      if ((e.metaKey || e.ctrlKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
+  // Drag reorder
+  const handleDragStart = (idx) => { setDragIdx(idx); };
+  const handleDragOver = (e, idx) => { e.preventDefault(); setDragOverIdx(idx); };
+  const handleDrop = (idx) => {
+    if (dragIdx == null || dragIdx === idx) { setDragIdx(null); setDragOverIdx(null); return; }
+    pushUndo({ type: "structure", sections: sections.map(s => ({...s})), names: [...sectionNames] });
+    const newNames = [...sectionNames];
+    const [moved] = newNames.splice(dragIdx, 1);
+    newNames.splice(idx, 0, moved);
+    const newSections = [...sections];
+    const [movedSec] = newSections.splice(dragIdx, 1);
+    newSections.splice(idx, 0, movedSec);
+    setSectionNames(newNames);
+    setSections(newSections);
+    setDragIdx(null); setDragOverIdx(null);
+    fetch("/api/log-sections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: newNames }) }).catch(() => {});
+    scheduleSave();
+  };
+
+  // Calendar: fetch highlighted days
+  const fetchLogDates = async (y, m) => {
+    try {
+      const r = await fetch(`/api/log-dates?year=${y}&month=${m + 1}`);
+      const data = await r.json();
+      return data.dates || [];
+    } catch { return []; }
+  };
+
+  // Filter displayed sections
+  const displaySections = sectionNames
+    ? sections.filter(s => sectionNames.includes(s.name))
+    : sections;
+
+  return (
+    <Shell config={config} title="Daily Service Log" subtitle={dateInfo.fullDate} onBack={handleBack} emailConfigured={null} onOpenEmailSetup={()=>{}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {/* Toolbar */}
+        <div style={{background:chrome.toolbar,borderBottom:`1px solid ${chrome.border}`,padding:"7px 20px",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          {/* Calendar button */}
+          <div style={{position:"relative"}}>
+            <button className="bsm" onClick={() => setShowCalendar(!showCalendar)}
+              style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer"}}>📅</button>
+            {showCalendar && <CalendarPicker accent={acc} initialYear={dateInfo.year} initialMonth={dateInfo.month}
+              highlightedDays={fetchLogDates} onSelect={jumpToDate} onClose={() => setShowCalendar(false)} />}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:7}}>
+            <button className="bsm" onClick={prevDay} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 12px",cursor:"pointer"}}>‹</button>
+            <button className="bsm" onClick={goToday} style={{fontSize:14,color:isToday?acc:chrome.mutedText,fontWeight:isToday?700:500,textAlign:"center",background:"none",border:"none",cursor:"pointer",padding:0,minWidth:80}}>{dateInfo.navLabel}</button>
+            <button className="bsm" onClick={nextDay} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 12px",cursor:"pointer"}}>›</button>
+          </div>
+          <div style={{flex:1}}/>
+          {/* Undo/Redo */}
+          <button className="bsm" onClick={undo} disabled={undoStack.length===0} title="Undo (Ctrl+Z)"
+            style={{fontSize:15,color:undoStack.length?chrome.mutedText:chrome.border,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:undoStack.length?"pointer":"default"}}>↩</button>
+          <button className="bsm" onClick={redo} disabled={redoStack.length===0} title="Redo (Ctrl+Shift+Z)"
+            style={{fontSize:15,color:redoStack.length?chrome.mutedText:chrome.border,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:redoStack.length?"pointer":"default"}}>↪</button>
+          <div style={{width:1,height:18,background:chrome.border}}/>
+          <div style={{fontSize:12,color:saveStatus==="saving"?acc:saveStatus==="saved"?"#82ab86":saveStatus==="error"?"#c47070":chrome.mutedText,fontWeight:500,minWidth:60,textAlign:"right"}}>
+            {saveStatus==="saving"?"Saving...":saveStatus==="saved"?"Saved":saveStatus==="error"?"Save failed":""}
+          </div>
+        </div>
+
+        {/* Section pills bar */}
+        <div style={{background:"#fdf8f4",borderBottom:"1px solid #e8ddd4",padding:"10px 20px",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",flexShrink:0}}>
+          <span style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginRight:4}}>Sections</span>
+          {(sectionNames||[]).map((name, idx) => (
+            <span key={idx} draggable={editingNewIdx !== idx} onDragStart={() => handleDragStart(idx)} onDragOver={e => handleDragOver(e, idx)} onDrop={() => handleDrop(idx)} onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+              style={{display:"inline-flex",alignItems:"center",gap:4,background:editingNewIdx===idx?"transparent":dragOverIdx===idx?`${acc}15`:"white",border:editingNewIdx===idx?`1px dashed ${acc}`:dragOverIdx===idx?`1px dashed ${acc}`:"1px solid #e8ddd4",borderRadius:12,padding:"4px 10px",fontSize:13,color:"#2c1810",cursor:editingNewIdx===idx?"text":"grab",opacity:dragIdx===idx?0.5:1,transition:"all 0.15s"}}>
+              {editingNewIdx === idx ? (
+                <input autoFocus value={name}
+                  onChange={e => liveRenameSection(idx, e.target.value)}
+                  onBlur={() => finalizeSectionName(idx, name)}
+                  onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+                  style={{fontSize:13,border:"none",outline:"none",background:"transparent",width:Math.max(40, name.length * 8 + 10),padding:0,fontFamily:"inherit",color:"#2c1810"}}
+                  placeholder="Notes" />
+              ) : (<>
+                {name}
+                <button onClick={e => { e.stopPropagation(); removeSectionFromConfig(name); }}
+                  style={{background:"none",border:"none",cursor:"pointer",color:"#c0a898",fontSize:13,padding:0,lineHeight:1}}
+                  title="Remove from all future logs">×</button>
+              </>)}
+            </span>
+          ))}
+          <button onClick={addSection}
+            style={{fontSize:13,color:acc,background:"none",border:`1px dashed ${acc}`,borderRadius:12,padding:"4px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+            + add section
+          </button>
+        </div>
+
+        {/* Section content area */}
+        <div style={{flex:1,overflowY:"auto",padding:"20px 24px",background:"linear-gradient(160deg,#f9f3ee,#f2ebe4)",display:"flex",flexDirection:"column",gap:16}}>
+          {displaySections.length === 0 && sectionNames !== null && (
+            <div style={{textAlign:"center",padding:40,color:"#9a8070",fontSize:15,fontFamily:"sans-serif"}}>
+              Click <strong style={{color:acc}}>+ add section</strong> above to start documenting.
+            </div>
+          )}
+          {displaySections.map((s) => {
+            const realIdx = sections.findIndex(sec => sec.name === s.name);
+            const nameIdx = sectionNames.indexOf(s.name);
+            const isEditing = editingNewIdx === nameIdx;
+            return (
+              <div key={s.name}
+                draggable={!isEditing} onDragStart={() => handleDragStart(nameIdx)} onDragOver={e => handleDragOver(e, nameIdx)} onDrop={() => handleDrop(nameIdx)} onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                style={{background:"white",borderRadius:14,border:dragOverIdx===nameIdx?`2px dashed ${acc}`:"1px solid #e8ddd4",boxShadow:"0 2px 10px rgba(0,0,0,0.04)",overflow:"hidden",opacity:dragIdx===nameIdx?0.5:1,transition:"border 0.15s"}}>
+                <div style={{padding:"14px 20px 8px",borderBottom:"1px solid #f0e8e0",display:"flex",alignItems:"center",gap:8}}>
+                  {/* Drag handle */}
+                  <span style={{cursor:"grab",color:"#c0b8b0",fontSize:14,userSelect:"none",flexShrink:0}} title="Drag to reorder">⠿</span>
+                  {isEditing ? (
+                    <input value={s.name}
+                      onChange={e => liveRenameSection(nameIdx, e.target.value)}
+                      onBlur={() => finalizeSectionName(nameIdx, s.name)}
+                      onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+                      placeholder="Notes"
+                      style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#2c1810",border:"none",outline:"none",background:"transparent",flex:1,padding:0}} />
+                  ) : (
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#2c1810",flex:1}}>{s.name}</div>
+                  )}
+                  {/* Delete button */}
+                  <button onClick={() => removeSectionFromLog(s.name)} title={`Remove ${s.name} from this day`}
+                    style={{background:"none",border:"none",cursor:"pointer",color:"#c0a898",fontSize:16,padding:"2px 4px",borderRadius:4,flexShrink:0,transition:"color 0.15s"}}
+                    onMouseEnter={e => e.currentTarget.style.color="#c47070"}
+                    onMouseLeave={e => e.currentTarget.style.color="#c0a898"}>🗑</button>
+                </div>
+                <AutoTextarea
+                  timestamped
+                  value={s.content}
+                  onChange={e => updateContent(realIdx, e.target.value)}
+                  placeholder={`Enter ${(s.name || "notes").toLowerCase()} here...`}
+                  style={{
+                    width:"100%",border:"none",outline:"none",
+                    padding:"12px 20px 16px",fontSize:15,fontFamily:"sans-serif",
+                    color:"#2c1810",background:"transparent",minHeight:80,
+                    lineHeight:1.6,boxSizing:"border-box",
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
 export default function App() {
   const [config, setConfig] = useState(defaultConfig);
   const [page,   setPage]   = useState("menu");
@@ -1632,6 +2194,7 @@ export default function App() {
     </div>
   );
 
+  if (page==="log")     return <>{ErrorBanner}{UpdateBanner}{emailModal}<DailyLogPage config={config} onBack={()=>setPage("menu")}/></>;
   if (page==="weekly")  return <>{ErrorBanner}{UpdateBanner}{emailModal}<WeeklyPage  config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
   if (page==="monthly") return <>{ErrorBanner}{UpdateBanner}{emailModal}<MonthlyPage config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
   if (page==="profile") return <>{ErrorBanner}{UpdateBanner}{emailModal}<ProfilePage config={config} onSave={setConfig} onBack={()=>setPage("menu")} scrollToFolder={scrollToFolder} {...emailProps}/></>;
