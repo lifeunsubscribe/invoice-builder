@@ -96,13 +96,29 @@ const chrome = {
 };
 
 // ── CALENDAR PICKER ──────────────────────────────────────────────────────
-function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYear, initialMonth, mode }) {
+function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYear, initialMonth, mode, anchorRef }) {
   // mode: "day" (default) picks a day, "week" picks a week (Monday), "month" picks a month
   const m = mode || "day";
   const [year, setYear] = useState(initialYear || new Date().getFullYear());
   const [month, setMonth] = useState(initialMonth != null ? initialMonth : new Date().getMonth());
   const [loadedHL, setLoadedHL] = useState(highlightedDays || []);
-  const [fetchKey, setFetchKey] = useState(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const panelRef = useRef(null);
+
+  // Position the popup below the anchor button
+  useEffect(() => {
+    if (anchorRef?.current) {
+      const rect = anchorRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 6, left: rect.left });
+    }
+  }, [anchorRef]);
+
+  // Close on click outside
+  useEffect(() => {
+    const handler = (e) => { if (panelRef.current && !panelRef.current.contains(e.target)) onClose(); };
+    setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
 
   // If highlightedDays is a function, call it when month/year changes
   useEffect(() => {
@@ -115,14 +131,16 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
     }
   }, [year, month, highlightedDays]);
 
-  const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(m => m - 1); };
-  const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(m => m + 1); };
+  const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(mo => mo - 1); };
+  const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(mo => mo + 1); };
+
+  const panelStyle = { position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, background: "white", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", padding: 16 };
 
   // Month picker mode
   if (m === "month") {
     const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     return (
-      <div style={{position:"absolute",top:"100%",left:0,zIndex:100,background:"white",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",padding:16,minWidth:240,marginTop:6}} onClick={e => e.stopPropagation()}>
+      <div ref={panelRef} style={{...panelStyle, minWidth: 240}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <button onClick={() => setYear(y => y - 1)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#9a8070"}}>‹</button>
           <span style={{fontSize:15,fontWeight:700,color:"#2c1810"}}>{year}</span>
@@ -156,7 +174,6 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
   const today = new Date();
   const isThisMonth = year === today.getFullYear() && month === today.getMonth();
 
-  // For week mode, compute which Monday each day belongs to
   const getMondayForDay = (day) => {
     const d = new Date(year, month, day);
     const dow = (d.getDay() + 6) % 7;
@@ -165,7 +182,7 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
   };
 
   return (
-    <div style={{position:"absolute",top:"100%",left:0,zIndex:100,background:"white",borderRadius:12,boxShadow:"0 8px 32px rgba(0,0,0,0.18)",padding:16,minWidth:260,marginTop:6}} onClick={e => e.stopPropagation()}>
+    <div ref={panelRef} style={{...panelStyle, minWidth: 260}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
         <button onClick={prevMonth} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#9a8070"}}>‹</button>
         <span style={{fontSize:15,fontWeight:700,color:"#2c1810"}}>{monthName}</span>
@@ -863,6 +880,7 @@ function handleSubmitResponse(data, savedPath, emails, setNotification, setAlrea
 function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSetupCount }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [showCalendar, setShowCalendar] = useState(false);
+  const calBtnRef = useRef(null);
   const week  = useMemo(()=>getWeekRange(weekOffset),[weekOffset]);
   const acc   = config.accent;
   const savedPath = weeklyPath(config.saveFolder, week.invNum);
@@ -1024,10 +1042,10 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
             <div style={{flex:1}}/>
             {/* Week nav + Zoom — right */}
             <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,position:"relative"}}>
-                <button className="bsm" onClick={() => setShowCalendar(!showCalendar)}
+              <div style={{display:"flex",alignItems:"center",gap:7}}>
+                <button ref={calBtnRef} className="bsm" onClick={() => setShowCalendar(!showCalendar)}
                   style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer"}}>📅</button>
-                {showCalendar && <CalendarPicker accent={acc} initialYear={week.monday.getFullYear()} initialMonth={week.monday.getMonth()} mode="week"
+                {showCalendar && <CalendarPicker accent={acc} initialYear={week.monday.getFullYear()} initialMonth={week.monday.getMonth()} mode="week" anchorRef={calBtnRef}
                   highlightedDays={async (y, m) => {
                     try {
                       const r = await fetch(`/api/scan-month?year=${y}&month=${m+1}&folder=${encodeURIComponent(config.saveFolder)}`);
@@ -1136,6 +1154,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
   const [year,  setYear]  = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
   const [showCalendar, setShowCalendar] = useState(false);
+  const calBtnRef = useRef(null);
   const [zoom,  setZoom]  = useState(()=>{const s=localStorage.getItem("invoiceZoom");return s?parseFloat(s):0.9;});
   const [notification, setNotification] = useState(null);
   const [alreadySaved, setAlreadySaved] = useState(false);
@@ -1304,10 +1323,10 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
             <div style={{flex:1}}/>
             {/* Month nav + Zoom — right */}
             <div style={{display:"flex",alignItems:"center",gap:12}}>
-              <div style={{display:"flex",alignItems:"center",gap:7,position:"relative"}}>
-                <button className="bsm" onClick={() => setShowCalendar(!showCalendar)}
+              <div style={{display:"flex",alignItems:"center",gap:7}}>
+                <button ref={calBtnRef} className="bsm" onClick={() => setShowCalendar(!showCalendar)}
                   style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer"}}>📅</button>
-                {showCalendar && <CalendarPicker accent={acc} initialYear={year} initialMonth={month} mode="month"
+                {showCalendar && <CalendarPicker accent={acc} initialYear={year} initialMonth={month} mode="month" anchorRef={calBtnRef}
                   highlightedDays={async (y) => {
                     // Highlight months that have any weekly invoices
                     const months = [];
@@ -1665,6 +1684,7 @@ function DailyLogPage({ config, onBack }) {
   const [saveStatus, setSaveStatus] = useState("idle");
   const [editingNewIdx, setEditingNewIdx] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const calBtnRef = useRef(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
 
@@ -1922,12 +1942,10 @@ function DailyLogPage({ config, onBack }) {
         {/* Toolbar */}
         <div style={{background:chrome.toolbar,borderBottom:`1px solid ${chrome.border}`,padding:"7px 20px",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
           {/* Calendar button */}
-          <div style={{position:"relative"}}>
-            <button className="bsm" onClick={() => setShowCalendar(!showCalendar)}
-              style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer"}}>📅</button>
-            {showCalendar && <CalendarPicker accent={acc} initialYear={dateInfo.year} initialMonth={dateInfo.month}
-              highlightedDays={fetchLogDates} onSelect={jumpToDate} onClose={() => setShowCalendar(false)} />}
-          </div>
+          <button ref={calBtnRef} className="bsm" onClick={() => setShowCalendar(!showCalendar)}
+            style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer"}}>📅</button>
+          {showCalendar && <CalendarPicker accent={acc} initialYear={dateInfo.year} initialMonth={dateInfo.month}
+            anchorRef={calBtnRef} highlightedDays={fetchLogDates} onSelect={jumpToDate} onClose={() => setShowCalendar(false)} />}
           <div style={{display:"flex",alignItems:"center",gap:7}}>
             <button className="bsm" onClick={prevDay} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 12px",cursor:"pointer"}}>‹</button>
             <button className="bsm" onClick={goToday} style={{fontSize:14,color:isToday?acc:chrome.mutedText,fontWeight:isToday?700:500,textAlign:"center",background:"none",border:"none",cursor:"pointer",padding:0,minWidth:80}}>{dateInfo.navLabel}</button>
