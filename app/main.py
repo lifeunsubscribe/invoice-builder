@@ -285,9 +285,11 @@ def self_update():
     try:
         import subprocess
         logger.info("Downloading update from %s", download_url)
+        CREATE_NO_WINDOW = 0x08000000
         result = subprocess.run(
             ['curl.exe', '-L', '-o', new_exe, '-f', download_url],
-            capture_output=True, text=True, timeout=180
+            capture_output=True, text=True, timeout=180,
+            creationflags=CREATE_NO_WINDOW if sys.platform == 'win32' else 0
         )
         if result.returncode != 0:
             logger.warning("curl download failed (exit %d): %s", result.returncode, result.stderr)

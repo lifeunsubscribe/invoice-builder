@@ -1465,6 +1465,7 @@ export default function App() {
   const [scrollToFolder, setScrollToFolder] = useState(false);
   const [loading, setLoading] = useState(true);
   const [configError, setConfigError] = useState(null);
+  const [serverDead, setServerDead] = useState(false);
   const [showEmailSetup, setShowEmailSetup] = useState(false);
   const [emailConfigured, setEmailConfigured] = useState(null); // null=unknown, true/false
   const [emailSetupCount, setEmailSetupCount] = useState(0); // increments on successful setup
@@ -1486,8 +1487,12 @@ export default function App() {
   // On close: beacon tells server to shut down after 5s.
   // On reload: page remounts, immediate ping cancels the shutdown.
   // On tab focus: immediate ping keeps server alive after background throttling.
+  // If server stops responding, show a "server disconnected" overlay.
   useEffect(() => {
-    const ping = () => fetch("/api/heartbeat", { method: "POST" }).catch(() => {});
+    let failures = 0;
+    const ping = () => fetch("/api/heartbeat", { method: "POST" })
+      .then(() => { failures = 0; setServerDead(false); })
+      .catch(() => { failures++; if (failures >= 3) setServerDead(true); });
     ping();
     const interval = setInterval(ping, 3000);
     const onVisible = () => { if (!document.hidden) ping(); };
@@ -1616,6 +1621,16 @@ export default function App() {
   ) : null;
 
   const emailModal = showEmailSetup ? <EmailSetupModal onDone={handleEmailSetupDone} onSkip={handleEmailSetupSkip} isEditing={emailConfigured === true}/> : null;
+
+  if (serverDead) return (
+    <div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f5f0eb",fontFamily:"sans-serif"}}>
+      <div style={{textAlign:"center",padding:40}}>
+        <div style={{fontSize:40,marginBottom:16}}>😴</div>
+        <div style={{fontSize:18,fontWeight:600,color:"#2c1810",marginBottom:8}}>Invoice Builder has stopped</div>
+        <div style={{fontSize:14,color:"#9a8070",marginBottom:24}}>The app was closed due to inactivity. Reopen it from your desktop.</div>
+      </div>
+    </div>
+  );
 
   if (page==="weekly")  return <>{ErrorBanner}{UpdateBanner}{emailModal}<WeeklyPage  config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
   if (page==="monthly") return <>{ErrorBanner}{UpdateBanner}{emailModal}<MonthlyPage config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
