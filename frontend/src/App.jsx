@@ -2091,7 +2091,7 @@ function DailyLogPage({ config, onBack }) {
   // Enabled vitals from config
   const [localEnabledVitals, setLocalEnabledVitals] = useState(null);
   const enabledVitals = localEnabledVitals || config.enabledVitals || DEFAULT_ENABLED_VITALS;
-  const activeVitals = ALL_VITALS.filter(v => enabledVitals.includes(v.key));
+  const activeVitals = enabledVitals.map(key => ALL_VITALS.find(v => v.key === key)).filter(Boolean);
   const [vitalDragIdx, setVitalDragIdx] = useState(null);
   const [vitalDragOverIdx, setVitalDragOverIdx] = useState(null);
 
@@ -2469,10 +2469,10 @@ function DailyLogPage({ config, onBack }) {
               <div style={{fontSize:14,color:chrome.mutedText}}>This will erase all notes for {dateInfo.fullDate}.</div>
             </div>
             <div style={{padding:"18px 22px"}}>
-              <div style={{fontSize:14,color:"#4a3028",lineHeight:1.6,marginBottom:16}}>All section content will be cleared. This can be undone.</div>
+              <div style={{fontSize:14,color:"#4a3028",lineHeight:1.6,marginBottom:16}}>All entries for this day will be cleared. This can be undone.</div>
               <div style={{display:"flex",gap:9}}>
                 <button onClick={() => setShowClearConfirm(false)} style={{flex:1,fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"1.5px solid #e8ddd8",background:"white",color:"#9a8070",cursor:"pointer"}}>Cancel</button>
-                <button onClick={clearDay} style={{flex:1,fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"none",background:"#c47070",color:"white",cursor:"pointer"}}>Clear All Notes</button>
+                <button onClick={clearDay} style={{flex:1,fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"none",background:"#c47070",color:"white",cursor:"pointer"}}>Clear This Day</button>
               </div>
             </div>
           </div>
@@ -2498,7 +2498,7 @@ function DailyLogPage({ config, onBack }) {
             style={{fontSize:15,color:undoStack.length?chrome.mutedText:chrome.border,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:undoStack.length?"pointer":"default"}}>↩</button>
           <button className="bsm" onClick={redo} disabled={redoStack.length===0} title="Redo (Ctrl+Shift+Z)"
             style={{fontSize:15,color:redoStack.length?chrome.mutedText:chrome.border,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:redoStack.length?"pointer":"default"}}>↪</button>
-          <button className="bsm" onClick={() => setShowClearConfirm(true)} title="Clear all notes for this day"
+          <button className="bsm" onClick={() => setShowClearConfirm(true)} title="Clear this day's entries"
             style={{fontSize:14,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer",marginLeft:4}}>🗑</button>
           <div style={{width:1,height:18,background:chrome.border}}/>
           <div style={{fontSize:12,color:saveStatus==="saving"?acc:saveStatus==="saved"?"#82ab86":saveStatus==="error"?"#c47070":chrome.mutedText,fontWeight:500,minWidth:60,textAlign:"right"}}>
@@ -2673,8 +2673,6 @@ function DailyLogPage({ config, onBack }) {
                 draggable={!isEditing} onDragStart={() => handleDragStart(nameIdx)} onDragOver={e => handleDragOver(e, nameIdx)} onDrop={() => handleDrop(nameIdx)} onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
                 style={{background:"white",borderRadius:14,border:dragOverIdx===nameIdx?`2px dashed ${acc}`:"1px solid #e8ddd4",boxShadow:"0 2px 10px rgba(0,0,0,0.04)",overflow:"hidden",opacity:dragIdx===nameIdx?0.5:1,transition:"border 0.15s"}}>
                 <div style={{padding:"14px 20px 8px",borderBottom:"1px solid #f0e8e0",display:"flex",alignItems:"center",gap:8}}>
-                  {/* Drag handle */}
-                  <span style={{cursor:"grab",color:"#c0b8b0",fontSize:14,userSelect:"none",flexShrink:0}} title="Drag to reorder">⠿</span>
                   {isEditing ? (
                     <input value={s.name}
                       onChange={e => liveRenameSection(nameIdx, e.target.value)}
@@ -2691,6 +2689,8 @@ function DailyLogPage({ config, onBack }) {
                     style={{background:"none",border:"none",cursor:"pointer",color:"#c0a898",fontSize:16,padding:"2px 4px",borderRadius:4,flexShrink:0,transition:"color 0.15s"}}
                     onMouseEnter={e => e.currentTarget.style.color="#c47070"}
                     onMouseLeave={e => e.currentTarget.style.color="#c0a898"}>🗑</button>
+                  {/* Drag handle */}
+                  <span style={{cursor:"grab",color:"#c0b8b0",fontSize:14,userSelect:"none",flexShrink:0}} title="Drag to reorder">⠿</span>
                 </div>
                 <AutoTextarea
                   timestamped
