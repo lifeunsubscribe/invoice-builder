@@ -259,12 +259,6 @@ def check_update():
 
 _shutdown_timer = None
 
-# ── Temporary test endpoint — remove before release ──
-@app.route("/api/test-crash", methods=["POST"])
-def test_crash():
-    """Simulate an unhandled crash to test error reporting."""
-    raise RuntimeError("Test crash — this is not a real error")
-
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
     """Frontend pings this to signal it's still open."""
