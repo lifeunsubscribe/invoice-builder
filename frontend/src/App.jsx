@@ -89,6 +89,54 @@ const ALL_VITALS = [
 ];
 const DEFAULT_ENABLED_VITALS = ["temperature","bpSystolic","bpDiastolic","weight","pulse","o2sat"];
 
+const OCCUPATIONS = [
+  {id:"",                label:"General Service Provider"},
+  {id:"home-health-aide",label:"Home Health Aide"},
+  {id:"personal-care",   label:"Personal Care Assistant"},
+  {id:"tutor",           label:"Tutor / Instructor"},
+  {id:"therapist",       label:"Therapist"},
+  {id:"other",           label:"Other"},
+];
+
+// Occupation-specific labels. Falls back to default ("") for anything not overridden.
+const OCC_LABELS = {
+  "": {
+    recipientName: "Recipient Name",
+    recipientAddress: "Address of Service",
+    objective: "Service Objective",
+    objectivePlaceholder: "e.g., goals, key deliverables, recurring tasks",
+    vitalsHeader: "Metrics",
+    medsHeader: "Supplies / Materials",
+    recipientCardTitle: "Service Recipient",
+    recipientCardDesc: "The person or entity you provide service to.",
+  },
+  "home-health-aide": {
+    recipientName: "Patient Name",
+    recipientAddress: "Patient Address",
+    objective: "Care Objective",
+    objectivePlaceholder: "e.g., memory care, weight gain, meals, reduce high blood pressure",
+    vitalsHeader: "Vitals",
+    medsHeader: "Medications",
+    recipientCardTitle: "Service Recipient",
+    recipientCardDesc: "The patient you provide care for. Shows on invoices and logs.",
+  },
+  "personal-care": {
+    recipientName: "Client Name",
+    recipientAddress: "Client Address",
+    objective: "Care Objective",
+    objectivePlaceholder: "e.g., daily living assistance, mobility support, companionship",
+    vitalsHeader: "Vitals",
+    medsHeader: "Medications",
+    recipientCardTitle: "Service Recipient",
+    recipientCardDesc: "The client you provide care for.",
+  },
+};
+
+function getOccLabels(config) {
+  const occ = config.occupation || "";
+  return OCC_LABELS[occ] || OCC_LABELS[""];
+}
+
 const defaultConfig = {
   name:           "Jane Doe",
   address:        "123 Main Street, Denver, CO 80201",
@@ -106,6 +154,7 @@ const defaultConfig = {
   activeClientId: "",
   signatureFont:  "",
   enabledVitals:  DEFAULT_ENABLED_VITALS,
+  occupation:     "",
 };
 
 function getActiveClient(config) {
@@ -2117,6 +2166,7 @@ function DailyLogPage({ config, onBack }) {
   const abortRef = useRef(null);
   const dirtyRef = useRef(false);
   const dirtyDateRef = useRef(null); // tracks which date the pending save is for
+  const clearedDatesRef = useRef(new Set()); // dates cleared this session, to prevent stale GET overwrites
   const sectionsRef = useRef(sections);
   const sectionNamesRef = useRef(sectionNames);
   const vitalsRef = useRef(vitals);
@@ -2203,6 +2253,23 @@ function DailyLogPage({ config, onBack }) {
   // Merge sections with sectionNames whenever either changes
   useEffect(() => {
     const isDateChange = loadedDateRef.current !== dateInfo.dateStr;
+    const wasCleared = clearedDatesRef.current.has(dateInfo.dateStr);
+
+    // If this date was just cleared and the POST hasn't confirmed yet,
+    // use the in-memory cleared state instead of fetching stale data
+    if (wasCleared) {
+      if (sectionNames) {
+        const removed = locallyRemovedRef.current;
+        setSections(sectionNames.filter(name => !removed.has(name)).map(name => ({ name, content: "" })));
+      }
+      setVitals({...EMPTY_VITALS});
+      setShift({start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""});
+      setMedChecklist((activeClient.meds || []).map(m => ({...m, configuredId: m.id, times: []})));
+      loadedDateRef.current = dateInfo.dateStr;
+      dirtyRef.current = false;
+      return;
+    }
+
     const ac = new AbortController();
     fetch(`/api/log?date=${dateInfo.dateStr}`, { signal: ac.signal })
       .then(r => r.json())
@@ -2368,6 +2435,7 @@ function DailyLogPage({ config, onBack }) {
     // Save immediately — don't debounce, so calendar and navigation see it right away
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     dirtyRef.current = false;
+    clearedDatesRef.current.add(dateInfo.dateStr);
     setSaveStatus("saving");
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
@@ -2376,7 +2444,7 @@ function DailyLogPage({ config, onBack }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ date: dateInfo.dateStr, sections: clearedSections, vitals: clearedVitals, shift: clearedShift, meds: clearedMeds, clientId: activeClient.id || "" }),
       signal: abortRef.current.signal,
-    }).then(r => { if (r.ok) { setSaveStatus("saved"); setSaveCount(c => c + 1); } else setSaveStatus("error"); })
+    }).then(r => { if (r.ok) { setSaveStatus("saved"); setSaveCount(c => c + 1); clearedDatesRef.current.delete(dateInfo.dateStr); } else setSaveStatus("error"); })
       .catch(e => { if (e.name !== "AbortError") setSaveStatus("error"); });
   };
 
