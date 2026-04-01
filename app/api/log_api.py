@@ -225,7 +225,16 @@ def get_log_dates():
             if fname.startswith(prefix) and fname.endswith(".json"):
                 day_str = fname[len(prefix):-5]  # extract DD
                 if day_str.isdigit():
-                    dates.append(int(day_str))
+                    # Only include if at least one section has real content
+                    fpath = os.path.join(logs_dir, fname)
+                    try:
+                        with open(fpath, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        sections = data.get("sections", [])
+                        if any(s.get("content", "").strip() for s in sections):
+                            dates.append(int(day_str))
+                    except (json.JSONDecodeError, OSError):
+                        pass
     except OSError as e:
         logger.warning("Error scanning logs dir: %s", e)
 
