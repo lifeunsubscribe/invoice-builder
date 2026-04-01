@@ -1751,6 +1751,9 @@ function DailyLogPage({ config, onBack }) {
     }).catch(() => setSectionNames([]));
   }, []);
 
+  // Track which date we last loaded so we know when it's a date change vs a sectionNames change
+  const loadedDateRef = useRef(null);
+
   // Load log when date changes
   useEffect(() => {
     setSaveStatus("idle");
@@ -1760,6 +1763,7 @@ function DailyLogPage({ config, onBack }) {
 
   // Merge sections with sectionNames whenever either changes
   useEffect(() => {
+    const isDateChange = loadedDateRef.current !== dateInfo.dateStr;
     const ac = new AbortController();
     fetch(`/api/log?date=${dateInfo.dateStr}`, { signal: ac.signal })
       .then(r => r.json())
@@ -1768,8 +1772,10 @@ function DailyLogPage({ config, onBack }) {
         if (sectionNames) {
           const byName = {};
           loaded.forEach(s => { byName[s.name] = s.content; });
-          // Preserve any in-progress edits for sections we already have
-          sectionsRef.current.forEach(s => { if (s.content) byName[s.name] = s.content; });
+          // Only preserve in-progress edits when sectionNames changed (not date)
+          if (!isDateChange) {
+            sectionsRef.current.forEach(s => { if (s.content) byName[s.name] = s.content; });
+          }
           const removed = locallyRemovedRef.current;
           const merged = sectionNames.filter(name => !removed.has(name)).map(name => ({ name, content: byName[name] || "" }));
           loaded.forEach(s => { if (!sectionNames.includes(s.name) && !removed.has(s.name)) merged.push(s); });
@@ -1777,6 +1783,7 @@ function DailyLogPage({ config, onBack }) {
         } else {
           setSections(loaded);
         }
+        loadedDateRef.current = dateInfo.dateStr;
         dirtyRef.current = false;
       })
       .catch(e => { if (e.name !== "AbortError") console.error("Failed to load log:", e); });
