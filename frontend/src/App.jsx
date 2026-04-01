@@ -1121,11 +1121,12 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
   const [savedInvoicePath, setSavedInvoicePath] = useState(null);
   const [logPdfUrl,       setLogPdfUrl]       = useState(null);
   const submitInProgressRef = useRef(false);
+  const hoursChangedRef = useRef(false);
 
   // Reset state when week changes, re-default hours, and check saved/log data
   useEffect(()=>{
     setHours({Monday:8,Tuesday:8,Wednesday:8,Thursday:8,Friday:8,Saturday:0,Sunday:0});
-    setHoursSource({});
+    setHoursSource({}); hoursChangedRef.current = false;
     setNotification(null); setAlreadySaved(false); setSavedDate(null);
     setSubmitStep(1); setSavedInvoicePath(null);
     if (logPdfUrl) { URL.revokeObjectURL(logPdfUrl); setLogPdfUrl(null); }
@@ -1173,7 +1174,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
 
   const totalHours = Object.values(hours).reduce((a,b)=>a+b,0);
   const totalPay   = (totalHours*config.rate).toFixed(2);
-  const setHour    = (day,v) => setHours(h=>({...h,[day]:v}));
+  const setHour    = (day,v) => { hoursChangedRef.current = true; setHours(h=>({...h,[day]:v})); };
 
   // Step 1: Save invoice only (no email), then transition to log review
   const doSaveInvoice = async () => {
@@ -1225,6 +1226,33 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
     } catch (error) {
       console.error('Save invoice failed:', error);
       setNotification({ error: error.message || 'Unable to save invoice.' });
+    } finally {
+      setSubmitting(false);
+      submitInProgressRef.current = false;
+    }
+  };
+
+  // Preview logs only (skip saving invoice)
+  const doPreviewLogsOnly = async () => {
+    if (submitInProgressRef.current) return;
+    submitInProgressRef.current = true;
+    setSubmitting(true);
+    setNotification(null);
+    try {
+      const logResp = await fetch('/api/submit/preview-weekly-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invNum: week.invNum })
+      });
+      if (logResp.ok) {
+        const blob = await logResp.blob();
+        setLogPdfUrl(URL.createObjectURL(blob));
+      }
+      setSavedInvoicePath(null); // mark as not saved
+      setSubmitStep(2);
+    } catch (error) {
+      console.error('Log preview failed:', error);
+      setNotification({ error: error.message || 'Unable to preview logs.' });
     } finally {
       setSubmitting(false);
       submitInProgressRef.current = false;
@@ -1308,6 +1336,12 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
 
   const handleSubmit = async () => {
     if (submitInProgressRef.current) return;
+
+    // If already saved and user hasn't changed hours, skip overwrite confirm — go straight to step 2
+    if (alreadySaved && !hoursChangedRef.current) {
+      await doSaveInvoice();
+      return;
+    }
 
     // Pre-flight check: does this invoice already exist?
     try {
@@ -1435,12 +1469,26 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
               </div>
             </>) : (<>
               {/* Step 2: Log review + email */}
-              <div style={{background:`linear-gradient(135deg, white, ${tint(acc,0.05)})`,borderRadius:12,border:`1.5px solid ${tint(acc,0.15)}`,padding:"16px 18px",marginBottom:20}}>
-                <div style={{fontSize:14,fontWeight:700,color:"#2c1810",marginBottom:6}}>Invoice Saved</div>
+              <div style={{background:`linear-gradient(135deg, white, ${tint(acc,0.05)})`,borderRadius:12,border:`1.5px solid ${tint(acc, savedInvoicePath ? 0.15 : 0.08)}`,padding:"16px 18px",marginBottom:20}}>
+                <div style={{fontSize:14,fontWeight:700,color:"#2c1810",marginBottom:6}}>
+                  {savedInvoicePath ? "Invoice Saved" : "Preview Mode"}
+                </div>
                 <div style={{fontSize:13,color:"#8a7060",lineHeight:1.4}}>
-                  Review the weekly service log below. When ready, send both documents to your recipients.
+                  {savedInvoicePath
+                    ? "Review the weekly service log below. When ready, send both documents to your recipients."
+                    : "Previewing aggregated logs. Go back to save the invoice before sending."}
                 </div>
               </div>
+
+              {/* Signature warning */}
+              {!config.signatureFont && (
+                <div style={{background:"#fff8f0",border:"1.5px solid #e8c870",borderRadius:10,padding:"12px 16px",marginBottom:16}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"#8a6a20",marginBottom:4}}>Signature Required</div>
+                  <div style={{fontSize:12,color:"#9a7a30",lineHeight:1.4}}>
+                    Select a signature font in <strong>Edit Profile</strong> to sign your service logs.
+                  </div>
+                </div>
+              )}
 
               <button onClick={()=>setSubmitStep(1)}
                 style={{fontSize:13,color:acc,background:"none",border:"none",cursor:"pointer",padding:0,marginBottom:20,textAlign:"left"}}>
@@ -1466,16 +1514,32 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
           <div style={{flexShrink:0,borderTop:`1px solid ${acc}18`,background:"#fdf8f4"}}>
             {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup} accent={acc}/></div>}
             <div style={{padding:"10px 16px 14px"}}>
-              {submitStep === 1 ? (
+              {submitStep === 1 ? (<>
                 <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
                   {submitting ? "Saving..." : "Save & Review Logs"}
                 </button>
-              ) : (
+                <button onClick={doPreviewLogsOnly} disabled={submitting}
+                  style={{width:"100%",fontSize:13,color:"#9a8070",background:"none",border:"none",cursor:submitting?"wait":"pointer",padding:"8px 0 0",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>
+                  Preview Logs Only
+                </button>
+              </>) : (
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  <button onClick={doSendWithLogs} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+                  {(()=>{const cantSend=submitting||!config.signatureFont||!savedInvoicePath;return(<>
+                  <button onClick={doSendWithLogs} disabled={cantSend} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:cantSend?"not-allowed":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:cantSend?0.5:1}}>
                     {submitting ? "Sending..." : "Send Invoice & Logs"}
                   </button>
-                  <button onClick={doSendInvoiceOnly} disabled={submitting} style={{width:"100%",fontSize:14,fontWeight:600,padding:"10px 0",borderRadius:9,border:`1.5px solid ${acc}30`,background:"white",color:acc,cursor:submitting?"wait":"pointer",opacity:submitting?0.7:1}}>
+                  {!config.signatureFont && (
+                    <div style={{fontSize:12,color:"#9a7a30",textAlign:"center",lineHeight:1.3}}>
+                      Select a signature font in <strong>Edit Profile</strong> to send logs.
+                    </div>
+                  )}
+                  {!savedInvoicePath && config.signatureFont && (
+                    <div style={{fontSize:12,color:"#9a8070",textAlign:"center",lineHeight:1.3}}>
+                      Save the invoice first to enable sending.
+                    </div>
+                  )}
+                  </>);})()}
+                  <button onClick={doSendInvoiceOnly} disabled={submitting||!savedInvoicePath} style={{width:"100%",fontSize:14,fontWeight:600,padding:"10px 0",borderRadius:9,border:`1.5px solid ${acc}30`,background:"white",color:acc,cursor:(submitting||!savedInvoicePath)?"not-allowed":"pointer",opacity:(submitting||!savedInvoicePath)?0.5:1}}>
                     Send Invoice Only
                   </button>
                 </div>
@@ -2025,16 +2089,23 @@ function DailyLogPage({ config, onBack }) {
   const [hoverVital, setHoverVital] = useState(null);
 
   // Enabled vitals from config
-  const enabledVitals = config.enabledVitals || DEFAULT_ENABLED_VITALS;
+  const [localEnabledVitals, setLocalEnabledVitals] = useState(null);
+  const enabledVitals = localEnabledVitals || config.enabledVitals || DEFAULT_ENABLED_VITALS;
   const activeVitals = ALL_VITALS.filter(v => enabledVitals.includes(v.key));
+  const [vitalDragIdx, setVitalDragIdx] = useState(null);
+  const [vitalDragOverIdx, setVitalDragOverIdx] = useState(null);
 
-  const removeVitalFromConfig = (key) => {
-    const updated = enabledVitals.filter(k => k !== key);
+  const saveEnabledVitals = (updated) => {
+    setLocalEnabledVitals(updated);
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({...config, enabledVitals: updated})
     }).catch(() => {});
+  };
+
+  const removeVitalFromConfig = (key) => {
+    saveEnabledVitals(enabledVitals.filter(k => k !== key));
   };
 
   // Undo/redo
@@ -2045,6 +2116,7 @@ function DailyLogPage({ config, onBack }) {
   const timerRef = useRef(null);
   const abortRef = useRef(null);
   const dirtyRef = useRef(false);
+  const dirtyDateRef = useRef(null); // tracks which date the pending save is for
   const sectionsRef = useRef(sections);
   const sectionNamesRef = useRef(sectionNames);
   const vitalsRef = useRef(vitals);
@@ -2078,9 +2150,8 @@ function DailyLogPage({ config, onBack }) {
     if (!dirtyRef.current) return Promise.resolve();
     dirtyRef.current = false;
     const secs = overrideSections || sectionsRef.current;
-    const d = new Date();
-    d.setDate(d.getDate() + dayOffset);
-    const ds = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const ds = dirtyDateRef.current || dateInfo.dateStr;
+    dirtyDateRef.current = null;
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
     const payload = {
@@ -2102,6 +2173,7 @@ function DailyLogPage({ config, onBack }) {
 
   const scheduleSave = () => {
     dirtyRef.current = true;
+    dirtyDateRef.current = dateInfo.dateStr;
     setSaveStatus("idle");
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
@@ -2492,13 +2564,29 @@ function DailyLogPage({ config, onBack }) {
             </div>
           </div>}
           {showVitalsModal&&<div style={{position:"fixed",inset:0,background:"rgba(44,24,16,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)setShowVitalsModal(false);}}>
-            <div style={{background:"white",borderRadius:16,width:360,maxWidth:"90vw",overflow:"hidden",boxShadow:"0 12px 60px rgba(0,0,0,0.25)"}}>
+            <div style={{background:"white",borderRadius:16,width:380,maxWidth:"90vw",overflow:"hidden",boxShadow:"0 12px 60px rgba(0,0,0,0.25)"}}>
               <div style={{background:chrome.titleBar,padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                 <div><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:acc}}>Configure</div><div style={{fontSize:16,fontWeight:700,color:"#f0e0d0"}}>Vitals Metrics</div></div>
                 <button onClick={()=>setShowVitalsModal(false)} style={{color:"#a08878",background:"none",border:"none",fontSize:18,cursor:"pointer"}}>✕</button></div>
-              <div style={{padding:"16px 20px",maxHeight:400,overflowY:"auto"}}>{ALL_VITALS.map(v=>{const on=enabledVitals.includes(v.key);return(<label key={v.key} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f0e8e0",cursor:"pointer"}}>
-                <input type="checkbox" checked={on} onChange={()=>{const updated=on?enabledVitals.filter(k=>k!==v.key):[...enabledVitals,v.key];fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...config,enabledVitals:updated})}).catch(()=>{});}} style={{width:18,height:18,accentColor:acc,cursor:"pointer"}}/>
-                <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#2c1810"}}>{v.label}</div><div style={{fontSize:12,color:"#b0988a"}}>{v.unit}</div></div></label>);})}</div>
+              <div style={{padding:"16px 20px",maxHeight:400,overflowY:"auto"}}>
+                {/* Enabled vitals — draggable to reorder */}
+                {enabledVitals.map((key,idx)=>{const v=ALL_VITALS.find(x=>x.key===key);if(!v)return null;return(
+                  <div key={key} draggable onDragStart={()=>setVitalDragIdx(idx)} onDragOver={e=>{e.preventDefault();setVitalDragOverIdx(idx);}}
+                    onDrop={()=>{if(vitalDragIdx!=null&&vitalDragIdx!==idx){const arr=[...enabledVitals];const[moved]=arr.splice(vitalDragIdx,1);arr.splice(idx,0,moved);saveEnabledVitals(arr);}setVitalDragIdx(null);setVitalDragOverIdx(null);}}
+                    onDragEnd={()=>{setVitalDragIdx(null);setVitalDragOverIdx(null);}}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:vitalDragOverIdx===idx?`2px solid ${acc}`:"1px solid #f0e8e0",opacity:vitalDragIdx===idx?0.4:1,cursor:"grab"}}>
+                    <span style={{color:"#c0b8b0",fontSize:14,userSelect:"none",flexShrink:0}}>⠿</span>
+                    <input type="checkbox" checked onChange={()=>saveEnabledVitals(enabledVitals.filter(k=>k!==key))} style={{width:18,height:18,accentColor:acc,cursor:"pointer",flexShrink:0}}/>
+                    <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#2c1810"}}>{v.label}</div><div style={{fontSize:12,color:"#b0988a"}}>{v.unit}</div></div>
+                  </div>);})}
+                {/* Disabled vitals — can be added */}
+                {ALL_VITALS.filter(v=>!enabledVitals.includes(v.key)).map(v=>(
+                  <label key={v.key} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f0e8e0",cursor:"pointer",opacity:0.6}}>
+                    <span style={{width:14,flexShrink:0}}/>
+                    <input type="checkbox" checked={false} onChange={()=>saveEnabledVitals([...enabledVitals,v.key])} style={{width:18,height:18,accentColor:acc,cursor:"pointer",flexShrink:0}}/>
+                    <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#2c1810"}}>{v.label}</div><div style={{fontSize:12,color:"#b0988a"}}>{v.unit}</div></div>
+                  </label>))}
+              </div>
               <div style={{padding:"12px 20px",borderTop:"1px solid #f0e8e0"}}><button onClick={()=>setShowVitalsModal(false)} style={{width:"100%",fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"none",background:acc,color:"white",cursor:"pointer"}}>Done</button></div>
             </div></div>}
 
