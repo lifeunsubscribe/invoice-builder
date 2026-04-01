@@ -1633,21 +1633,10 @@ function makeTimestamp() {
 
 function AutoTextarea({ value, onChange, placeholder, style, timestamped, ...props }) {
   const ref = useRef(null);
+  const pendingStampRef = useRef(false);
   useEffect(() => {
     if (ref.current) { ref.current.style.height = "auto"; ref.current.style.height = ref.current.scrollHeight + "px"; }
   }, [value]);
-
-  const handleFocus = (e) => {
-    if (!timestamped) return;
-    // If empty, seed with a timestamp
-    if (!value.trim()) {
-      const stamp = `${makeTimestamp()} — `;
-      const synth = { target: { value: stamp } };
-      onChange(synth);
-      // Move cursor to end after React re-renders
-      setTimeout(() => { if (ref.current) { ref.current.selectionStart = ref.current.selectionEnd = stamp.length; } }, 0);
-    }
-  };
 
   const handleKeyDown = (e) => {
     if (!timestamped) return;
@@ -1660,15 +1649,20 @@ function AutoTextarea({ value, onChange, placeholder, style, timestamped, ...pro
       const stamp = `${makeTimestamp()} — `;
       const inserted = `\n\n${stamp}`;
       const newVal = before + inserted + after;
-      const synth = { target: { value: newVal } };
-      onChange(synth);
+      onChange({ target: { value: newVal } });
       const newPos = pos + inserted.length;
       setTimeout(() => { ta.selectionStart = ta.selectionEnd = newPos; }, 0);
+    } else if (!value.trim() && e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
+      // First keystroke into empty section — prepend timestamp
+      e.preventDefault();
+      const stamp = `${makeTimestamp()} — ${e.key}`;
+      onChange({ target: { value: stamp } });
+      setTimeout(() => { if (ref.current) { ref.current.selectionStart = ref.current.selectionEnd = stamp.length; } }, 0);
     }
   };
 
   return <textarea ref={ref} value={value} onChange={onChange} placeholder={placeholder}
-    onFocus={handleFocus} onKeyDown={handleKeyDown} {...props}
+    onKeyDown={handleKeyDown} {...props}
     style={{...style, overflow:"hidden", resize:"none"}} />;
 }
 
@@ -2101,12 +2095,12 @@ function ReportModal({ onClose }) {
         {!result ? (
           <>
             <div style={{fontSize:13,color:"#7a6a5a",lineHeight:1.6,marginBottom:14}}>
-              Describe what happened, including any performance issues, unexpected behavior, or suggestions for improvement. Diagnostic logs and system info will be included automatically.
+              Share any issues, ideas, or suggestions — we'd love to hear from you. Diagnostic logs and system info will be included automatically.
             </div>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder={"What went wrong, or what could be better?\n\nExamples:\n• The app froze when I clicked Submit\n• PDF generation is very slow\n• It would be helpful if I could..."}
+              placeholder={"How can we improve the app?\n\nExamples:\n• The app froze when I clicked Submit\n• A button isn't working the way I expected\n• It would be helpful if I could..."}
               maxLength={5000}
               style={{width:"100%",minHeight:140,padding:12,borderRadius:8,border:"1px solid #d8c8b8",background:"#fff",fontSize:13,color:"#2c1810",resize:"vertical",fontFamily:"inherit",lineHeight:1.5,boxSizing:"border-box"}}
             />

@@ -148,6 +148,20 @@ def not_found(e):
 def internal_error(e):
     """Handle 500 errors with JSON response."""
     logger.error("500: %s", e)
+    # Auto-send crash report in background (best-effort, don't block response)
+    try:
+        import traceback as tb
+        from app.services.report_service import send_report
+        err_info = {
+            "type": type(e).__name__,
+            "message": str(e),
+            "traceback": tb.format_exc(),
+        }
+        threading.Thread(
+            target=send_report, kwargs={"error_info": err_info}, daemon=True
+        ).start()
+    except Exception:
+        pass  # Never let report sending break the error response
     return jsonify({"error": "Server error", "message": "An internal server error occurred"}), 500
 
 @app.errorhandler(429)
@@ -158,6 +172,25 @@ def rate_limit_exceeded(e):
         "error": "Rate limit exceeded",
         "message": "Too many requests. Please try again later."
     }), 429
+
+@app.errorhandler(Exception)
+def unhandled_exception(e):
+    """Catch-all for unhandled exceptions — auto-send crash report."""
+    import traceback as tb
+    logger.exception("Unhandled exception: %s", e)
+    try:
+        from app.services.report_service import send_report
+        err_info = {
+            "type": type(e).__name__,
+            "message": str(e),
+            "traceback": tb.format_exc(),
+        }
+        threading.Thread(
+            target=send_report, kwargs={"error_info": err_info}, daemon=True
+        ).start()
+    except Exception:
+        pass
+    return jsonify({"error": "Server error", "message": "An unexpected error occurred"}), 500
 
 @app.errorhandler(413)
 def request_entity_too_large(e):
@@ -225,6 +258,12 @@ def check_update():
     return jsonify({"updateAvailable": False, "currentVersion": local}), 200
 
 _shutdown_timer = None
+
+# ── Temporary test endpoint — remove before release ──
+@app.route("/api/test-crash", methods=["POST"])
+def test_crash():
+    """Simulate an unhandled crash to test error reporting."""
+    raise RuntimeError("Test crash — this is not a real error")
 
 @app.route("/api/heartbeat", methods=["POST"])
 def heartbeat():
@@ -475,12 +514,14 @@ from app.api.scan_api import scan_bp
 from app.api.submit_api import submit_bp
 from app.api.email_config_api import email_config_bp
 from app.api.log_api import log_bp
+from app.api.report_api import report_bp
 
 app.register_blueprint(config_bp)
 app.register_blueprint(scan_bp)
 app.register_blueprint(submit_bp)
 app.register_blueprint(email_config_bp)
 app.register_blueprint(log_bp)
+app.register_blueprint(report_bp)
 
 def _check_crash_report():
     """If a previous update crashed, log it and clean up marker files."""
