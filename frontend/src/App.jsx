@@ -101,17 +101,8 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
   const m = mode || "day";
   const [year, setYear] = useState(initialYear || new Date().getFullYear());
   const [month, setMonth] = useState(initialMonth != null ? initialMonth : new Date().getMonth());
-  const [loadedHL, setLoadedHL] = useState(highlightedDays || []);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [loadedHL, setLoadedHL] = useState([]);
   const panelRef = useRef(null);
-
-  // Position the popup below the anchor button
-  useEffect(() => {
-    if (anchorRef?.current) {
-      const rect = anchorRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 6, left: rect.left });
-    }
-  }, [anchorRef]);
 
   // Close on click outside
   const onCloseRef = useRef(onClose);
@@ -139,7 +130,7 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
   const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(mo => mo - 1); };
   const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(mo => mo + 1); };
 
-  const panelStyle = { position: "fixed", top: pos.top, left: pos.left, zIndex: 9999, background: "white", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", padding: 16 };
+  const panelStyle = { position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 9999, background: "white", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", padding: 16 };
 
   // Month picker mode
   if (m === "month") {
