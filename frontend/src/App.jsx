@@ -2351,12 +2351,28 @@ function DailyLogPage({ config, onBack }) {
   // Clear all content for the current day
   const clearDay = () => {
     pushUndo({ type: "content", sections: sections.map(s => ({...s})) });
-    setSections(prev => prev.map(s => ({ ...s, content: "" })));
-    setVitals({...EMPTY_VITALS});
-    setShift({start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""});
-    setMedChecklist((activeClient.meds || []).map(m => ({...m, configuredId: m.id, times: []})));
+    const clearedSections = sections.map(s => ({ ...s, content: "" }));
+    const clearedVitals = {...EMPTY_VITALS};
+    const clearedShift = {start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""};
+    const clearedMeds = (activeClient.meds || []).map(m => ({...m, configuredId: m.id, times: []}));
+    setSections(clearedSections);
+    setVitals(clearedVitals);
+    setShift(clearedShift);
+    setMedChecklist(clearedMeds);
     setShowClearConfirm(false);
-    scheduleSave();
+    // Save immediately — don't debounce, so calendar and navigation see it right away
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    dirtyRef.current = false;
+    setSaveStatus("saving");
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
+    fetch("/api/log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date: dateInfo.dateStr, sections: clearedSections, vitals: clearedVitals, shift: clearedShift, meds: clearedMeds, clientId: activeClient.id || "" }),
+      signal: abortRef.current.signal,
+    }).then(r => { if (r.ok) { setSaveStatus("saved"); setSaveCount(c => c + 1); } else setSaveStatus("error"); })
+      .catch(e => { if (e.name !== "AbortError") setSaveStatus("error"); });
   };
 
   // Vitals/shift/med change helpers
