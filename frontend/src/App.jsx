@@ -96,7 +96,7 @@ const chrome = {
 };
 
 // ── CALENDAR PICKER ──────────────────────────────────────────────────────
-function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYear, initialMonth, mode, anchorRef }) {
+function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYear, initialMonth, selectedDay, mode, anchorRef }) {
   // mode: "day" (default) picks a day, "week" picks a week (Monday), "month" picks a month
   const m = mode || "day";
   const [year, setYear] = useState(initialYear || new Date().getFullYear());
@@ -190,7 +190,8 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
         ))}
         {cells.map((day, i) => {
           if (!day) return <div key={i}/>;
-          const isToday = isThisMonth && day === today.getDate();
+          const isSelected = selectedDay && year === selectedDay.year && month === selectedDay.month && day === selectedDay.day;
+          const isToday = !isSelected && isThisMonth && day === today.getDate();
           const isHL = loadedHL.includes(day);
           const handleClick = () => {
             if (m === "week") {
@@ -203,7 +204,7 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
           };
           return (
             <button key={i} onClick={handleClick}
-              style={{width:32,height:32,borderRadius:"50%",border:isToday ? `2px solid ${accent}` : "none",background:isHL ? `${accent}25` : "transparent",color:isToday ? accent : "#2c1810",cursor:"pointer",fontSize:13,fontWeight:isToday ? 700 : 400,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto"}}>
+              style={{width:32,height:32,borderRadius:"50%",border:isSelected ? `2px solid ${accent}` : isToday ? `2px dashed ${accent}` : "none",background:isSelected ? `${accent}20` : isHL ? `${accent}25` : "transparent",color:(isSelected||isToday) ? accent : "#2c1810",cursor:"pointer",fontSize:13,fontWeight:(isSelected||isToday) ? 700 : 400,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto"}}>
               {day}
             </button>
           );
@@ -1710,7 +1711,7 @@ function DailyLogPage({ config, onBack }) {
       : dayOffset < 0 ? `${abs} days ago`
       : `In ${abs} days`;
     const fullDate = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
-    return { dateStr, navLabel, fullDate, year: d.getFullYear(), month: d.getMonth() };
+    return { dateStr, navLabel, fullDate, year: d.getFullYear(), month: d.getMonth(), day: d.getDate() };
   }, [dayOffset]);
 
   // Flush pending save
@@ -1948,6 +1949,7 @@ function DailyLogPage({ config, onBack }) {
           <button ref={calBtnRef} className="bsm" onClick={() => setShowCalendar(!showCalendar)}
             style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer"}}>📅</button>
           {showCalendar && <CalendarPicker accent={acc} initialYear={dateInfo.year} initialMonth={dateInfo.month}
+            selectedDay={{year:dateInfo.year,month:dateInfo.month,day:dateInfo.day}}
             anchorRef={calBtnRef} highlightedDays={fetchLogDates} onSelect={jumpToDate} onClose={() => setShowCalendar(false)} />}
           <div style={{display:"flex",alignItems:"center",gap:7}}>
             <button className="bsm" onClick={prevDay} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 12px",cursor:"pointer"}}>‹</button>
@@ -2048,6 +2050,127 @@ function DailyLogPage({ config, onBack }) {
   );
 }
 
+// ── REPORT A PROBLEM ─────────────────────────────────────────────────────
+function ReportModal({ onClose }) {
+  const [description, setDescription] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState(null); // {success} or {error, report}
+
+  const handleSubmit = async () => {
+    if (!description.trim()) return;
+    setSending(true);
+    try {
+      const resp = await fetch('/api/report', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({description: description.trim()})
+      });
+      const data = await resp.json();
+      if (data.success) {
+        setResult({success: true});
+      } else if (data.report) {
+        // Email failed — offer clipboard fallback
+        setResult({error: data.error, report: data.report});
+      } else {
+        setResult({error: data.error || 'Failed to send report'});
+      }
+    } catch (e) {
+      setResult({error: 'Could not reach server'});
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleCopy = () => {
+    if (result?.report) {
+      navigator.clipboard.writeText(result.report).then(() => {
+        setResult(prev => ({...prev, copied: true}));
+      });
+    }
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"sans-serif"}}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{background:"#faf6f2",borderRadius:12,padding:28,width:420,maxWidth:"90vw",maxHeight:"80vh",overflow:"auto",boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{fontSize:16,fontWeight:700,color:"#2c1810"}}>Report a Problem</div>
+          <button onClick={onClose} style={{fontSize:14,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>✕</button>
+        </div>
+
+        {!result ? (
+          <>
+            <div style={{fontSize:13,color:"#7a6a5a",lineHeight:1.6,marginBottom:14}}>
+              Describe what happened, including any performance issues, unexpected behavior, or suggestions for improvement. Diagnostic logs and system info will be included automatically.
+            </div>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder={"What went wrong, or what could be better?\n\nExamples:\n• The app froze when I clicked Submit\n• PDF generation is very slow\n• It would be helpful if I could..."}
+              maxLength={5000}
+              style={{width:"100%",minHeight:140,padding:12,borderRadius:8,border:"1px solid #d8c8b8",background:"#fff",fontSize:13,color:"#2c1810",resize:"vertical",fontFamily:"inherit",lineHeight:1.5,boxSizing:"border-box"}}
+            />
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
+              <span style={{fontSize:11,color:"#b0a090"}}>{description.length}/5000</span>
+              <button
+                onClick={handleSubmit}
+                disabled={!description.trim() || sending}
+                style={{fontSize:13,fontWeight:700,color:"#fff",background:!description.trim()||sending?"#c0b0a0":"#7a6050",border:"none",borderRadius:8,padding:"8px 20px",cursor:!description.trim()||sending?"default":"pointer",opacity:!description.trim()?0.6:1}}>
+                {sending ? "Sending..." : "Send Report"}
+              </button>
+            </div>
+          </>
+        ) : result.success ? (
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <div style={{fontSize:28,marginBottom:10}}>✓</div>
+            <div style={{fontSize:14,color:"#4a7a50",fontWeight:600,marginBottom:6}}>Report sent</div>
+            <div style={{fontSize:13,color:"#7a6a5a"}}>Thank you — this helps us improve the app.</div>
+            <button onClick={onClose}
+              style={{marginTop:16,fontSize:13,color:"#7a6050",background:"none",border:`1px solid #d8c8b8`,borderRadius:8,padding:"6px 16px",cursor:"pointer"}}>
+              Close
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div style={{fontSize:13,color:"#8a5020",marginBottom:10}}>
+              Could not send automatically{result.error ? `: ${result.error}` : ''}
+            </div>
+            {result.report && (
+              <>
+                <div style={{fontSize:13,color:"#7a6a5a",marginBottom:8}}>
+                  Copy the report below and email it to us manually:
+                </div>
+                <textarea
+                  readOnly
+                  value={result.report}
+                  style={{width:"100%",minHeight:100,padding:10,borderRadius:8,border:"1px solid #d8c8b8",background:"#f5f0eb",fontSize:11,color:"#5a4a3a",fontFamily:"monospace",resize:"vertical",boxSizing:"border-box"}}
+                />
+                <button onClick={handleCopy}
+                  style={{marginTop:8,fontSize:13,fontWeight:600,color:"#fff",background:result.copied?"#6a9a70":"#7a6050",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",width:"100%"}}>
+                  {result.copied ? "Copied!" : "Copy to Clipboard"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReportButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      title="Report a problem or share feedback"
+      style={{position:"fixed",bottom:12,left:12,zIndex:9000,fontSize:12,color:"#a09080",background:"rgba(46,34,24,0.75)",border:"1px solid rgba(74,56,40,0.5)",borderRadius:20,padding:"5px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:5,backdropFilter:"blur(4px)",transition:"opacity 0.15s",opacity:0.6}}
+      onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+      onMouseLeave={e=>e.currentTarget.style.opacity="0.6"}>
+      <span style={{fontSize:13}}>💬</span> Feedback
+    </button>
+  );
+}
+
 export default function App() {
   const [config, setConfig] = useState(defaultConfig);
   const [page,   setPage]   = useState("menu");
@@ -2061,6 +2184,7 @@ export default function App() {
   const [updateInfo, setUpdateInfo] = useState(null); // {downloadUrl, latestVersion}
   const [updating, setUpdating] = useState(false);
   const [updateComplete, setUpdateComplete] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   // Show "Update complete" toast if redirected after update
   useEffect(() => {
@@ -2221,9 +2345,11 @@ export default function App() {
     </div>
   );
 
-  if (page==="log")     return <>{ErrorBanner}{UpdateBanner}{emailModal}<DailyLogPage config={config} onBack={()=>setPage("menu")}/></>;
-  if (page==="weekly")  return <>{ErrorBanner}{UpdateBanner}{emailModal}<WeeklyPage  config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
-  if (page==="monthly") return <>{ErrorBanner}{UpdateBanner}{emailModal}<MonthlyPage config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
-  if (page==="profile") return <>{ErrorBanner}{UpdateBanner}{emailModal}<ProfilePage config={config} onSave={setConfig} onBack={()=>setPage("menu")} scrollToFolder={scrollToFolder} {...emailProps}/></>;
-  return <>{ErrorBanner}{UpdateBanner}{emailModal}<LandingPage config={config} onNav={handleNav} {...emailProps}/></>;
+  const reportUI = <><ReportButton onClick={()=>setShowReport(true)}/>{showReport && <ReportModal onClose={()=>setShowReport(false)}/>}</>;
+
+  if (page==="log")     return <>{ErrorBanner}{UpdateBanner}{emailModal}{reportUI}<DailyLogPage config={config} onBack={()=>setPage("menu")}/></>;
+  if (page==="weekly")  return <>{ErrorBanner}{UpdateBanner}{emailModal}{reportUI}<WeeklyPage  config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
+  if (page==="monthly") return <>{ErrorBanner}{UpdateBanner}{emailModal}{reportUI}<MonthlyPage config={config} onBack={()=>setPage("menu")} {...emailProps}/></>;
+  if (page==="profile") return <>{ErrorBanner}{UpdateBanner}{emailModal}{reportUI}<ProfilePage config={config} onSave={setConfig} onBack={()=>setPage("menu")} scrollToFolder={scrollToFolder} {...emailProps}/></>;
+  return <>{ErrorBanner}{UpdateBanner}{emailModal}{reportUI}<LandingPage config={config} onNav={handleNav} {...emailProps}/></>;
 }
