@@ -896,14 +896,10 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
               <div style={{fontSize:14,color:chrome.mutedText}}>Tailors labels and features to your line of work.</div>
             </div>
             <div style={{padding:"20px 24px"}}>
-              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                {OCCUPATIONS.map(o=>(
-                  <button key={o.id} onClick={()=>setDraft(d=>({...d,occupation:o.id}))}
-                    style={{fontSize:13,padding:"7px 14px",borderRadius:20,border:(draft.occupation||"")=== o.id?`2px solid ${acc}`:`1.5px solid #e8ddd8`,background:(draft.occupation||"")===o.id?tint(acc,0.08):"white",color:(draft.occupation||"")===o.id?"#2c1810":"#6a5a4a",fontWeight:(draft.occupation||"")===o.id?700:500,cursor:"pointer",transition:"all 0.15s"}}>
-                    {o.label}
-                  </button>
-                ))}
-              </div>
+              <select value={draft.occupation||""} onChange={e=>setDraft(d=>({...d,occupation:e.target.value}))}
+                style={inputStyle}>
+                {OCCUPATIONS.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
             </div>
           </div>
 
@@ -1002,20 +998,20 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
 
                 {/* Medications */}
                 <div style={{marginBottom:8}}>
-                  <label style={labelStyle}>Medications</label>
+                  <label style={labelStyle}>{occLabels.medsHeader}</label>
                   {(activeClient.meds||[]).length === 0 && (
-                    <div style={{fontSize:13,color:"#c0b0a0",fontStyle:"italic",marginBottom:8}}>No medications configured yet.</div>
+                    <div style={{fontSize:13,color:"#c0b0a0",fontStyle:"italic",marginBottom:8}}>No {occLabels.medsHeader.toLowerCase()} configured yet.</div>
                   )}
                   {(activeClient.meds||[]).map((med,i) => (
                     <div key={med.id} style={{background:"#fdfaf8",border:"1.5px solid #e8ddd8",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
                       <div style={{display:"flex",gap:8,marginBottom:6}}>
                         <div style={{flex:2}}>
-                          <label style={{...labelStyle,fontSize:10}}>Medication</label>
+                          <label style={{...labelStyle,fontSize:10}}>Name</label>
                           <input value={med.name} onChange={e=>updateMed(med.id,"name",e.target.value)}
                             placeholder="Name" style={{...inputStyle,fontSize:13,padding:"6px 10px"}}/>
                         </div>
                         <div style={{flex:1}}>
-                          <label style={{...labelStyle,fontSize:10}}>Dosage</label>
+                          <label style={{...labelStyle,fontSize:10}}>Amount</label>
                           <input value={med.dosage} onChange={e=>updateMed(med.id,"dosage",e.target.value)}
                             placeholder="e.g., 5mg" style={{...inputStyle,fontSize:13,padding:"6px 10px"}}/>
                         </div>
@@ -1033,13 +1029,13 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
                             {["Oral","Topical","Injection","Inhaled","Sublingual","Other"].map(r=><option key={r}>{r}</option>)}
                           </select>
                         </div>
-                        <button onClick={()=>removeMed(med.id)} title="Remove medication"
+                        <button onClick={()=>removeMed(med.id)} title="Remove"
                           style={{fontSize:16,color:"#d08080",background:"none",border:"none",cursor:"pointer",padding:"6px",marginBottom:1,flexShrink:0}}>✕</button>
                       </div>
                     </div>
                   ))}
                   <button onClick={addMed} style={{fontSize:13,fontWeight:600,color:acc,background:"none",border:`1.5px dashed ${acc}50`,borderRadius:8,padding:"8px 14px",cursor:"pointer",width:"100%",marginTop:4}}>
-                    + Add Medication
+                    + Add {occLabels.medsHeader === "Medications" ? "Medication" : "Item"}
                   </button>
                 </div>
 
@@ -2439,17 +2435,15 @@ function DailyLogPage({ config, onBack }) {
     shiftRef.current = clearedShift;
     medChecklistRef.current = clearedMeds;
     setShowClearConfirm(false);
-    // Save immediately — don't debounce, so calendar and navigation see it right away
+    // Delete the log file immediately — no debounce, no race conditions
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     dirtyRef.current = false;
     clearedDatesRef.current.add(dateInfo.dateStr);
     setSaveStatus("saving");
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
-    fetch("/api/log", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: dateInfo.dateStr, sections: clearedSections, vitals: clearedVitals, shift: clearedShift, meds: clearedMeds, clientId: activeClient.id || "" }),
+    fetch(`/api/log?date=${dateInfo.dateStr}`, {
+      method: "DELETE",
       signal: abortRef.current.signal,
     }).then(r => { if (r.ok) { setSaveStatus("saved"); setSaveCount(c => c + 1); clearedDatesRef.current.delete(dateInfo.dateStr); } else setSaveStatus("error"); })
       .catch(e => { if (e.name !== "AbortError") setSaveStatus("error"); });
@@ -2730,7 +2724,7 @@ function DailyLogPage({ config, onBack }) {
               ) : (
                 <button onClick={()=>setShowAddMed(true)}
                   style={{marginTop:8,fontSize:12,color:acc,background:"none",border:"none",cursor:"pointer",padding:0}}>
-                  + Add one-time medication
+                  + Add one-time {occLabels.medsHeader === "Medications" ? "medication" : "item"}
                 </button>
               )}
             </div>

@@ -87,6 +87,37 @@ def get_log():
         return jsonify({"error": "Failed to read log"}), 500
 
 
+@log_bp.route('/log', methods=['DELETE'])
+def delete_log():
+    """
+    DELETE /api/log?date=YYYY-MM-DD
+
+    Deletes the log file for the given date.
+    """
+    date_str = request.args.get('date', '')
+    if not DATE_PATTERN.match(date_str):
+        return jsonify({"error": "Invalid date format, expected YYYY-MM-DD"}), 400
+
+    config = _load_config()
+    if not config or not config.get('saveFolder'):
+        return jsonify({"success": True}), 200
+
+    save_folder = expand_path(config['saveFolder'])
+
+    try:
+        path = logs_path(save_folder, date_str)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+        return jsonify({"success": True}), 200
+    except OSError as e:
+        logger.exception("Error deleting log: %s", e)
+        return jsonify({"error": "Failed to delete log"}), 500
+
+
 TIME_PATTERN = re.compile(r'^\d{2}:\d{2}$')
 VITALS_KEYS = {'temperature', 'bpSystolic', 'bpDiastolic', 'weight', 'pulse', 'o2sat'}
 
