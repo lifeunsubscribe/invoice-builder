@@ -2211,8 +2211,9 @@ function DailyLogPage({ config, onBack }) {
   };
 
   // Filter displayed sections
+  // Show sections that are in config OR have content for this day
   const displaySections = sectionNames
-    ? sections.filter(s => sectionNames.includes(s.name))
+    ? sections.filter(s => sectionNames.includes(s.name) || s.content.trim())
     : sections;
 
   return (
