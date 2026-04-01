@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 log_bp = Blueprint('log', __name__, url_prefix='/api')
 
 DATE_PATTERN = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+# Matches bare timestamp lines like "10:32 am — " with nothing after the dash
+BARE_TIMESTAMP = re.compile(r'^(\d{1,2}:\d{2}\s*[ap]m\s*—\s*)+$', re.IGNORECASE | re.MULTILINE)
 DEFAULT_SECTIONS = []
 MAX_LOG_SIZE = 512 * 1024  # 512KB
 
@@ -85,13 +87,57 @@ def get_log():
         return jsonify({"error": "Failed to read log"}), 500
 
 
+TIME_PATTERN = re.compile(r'^\d{2}:\d{2}$')
+VITALS_KEYS = {'temperature', 'bpSystolic', 'bpDiastolic', 'weight', 'pulse', 'o2sat'}
+
+
+def _validate_vitals(vitals):
+    """Validate vitals object. Returns error string or None."""
+    if not isinstance(vitals, dict):
+        return "vitals must be an object"
+    for key in vitals:
+        if key not in VITALS_KEYS:
+            return f"Unknown vitals key: {key}"
+        val = vitals[key]
+        if val is not None and not isinstance(val, (int, float)):
+            return f"vitals.{key} must be a number or null"
+    return None
+
+
+def _validate_meds(meds):
+    """Validate meds array. Returns error string or None."""
+    if not isinstance(meds, list):
+        return "meds must be a list"
+    for m in meds:
+        if not isinstance(m, dict):
+            return "Each med must be an object"
+        if not isinstance(m.get('name', ''), str):
+            return "Med name must be a string"
+        times = m.get('times', [])
+        if not isinstance(times, list) or not all(isinstance(t, str) for t in times):
+            return "Med times must be a list of strings"
+    return None
+
+
+def _validate_shift(shift):
+    """Validate shift object. Returns error string or None."""
+    if not isinstance(shift, dict):
+        return "shift must be an object"
+    for key in ('start', 'end'):
+        val = shift.get(key, '')
+        if val and not TIME_PATTERN.match(val):
+            return f"shift.{key} must be HH:MM format"
+    return None
+
+
 @log_bp.route('/log', methods=['POST'])
 def save_log():
     """
     POST /api/log
 
     Saves a daily service log. Expects JSON:
-    {"date": "YYYY-MM-DD", "sections": [{"name": "...", "content": "..."}]}
+    {"date": "YYYY-MM-DD", "sections": [...], "vitals": {...}, "meds": [...], "shift": {...}, "clientId": "..."}
+    Only date and sections are required; vitals, meds, shift, clientId are optional.
     """
     data = request.get_json()
     if data is None:
@@ -110,6 +156,25 @@ def save_log():
             return jsonify({"error": "Each section must have name and content"}), 400
         if not isinstance(s['name'], str) or not isinstance(s['content'], str):
             return jsonify({"error": "Section name and content must be strings"}), 400
+
+    # Validate optional structured fields
+    if 'vitals' in data:
+        err = _validate_vitals(data['vitals'])
+        if err:
+            return jsonify({"error": err}), 400
+
+    if 'meds' in data:
+        err = _validate_meds(data['meds'])
+        if err:
+            return jsonify({"error": err}), 400
+
+    if 'shift' in data:
+        err = _validate_shift(data['shift'])
+        if err:
+            return jsonify({"error": err}), 400
+
+    if 'clientId' in data and not isinstance(data['clientId'], str):
+        return jsonify({"error": "clientId must be a string"}), 400
 
     # Size guard
     serialized = json.dumps(data)
@@ -230,8 +295,27 @@ def get_log_dates():
                     try:
                         with open(fpath, 'r', encoding='utf-8') as f:
                             data = json.load(f)
+                        has_content = False
+                        # Check text sections (ignore bare timestamps)
                         sections = data.get("sections", [])
-                        if any(s.get("content", "").strip() for s in sections):
+                        for s in sections:
+                            text = s.get("content", "").strip()
+                            if text and BARE_TIMESTAMP.sub("", text).strip():
+                                has_content = True
+                                break
+                        # Check vitals
+                        vitals = data.get("vitals", {})
+                        if any(v is not None for v in vitals.values()):
+                            has_content = True
+                        # Check meds with recorded times
+                        meds = data.get("meds", [])
+                        if any(m.get("times") for m in meds):
+                            has_content = True
+                        # Check shift times
+                        shift = data.get("shift", {})
+                        if shift.get("start") or shift.get("end"):
+                            has_content = True
+                        if has_content:
                             dates.append(int(day_str))
                     except (json.JSONDecodeError, OSError):
                         pass
@@ -239,3 +323,71 @@ def get_log_dates():
         logger.warning("Error scanning logs dir: %s", e)
 
     return jsonify({"dates": sorted(dates)}), 200
+
+
+WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+@log_bp.route('/log-week', methods=['GET'])
+def get_log_week():
+    """
+    GET /api/log-week?monday=YYYY-MM-DD
+
+    Returns hours computed from shift times for Mon-Fri of the given week.
+    Used to auto-populate weekly invoice hours from daily logs.
+    """
+    monday_str = request.args.get('monday', '')
+    if not DATE_PATTERN.match(monday_str):
+        return jsonify({"error": "Invalid date format, expected YYYY-MM-DD"}), 400
+
+    config = _load_config()
+    if not config or not config.get('saveFolder'):
+        hours = {day: 0 for day in WEEKDAY_NAMES}
+        has_log = {day: False for day in WEEKDAY_NAMES}
+        return jsonify({"hours": hours, "hasLog": has_log}), 200
+
+    save_folder = expand_path(config['saveFolder'])
+
+    # Parse monday date
+    from datetime import datetime, timedelta
+    try:
+        monday = datetime.strptime(monday_str, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({"error": "Invalid date"}), 400
+
+    hours = {}
+    has_log = {}
+
+    for i, day_name in enumerate(WEEKDAY_NAMES[:7]):
+        date = monday + timedelta(days=i)
+        date_str = date.strftime('%Y-%m-%d')
+
+        try:
+            path = logs_path(save_folder, date_str)
+        except ValueError:
+            hours[day_name] = 0
+            has_log[day_name] = False
+            continue
+
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            shift = data.get('shift', {})
+            start = shift.get('start', '')
+            end = shift.get('end', '')
+            if start and end:
+                try:
+                    sh, sm = map(int, start.split(':'))
+                    eh, em = map(int, end.split(':'))
+                    diff = (eh * 60 + em) - (sh * 60 + sm)
+                    hours[day_name] = round(max(0, diff) / 60, 1)
+                except (ValueError, TypeError):
+                    hours[day_name] = 0
+            else:
+                hours[day_name] = 0
+            has_log[day_name] = True
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            hours[day_name] = 0
+            has_log[day_name] = False
+
+    return jsonify({"hours": hours, "hasLog": has_log}), 200

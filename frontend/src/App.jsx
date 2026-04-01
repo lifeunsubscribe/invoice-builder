@@ -205,8 +205,9 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
         {cells.map((day, i) => {
           if (!day) return <div key={i}/>;
           const isSelected = selectedDay && year === selectedDay.year && month === selectedDay.month && day === selectedDay.day;
-          const isToday = !isSelected && isThisMonth && day === today.getDate();
+          const isToday = isThisMonth && day === today.getDate();
           const isHL = loadedHL.includes(day);
+          const showOutline = isSelected || isToday;
           const handleClick = () => {
             if (m === "week") {
               const mon = getMondayForDay(day);
@@ -218,7 +219,7 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
           };
           return (
             <button key={i} onClick={handleClick}
-              style={{width:32,height:32,borderRadius:"50%",border:isSelected ? `2px solid ${accent}` : isToday ? `2px dashed ${accent}` : "none",background:isSelected ? `${accent}20` : isHL ? `${accent}25` : "transparent",color:(isSelected||isToday) ? accent : "#2c1810",cursor:"pointer",fontSize:13,fontWeight:(isSelected||isToday) ? 700 : 400,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto"}}>
+              style={{width:32,height:32,borderRadius:"50%",border:showOutline ? `2px solid ${accent}` : "none",background:isHL ? `${accent}25` : "transparent",color:showOutline ? accent : "#2c1810",cursor:"pointer",fontSize:13,fontWeight:showOutline ? 700 : 400,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto"}}>
               {day}
             </button>
           );
@@ -1369,7 +1370,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
   const [lastScanResults, setLastScanResults] = useState(null); // persists after popup closes
   const [accountantEmail, setAccountantEmail] = useState(config.accountantEmail);
   const [submitting,   setSubmitting]   = useState(false);
-  const [signatureFont, setSignatureFont] = useState(()=>localStorage.getItem("signatureFont")||"Dancing Script");
+  const signatureFont = config.signatureFont || "Dancing Script";
   const submitInProgressRef = useRef(false);
   const isFirstLoad = useRef(true);
   const acc = config.accent;
@@ -1599,18 +1600,6 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                 style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:"#b0a090",marginTop:8,paddingLeft:11,cursor:"pointer"}}
                 title="Open folder">
                 <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
-              </div>
-            </div>
-            <div style={{flexShrink:0,marginBottom:32}}>
-              <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Signature Font</div>
-              <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                {["Dancing Script","Great Vibes","Sacramento","Pacifico","Satisfy"].map(f=>(
-                  <button key={f} onClick={()=>{setSignatureFont(f);localStorage.setItem("signatureFont",f);}}
-                    style={{textAlign:"left",padding:"7px 12px",borderRadius:7,border:signatureFont===f?`2px solid ${acc}`:`1.5px solid ${acc}30`,background:signatureFont===f?"#fff5f0":"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <span style={{fontFamily:`'${f}', cursive`,fontSize:20,color:"#2c1810",lineHeight:"28px"}}>{config.name||"Your Name"}</span>
-                    <span style={{fontSize:11,color:"#b0988a"}}>{f}</span>
-                  </button>
-                ))}
               </div>
             </div>
             <div style={{flexShrink:0,marginBottom:32}}>
@@ -1875,8 +1864,11 @@ function AutoTextarea({ value, onChange, placeholder, style, timestamped, ...pro
 }
 
 // ── DAILY SERVICE LOG ─────────────────────────────────────────────────────
+const EMPTY_VITALS = {temperature:null,bpSystolic:null,bpDiastolic:null,weight:null,pulse:null,o2sat:null};
+
 function DailyLogPage({ config, onBack }) {
   const acc = config.accent;
+  const activeClient = getActiveClient(config);
   const [dayOffset, setDayOffset] = useState(0);
   const [sections, setSections] = useState([]);
   const [sectionNames, setSectionNames] = useState(null);
@@ -1888,6 +1880,13 @@ function DailyLogPage({ config, onBack }) {
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
 
+  // Structured fields
+  const [vitals, setVitals] = useState({...EMPTY_VITALS});
+  const [shift, setShift] = useState({start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""});
+  const [medChecklist, setMedChecklist] = useState([]);
+  const [showAddMed, setShowAddMed] = useState(false);
+  const [newMed, setNewMed] = useState({name:"",dosage:"",route:"Oral"});
+
   // Undo/redo
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
@@ -1898,8 +1897,14 @@ function DailyLogPage({ config, onBack }) {
   const dirtyRef = useRef(false);
   const sectionsRef = useRef(sections);
   const sectionNamesRef = useRef(sectionNames);
+  const vitalsRef = useRef(vitals);
+  const shiftRef = useRef(shift);
+  const medChecklistRef = useRef(medChecklist);
   const locallyRemovedRef = useRef(new Set());
   sectionsRef.current = sections;
+  vitalsRef.current = vitals;
+  shiftRef.current = shift;
+  medChecklistRef.current = medChecklist;
   sectionNamesRef.current = sectionNames;
 
   // Compute date
@@ -1922,16 +1927,24 @@ function DailyLogPage({ config, onBack }) {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     if (!dirtyRef.current) return Promise.resolve();
     dirtyRef.current = false;
-    const data = overrideSections || sectionsRef.current;
+    const secs = overrideSections || sectionsRef.current;
     const d = new Date();
     d.setDate(d.getDate() + dayOffset);
     const ds = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
+    const payload = {
+      date: ds,
+      sections: secs,
+      vitals: vitalsRef.current,
+      shift: shiftRef.current,
+      meds: medChecklistRef.current,
+      clientId: activeClient.id || "",
+    };
     return fetch("/api/log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: ds, sections: data }),
+      body: JSON.stringify(payload),
       signal: abortRef.current.signal,
     }).then(r => { if (r.ok) setSaveStatus("saved"); else setSaveStatus("error"); })
       .catch(e => { if (e.name !== "AbortError") setSaveStatus("error"); });
@@ -1987,6 +2000,19 @@ function DailyLogPage({ config, onBack }) {
         } else {
           setSections(loaded);
         }
+
+        // Load structured fields (only on date change)
+        if (isDateChange) {
+          setVitals(data.vitals || {...EMPTY_VITALS});
+          setShift(data.shift?.start ? data.shift : {start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""});
+          // Seed med checklist from saved data, or from client config if no saved meds
+          if (data.meds && data.meds.length > 0) {
+            setMedChecklist(data.meds);
+          } else {
+            setMedChecklist((activeClient.meds || []).map(m => ({...m, configuredId: m.id, times: []})));
+          }
+        }
+
         loadedDateRef.current = dateInfo.dateStr;
         dirtyRef.current = false;
       })
@@ -2104,7 +2130,45 @@ function DailyLogPage({ config, onBack }) {
   const clearDay = () => {
     pushUndo({ type: "content", sections: sections.map(s => ({...s})) });
     setSections(prev => prev.map(s => ({ ...s, content: "" })));
+    setVitals({...EMPTY_VITALS});
+    setShift({start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""});
+    setMedChecklist((activeClient.meds || []).map(m => ({...m, configuredId: m.id, times: []})));
     setShowClearConfirm(false);
+    scheduleSave();
+  };
+
+  // Vitals/shift/med change helpers
+  const updateVital = (key, raw) => {
+    const val = raw === "" ? null : Number(raw);
+    setVitals(v => ({...v, [key]: isNaN(val) ? v[key] : val}));
+    scheduleSave();
+  };
+  const updateShift = (key, val) => {
+    setShift(s => ({...s, [key]: val}));
+    scheduleSave();
+  };
+  const shiftHours = useMemo(() => {
+    if (!shift.start || !shift.end) return null;
+    const [sh,sm] = shift.start.split(":").map(Number);
+    const [eh,em] = shift.end.split(":").map(Number);
+    const diff = (eh*60+em) - (sh*60+sm);
+    return diff > 0 ? (diff/60).toFixed(1) : null;
+  }, [shift]);
+
+  const toggleMed = (idx) => {
+    setMedChecklist(prev => prev.map((m,i) => {
+      if (i !== idx) return m;
+      if (m.times && m.times.length > 0) return {...m, times: m.times.slice(0,-1)};
+      const now = new Date().toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}).toLowerCase();
+      return {...m, times: [...(m.times||[]), now]};
+    }));
+    scheduleSave();
+  };
+  const addOneOffMed = () => {
+    if (!newMed.name.trim()) return;
+    setMedChecklist(prev => [...prev, {...newMed, configuredId: null, times: []}]);
+    setNewMed({name:"",dosage:"",route:"Oral"});
+    setShowAddMed(false);
     scheduleSave();
   };
 
@@ -2227,7 +2291,104 @@ function DailyLogPage({ config, onBack }) {
 
         {/* Section content area */}
         <div style={{flex:1,overflowY:"auto",padding:"20px 24px",background:"linear-gradient(160deg,#f9f3ee,#f2ebe4)",display:"flex",flexDirection:"column",gap:16}}>
-          {displaySections.length === 0 && sectionNames !== null && (
+
+          {/* Patient reminder card */}
+          {activeClient.name && (
+            <div style={{background:`linear-gradient(135deg, white, ${tint(acc,0.04)})`,borderRadius:14,border:`1.5px solid ${tint(acc,0.2)}`,padding:"14px 20px",display:"flex",alignItems:"flex-start",gap:14}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:tint(acc,0.12),display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,marginTop:2}}>
+                {activeClient.name.charAt(0).toUpperCase()}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:16,fontWeight:700,color:"#2c1810",fontFamily:"'Playfair Display',serif"}}>{activeClient.name}</div>
+                {activeClient.objective && (
+                  <div style={{fontSize:13,color:"#8a7060",lineHeight:1.4,marginTop:4,fontStyle:"italic"}}>{activeClient.objective}</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Shift times */}
+          <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+            <span style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600}}>Shift</span>
+            <input type="time" value={shift.start} onChange={e=>updateShift("start",e.target.value)}
+              style={{fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:8,padding:"6px 10px",color:"#2c1810",outline:"none",background:"#fdfaf8"}}/>
+            <span style={{color:"#b0988a",fontSize:13}}>to</span>
+            <input type="time" value={shift.end} onChange={e=>updateShift("end",e.target.value)}
+              style={{fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:8,padding:"6px 10px",color:"#2c1810",outline:"none",background:"#fdfaf8"}}/>
+            {shiftHours && <span style={{fontSize:14,color:acc,fontWeight:600,marginLeft:4}}>{shiftHours} hrs</span>}
+          </div>
+
+          {/* Vitals card */}
+          <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px"}}>
+            <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600,marginBottom:12}}>Vitals</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(100px, 1fr))",gap:10}}>
+              {[
+                {key:"temperature", label:"Temp", unit:"°F", step:"0.1"},
+                {key:"bpSystolic", label:"BP Sys", unit:"mmHg"},
+                {key:"bpDiastolic", label:"BP Dia", unit:"mmHg"},
+                {key:"weight", label:"Weight", unit:"lbs", step:"0.1"},
+                {key:"pulse", label:"Pulse", unit:"BPM"},
+                {key:"o2sat", label:"O₂ Sat", unit:"%"},
+              ].map(({key, label, unit, step}) => (
+                <div key={key} style={{textAlign:"center"}}>
+                  <input type="number" step={step||"1"} value={vitals[key]===null?"":vitals[key]} onChange={e=>updateVital(key,e.target.value)}
+                    placeholder="—"
+                    style={{width:"100%",fontSize:18,fontWeight:600,textAlign:"center",border:"1.5px solid #e8ddd8",borderRadius:8,padding:"8px 4px",color:"#2c1810",outline:"none",background:"#fdfaf8",boxSizing:"border-box"}}/>
+                  <div style={{fontSize:10,color:"#b0988a",marginTop:3}}>{label} <span style={{color:"#c0b0a0"}}>{unit}</span></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Medications checklist */}
+          {(medChecklist.length > 0 || (activeClient.meds||[]).length > 0) && (
+            <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px"}}>
+              <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600,marginBottom:10}}>Medications</div>
+              {medChecklist.map((med, idx) => {
+                const isChecked = med.times && med.times.length > 0;
+                return (
+                  <div key={med.configuredId || `oneoff-${idx}`}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:idx < medChecklist.length-1 ? "1px solid #f0e8e0" : "none"}}>
+                    <button onClick={()=>toggleMed(idx)}
+                      style={{width:24,height:24,borderRadius:6,border:`2px solid ${isChecked?acc:"#d0c0b8"}`,background:isChecked?acc:"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.15s"}}>
+                      {isChecked && <span style={{color:"white",fontSize:14,fontWeight:700}}>✓</span>}
+                    </button>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:14,fontWeight:600,color:"#2c1810"}}>{med.name}</div>
+                      <div style={{fontSize:12,color:"#b0988a"}}>
+                        {[med.dosage, med.frequency, med.route].filter(Boolean).join(" · ")}
+                        {!med.configuredId && <span style={{color:acc,marginLeft:6,fontStyle:"italic"}}>one-time</span>}
+                      </div>
+                    </div>
+                    {isChecked && (
+                      <div style={{fontSize:12,color:acc,fontWeight:500,flexShrink:0}}>
+                        {med.times.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Add one-off med */}
+              {showAddMed ? (
+                <div style={{marginTop:10,display:"flex",gap:6,alignItems:"flex-end",flexWrap:"wrap"}}>
+                  <input value={newMed.name} onChange={e=>setNewMed(m=>({...m,name:e.target.value}))} placeholder="Med name"
+                    style={{flex:2,fontSize:13,border:"1.5px solid #e8ddd8",borderRadius:6,padding:"6px 8px",outline:"none",minWidth:80}}/>
+                  <input value={newMed.dosage} onChange={e=>setNewMed(m=>({...m,dosage:e.target.value}))} placeholder="Dosage"
+                    style={{flex:1,fontSize:13,border:"1.5px solid #e8ddd8",borderRadius:6,padding:"6px 8px",outline:"none",minWidth:60}}/>
+                  <button onClick={addOneOffMed} style={{fontSize:12,fontWeight:600,color:"white",background:acc,border:"none",borderRadius:6,padding:"7px 12px",cursor:"pointer"}}>Add</button>
+                  <button onClick={()=>setShowAddMed(false)} style={{fontSize:12,color:"#9a8070",background:"none",border:"none",cursor:"pointer"}}>Cancel</button>
+                </div>
+              ) : (
+                <button onClick={()=>setShowAddMed(true)}
+                  style={{marginTop:8,fontSize:12,color:acc,background:"none",border:"none",cursor:"pointer",padding:0}}>
+                  + Add one-time medication
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Text sections */}
+          {displaySections.length === 0 && sectionNames !== null && medChecklist.length === 0 && !activeClient.name && (
             <div style={{textAlign:"center",padding:40,color:"#9a8070",fontSize:15,fontFamily:"sans-serif"}}>
               Click <strong style={{color:acc}}>+ add section</strong> above to start documenting.
             </div>
