@@ -114,22 +114,27 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
   }, [anchorRef]);
 
   // Close on click outside
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
-    const handler = (e) => { if (panelRef.current && !panelRef.current.contains(e.target)) onClose(); };
-    setTimeout(() => document.addEventListener("mousedown", handler), 0);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [onClose]);
+    const handler = (e) => { if (panelRef.current && !panelRef.current.contains(e.target)) onCloseRef.current(); };
+    const timer = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handler); };
+  }, []);
 
   // If highlightedDays is a function, call it when month/year changes
+  // Use a ref to avoid re-triggering when the function identity changes (inline arrows)
+  const hlRef = useRef(highlightedDays);
+  hlRef.current = highlightedDays;
   useEffect(() => {
-    if (typeof highlightedDays === "function") {
+    if (typeof hlRef.current === "function") {
       let cancelled = false;
-      highlightedDays(year, month).then(days => { if (!cancelled) setLoadedHL(days); });
+      hlRef.current(year, month).then(days => { if (!cancelled) setLoadedHL(days); });
       return () => { cancelled = true; };
-    } else if (Array.isArray(highlightedDays)) {
-      setLoadedHL(highlightedDays);
+    } else if (Array.isArray(hlRef.current)) {
+      setLoadedHL(hlRef.current);
     }
-  }, [year, month, highlightedDays]);
+  }, [year, month]);
 
   const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(mo => mo - 1); };
   const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(mo => mo + 1); };
