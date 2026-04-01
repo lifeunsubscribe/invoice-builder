@@ -76,6 +76,19 @@ function getWeeksForMonth(year, month) {
 
 const SIGNATURE_FONTS = ["Dancing Script","Great Vibes","Sacramento","Pacifico","Satisfy"];
 
+const ALL_VITALS = [
+  {key:"temperature", label:"Temp",   unit:"°F",   step:"0.1"},
+  {key:"bpSystolic",  label:"BP Sys", unit:"mmHg", step:"1"},
+  {key:"bpDiastolic", label:"BP Dia", unit:"mmHg", step:"1"},
+  {key:"weight",      label:"Weight", unit:"lbs",  step:"0.1"},
+  {key:"pulse",       label:"Pulse",  unit:"BPM",  step:"1"},
+  {key:"o2sat",       label:"O₂ Sat", unit:"%",    step:"1"},
+  {key:"respRate",    label:"Resp",   unit:"/min", step:"1"},
+  {key:"bloodSugar",  label:"Glucose",unit:"mg/dL",step:"1"},
+  {key:"painLevel",   label:"Pain",   unit:"/10",  step:"1"},
+];
+const DEFAULT_ENABLED_VITALS = ["temperature","bpSystolic","bpDiastolic","weight","pulse","o2sat"];
+
 const defaultConfig = {
   name:           "Jane Doe",
   address:        "123 Main Street, Denver, CO 80201",
@@ -92,6 +105,7 @@ const defaultConfig = {
   clients:        [],
   activeClientId: "",
   signatureFont:  "",
+  enabledVitals:  DEFAULT_ENABLED_VITALS,
 };
 
 function getActiveClient(config) {
@@ -110,7 +124,7 @@ const chrome = {
 };
 
 // ── CALENDAR PICKER ──────────────────────────────────────────────────────
-function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYear, initialMonth, selectedDay, mode, anchorRef }) {
+function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYear, initialMonth, selectedDay, mode, anchorRef, refreshKey }) {
   // mode: "day" (default) picks a day, "week" picks a week (Monday), "month" picks a month
   const m = mode || "day";
   const [year, setYear] = useState(initialYear || new Date().getFullYear());
@@ -139,7 +153,7 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
     } else if (Array.isArray(hlRef.current)) {
       setLoadedHL(hlRef.current);
     }
-  }, [year, month]);
+  }, [year, month, refreshKey]);
 
   const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11); } else setMonth(mo => mo - 1); };
   const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0); } else setMonth(mo => mo + 1); };
@@ -207,7 +221,8 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
           const isSelected = selectedDay && year === selectedDay.year && month === selectedDay.month && day === selectedDay.day;
           const isToday = isThisMonth && day === today.getDate();
           const isHL = loadedHL.includes(day);
-          const showOutline = isSelected || isToday;
+          const border = isSelected ? `2px solid ${accent}` : (isToday ? `2px dashed ${accent}` : "none");
+          const accent2 = isSelected || isToday;
           const handleClick = () => {
             if (m === "week") {
               const mon = getMondayForDay(day);
@@ -219,7 +234,7 @@ function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYea
           };
           return (
             <button key={i} onClick={handleClick}
-              style={{width:32,height:32,borderRadius:"50%",border:showOutline ? `2px solid ${accent}` : "none",background:isHL ? `${accent}25` : "transparent",color:showOutline ? accent : "#2c1810",cursor:"pointer",fontSize:13,fontWeight:showOutline ? 700 : 400,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto"}}>
+              style={{width:32,height:32,borderRadius:"50%",border,background:isHL ? `${accent}25` : "transparent",color:accent2 ? accent : "#2c1810",cursor:"pointer",fontSize:13,fontWeight:accent2 ? 700 : 400,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto"}}>
               {day}
             </button>
           );
@@ -1983,7 +1998,7 @@ function AutoTextarea({ value, onChange, placeholder, style, timestamped, ...pro
 }
 
 // ── DAILY SERVICE LOG ─────────────────────────────────────────────────────
-const EMPTY_VITALS = {temperature:null,bpSystolic:null,bpDiastolic:null,weight:null,pulse:null,o2sat:null};
+const EMPTY_VITALS = Object.fromEntries(ALL_VITALS.map(v => [v.key, null]));
 
 function DailyLogPage({ config, onBack }) {
   const acc = config.accent;
@@ -1992,6 +2007,7 @@ function DailyLogPage({ config, onBack }) {
   const [sections, setSections] = useState([]);
   const [sectionNames, setSectionNames] = useState(null);
   const [saveStatus, setSaveStatus] = useState("idle");
+  const [saveCount, setSaveCount] = useState(0);
   const [editingNewIdx, setEditingNewIdx] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -2005,6 +2021,21 @@ function DailyLogPage({ config, onBack }) {
   const [medChecklist, setMedChecklist] = useState([]);
   const [showAddMed, setShowAddMed] = useState(false);
   const [newMed, setNewMed] = useState({name:"",dosage:"",route:"Oral"});
+  const [showVitalsModal, setShowVitalsModal] = useState(false);
+  const [hoverVital, setHoverVital] = useState(null);
+
+  // Enabled vitals from config
+  const enabledVitals = config.enabledVitals || DEFAULT_ENABLED_VITALS;
+  const activeVitals = ALL_VITALS.filter(v => enabledVitals.includes(v.key));
+
+  const removeVitalFromConfig = (key) => {
+    const updated = enabledVitals.filter(k => k !== key);
+    fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({...config, enabledVitals: updated})
+    }).catch(() => {});
+  };
 
   // Undo/redo
   const [undoStack, setUndoStack] = useState([]);
@@ -2065,7 +2096,7 @@ function DailyLogPage({ config, onBack }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: abortRef.current.signal,
-    }).then(r => { if (r.ok) setSaveStatus("saved"); else setSaveStatus("error"); })
+    }).then(r => { if (r.ok) { setSaveStatus("saved"); setSaveCount(c => c + 1); } else setSaveStatus("error"); })
       .catch(e => { if (e.name !== "AbortError") setSaveStatus("error"); });
   };
 
@@ -2362,7 +2393,7 @@ function DailyLogPage({ config, onBack }) {
             style={{fontSize:15,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer"}}>📅</button>
           {showCalendar && <CalendarPicker accent={acc} initialYear={dateInfo.year} initialMonth={dateInfo.month}
             selectedDay={{year:dateInfo.year,month:dateInfo.month,day:dateInfo.day}}
-            anchorRef={calBtnRef} highlightedDays={fetchLogDates} onSelect={jumpToDate} onClose={() => setShowCalendar(false)} />}
+            anchorRef={calBtnRef} highlightedDays={fetchLogDates} refreshKey={saveCount} onSelect={jumpToDate} onClose={() => setShowCalendar(false)} />}
           <div style={{display:"flex",alignItems:"center",gap:7}}>
             <button className="bsm" onClick={prevDay} style={{fontSize:17,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 12px",cursor:"pointer"}}>‹</button>
             <button className="bsm" onClick={goToday} style={{fontSize:14,color:isToday?acc:chrome.mutedText,fontWeight:isToday?700:500,textAlign:"center",background:"none",border:"none",cursor:"pointer",padding:0,minWidth:80}}>{dateInfo.navLabel}</button>
@@ -2413,16 +2444,22 @@ function DailyLogPage({ config, onBack }) {
         {/* Section content area */}
         <div style={{flex:1,overflowY:"auto",padding:"20px 24px",background:"linear-gradient(160deg,#f9f3ee,#f2ebe4)",display:"flex",flexDirection:"column",gap:16}}>
 
-          {/* Patient reminder card */}
+          {/* Patient info card */}
           {activeClient.name && (
-            <div style={{background:`linear-gradient(135deg, white, ${tint(acc,0.04)})`,borderRadius:14,border:`1.5px solid ${tint(acc,0.2)}`,padding:"14px 20px",display:"flex",alignItems:"flex-start",gap:14}}>
-              <div style={{width:36,height:36,borderRadius:"50%",background:tint(acc,0.12),display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,marginTop:2}}>
+            <div style={{background:`linear-gradient(135deg, white, ${tint(acc,0.04)})`,borderRadius:14,border:`1.5px solid ${tint(acc,0.2)}`,padding:"16px 20px",display:"flex",alignItems:"flex-start",gap:14}}>
+              <div style={{width:40,height:40,borderRadius:"50%",background:tint(acc,0.12),display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:acc,flexShrink:0,marginTop:2}}>
                 {activeClient.name.charAt(0).toUpperCase()}
               </div>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:16,fontWeight:700,color:"#2c1810",fontFamily:"'Playfair Display',serif"}}>{activeClient.name}</div>
+                <div style={{fontSize:18,fontWeight:700,color:"#2c1810",fontFamily:"'Playfair Display',serif"}}>{activeClient.name}</div>
+                {activeClient.address && (
+                  <div style={{fontSize:12,color:"#b0988a",marginTop:2}}>{activeClient.address}</div>
+                )}
                 {activeClient.objective && (
-                  <div style={{fontSize:13,color:"#8a7060",lineHeight:1.4,marginTop:4,fontStyle:"italic"}}>{activeClient.objective}</div>
+                  <div style={{fontSize:13,color:"#6a5a4a",lineHeight:1.4,marginTop:6,padding:"8px 12px",background:tint(acc,0.05),borderRadius:8,borderLeft:`3px solid ${tint(acc,0.3)}`}}>
+                    <span style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",fontWeight:600,display:"block",marginBottom:3}}>Objective</span>
+                    {activeClient.objective}
+                  </div>
                 )}
               </div>
             </div>
@@ -2440,26 +2477,30 @@ function DailyLogPage({ config, onBack }) {
           </div>
 
           {/* Vitals card */}
-          <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px"}}>
-            <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600,marginBottom:12}}>Vitals</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit, minmax(100px, 1fr))",gap:10}}>
-              {[
-                {key:"temperature", label:"Temp", unit:"°F", step:"0.1"},
-                {key:"bpSystolic", label:"BP Sys", unit:"mmHg"},
-                {key:"bpDiastolic", label:"BP Dia", unit:"mmHg"},
-                {key:"weight", label:"Weight", unit:"lbs", step:"0.1"},
-                {key:"pulse", label:"Pulse", unit:"BPM"},
-                {key:"o2sat", label:"O₂ Sat", unit:"%"},
-              ].map(({key, label, unit, step}) => (
-                <div key={key} style={{textAlign:"center"}}>
-                  <input type="number" step={step||"1"} value={vitals[key]===null?"":vitals[key]} onChange={e=>updateVital(key,e.target.value)}
-                    placeholder="—"
-                    style={{width:"100%",fontSize:18,fontWeight:600,textAlign:"center",border:"1.5px solid #e8ddd8",borderRadius:8,padding:"8px 4px",color:"#2c1810",outline:"none",background:"#fdfaf8",boxSizing:"border-box"}}/>
-                  <div style={{fontSize:10,color:"#b0988a",marginTop:3}}>{label} <span style={{color:"#c0b0a0"}}>{unit}</span></div>
-                </div>
-              ))}
+          {activeVitals.length>0&&<div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600}}>Vitals</div>
+              <button onClick={()=>setShowVitalsModal(true)} title="Edit vitals metrics" style={{fontSize:11,color:acc,background:"none",border:`1px solid ${acc}40`,borderRadius:6,padding:"2px 8px",cursor:"pointer"}}>Edit</button>
             </div>
-          </div>
+            <div style={{display:"grid",gridTemplateColumns:`repeat(auto-fit, minmax(${activeVitals.length<=4?130:105}px, 1fr))`,gap:12}}>
+              {activeVitals.map(({key,label,unit,step})=>(<div key={key} style={{textAlign:"center",position:"relative"}} onMouseEnter={()=>setHoverVital(key)} onMouseLeave={()=>setHoverVital(null)}>
+                {hoverVital===key&&<button onClick={()=>removeVitalFromConfig(key)} title={`Remove ${label}`} style={{position:"absolute",top:-6,right:-4,width:18,height:18,borderRadius:"50%",border:"none",background:"#e8ddd4",color:"#8a7060",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1,lineHeight:1}}>×</button>}
+                <input type="number" step={step||"1"} value={vitals[key]===null?"":vitals[key]} onChange={e=>updateVital(key,e.target.value)} placeholder="—"
+                  style={{width:"100%",fontSize:26,fontWeight:700,textAlign:"center",border:"1.5px solid #e8ddd8",borderRadius:10,padding:"10px 4px",color:"#2c1810",outline:"none",background:"#fdfaf8",boxSizing:"border-box"}}/>
+                <div style={{fontSize:11,color:"#9a8070",marginTop:4,fontWeight:500}}>{label} <span style={{color:"#b0a090"}}>{unit}</span></div>
+              </div>))}
+            </div>
+          </div>}
+          {showVitalsModal&&<div style={{position:"fixed",inset:0,background:"rgba(44,24,16,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)setShowVitalsModal(false);}}>
+            <div style={{background:"white",borderRadius:16,width:360,maxWidth:"90vw",overflow:"hidden",boxShadow:"0 12px 60px rgba(0,0,0,0.25)"}}>
+              <div style={{background:chrome.titleBar,padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:acc}}>Configure</div><div style={{fontSize:16,fontWeight:700,color:"#f0e0d0"}}>Vitals Metrics</div></div>
+                <button onClick={()=>setShowVitalsModal(false)} style={{color:"#a08878",background:"none",border:"none",fontSize:18,cursor:"pointer"}}>✕</button></div>
+              <div style={{padding:"16px 20px",maxHeight:400,overflowY:"auto"}}>{ALL_VITALS.map(v=>{const on=enabledVitals.includes(v.key);return(<label key={v.key} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f0e8e0",cursor:"pointer"}}>
+                <input type="checkbox" checked={on} onChange={()=>{const updated=on?enabledVitals.filter(k=>k!==v.key):[...enabledVitals,v.key];fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...config,enabledVitals:updated})}).catch(()=>{});}} style={{width:18,height:18,accentColor:acc,cursor:"pointer"}}/>
+                <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#2c1810"}}>{v.label}</div><div style={{fontSize:12,color:"#b0988a"}}>{v.unit}</div></div></label>);})}</div>
+              <div style={{padding:"12px 20px",borderTop:"1px solid #f0e8e0"}}><button onClick={()=>setShowVitalsModal(false)} style={{width:"100%",fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"none",background:acc,color:"white",cursor:"pointer"}}>Done</button></div>
+            </div></div>}
 
           {/* Medications checklist */}
           {(medChecklist.length > 0 || (activeClient.meds||[]).length > 0) && (
