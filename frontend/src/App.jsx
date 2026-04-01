@@ -1092,6 +1092,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
   const savedPath = weeklyPath(config.saveFolder, week.invNum);
 
   const [hours, setHours] = useState({Monday:8,Tuesday:8,Wednesday:8,Thursday:8,Friday:8,Saturday:0,Sunday:0});
+  const [hoursSource, setHoursSource] = useState({}); // {Monday: "log"|"saved"|"default"}
   const [clientEmail,     setClientEmail]     = useState(config.clientEmail);
   const [accountantEmail, setAccountantEmail] = useState(config.accountantEmail);
   const [zoom,            setZoom]            = useState(()=>{const s=localStorage.getItem("invoiceZoom");return s?parseFloat(s):0.9;});
@@ -1101,12 +1102,21 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
   const [savedDate,       setSavedDate]       = useState(null);
   const [showConfirm,     setShowConfirm]     = useState(false);
   const [submitting,      setSubmitting]      = useState(false);
+  const [submitStep,      setSubmitStep]      = useState(1); // 1=invoice, 2=log review
+  const [savedInvoicePath, setSavedInvoicePath] = useState(null);
+  const [logPdfUrl,       setLogPdfUrl]       = useState(null);
   const submitInProgressRef = useRef(false);
 
-  // Reset state when week changes, re-default hours to 8/day, and check if already saved
+  // Reset state when week changes, re-default hours, and check saved/log data
   useEffect(()=>{
     setHours({Monday:8,Tuesday:8,Wednesday:8,Thursday:8,Friday:8,Saturday:0,Sunday:0});
+    setHoursSource({});
     setNotification(null); setAlreadySaved(false); setSavedDate(null);
+    setSubmitStep(1); setSavedInvoicePath(null);
+    if (logPdfUrl) { URL.revokeObjectURL(logPdfUrl); setLogPdfUrl(null); }
+
+    const mon = week.monday;
+    const mondayStr = `${mon.getFullYear()}-${pad(mon.getMonth()+1)}-${pad(mon.getDate())}`;
 
     // Check if this week's invoice already exists on disk
     fetch(`/api/scan?folder=${encodeURIComponent(config.saveFolder)}&invNum=${week.invNum}`)
@@ -1115,16 +1125,30 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
         if (data && data.found) {
           setAlreadySaved(true);
           setSavedDate(data.date || null);
-          // Populate hours and template from saved invoice
           if (data.dailyHours) {
             setHours(prev => ({...prev, ...data.dailyHours}));
+            const src = {}; DAYS.forEach(d => { src[d] = "saved"; }); setHoursSource(src);
           }
-          if (data.template) {
-            setActiveTemplate(data.template);
-          }
+          if (data.template) setActiveTemplate(data.template);
+        } else {
+          // No saved invoice — auto-populate from daily log shift times
+          fetch(`/api/log-week?monday=${mondayStr}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(logData => {
+              if (!logData) return;
+              const newHours = {}; const src = {};
+              DAYS.forEach(d => {
+                if (logData.hasLog[d] && logData.hours[d] > 0) { newHours[d] = logData.hours[d]; src[d] = "log"; }
+                else if (logData.hasLog[d]) { newHours[d] = 0; src[d] = "log"; }
+                else { newHours[d] = 0; src[d] = "default"; }
+              });
+              setHours(newHours);
+              setHoursSource(src);
+            })
+            .catch(() => {});
         }
       })
-      .catch(() => {}); // non-critical, pill just stays "not saved"
+      .catch(() => {});
   },[weekOffset]);
 
   // Clear stale "email failed" notification after email setup completes
@@ -1136,28 +1160,112 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
   const totalPay   = (totalHours*config.rate).toFixed(2);
   const setHour    = (day,v) => setHours(h=>({...h,[day]:v}));
 
-  const doSend = async () => {
-    // Prevent race condition from rapid clicks - ref updates synchronously
-    if (submitInProgressRef.current) {
-      return;
-    }
-
+  // Step 1: Save invoice only (no email), then transition to log review
+  const doSaveInvoice = async () => {
+    if (submitInProgressRef.current) return;
     submitInProgressRef.current = true;
     setSubmitting(true);
     setNotification(null);
     setShowConfirm(false);
 
     try {
-      // Build payload for weekly submit API
       const payload = {
         hours,
         clientEmail,
         accountantEmail,
-        week: {
-          start: week.start,
-          end: week.end,
-          invNum: week.invNum
-        },
+        week: { start: week.start, end: week.end, invNum: week.invNum },
+        template: activeTemplate,
+        saveOnly: true
+      };
+
+      const response = await fetch('/api/submit/weekly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Unable to save invoice.');
+      }
+
+      const data = await response.json();
+      setSavedInvoicePath(data.saved);
+      setAlreadySaved(true);
+
+      // Generate log PDF preview
+      const logResp = await fetch('/api/submit/preview-weekly-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invNum: week.invNum })
+      });
+
+      if (logResp.ok) {
+        const blob = await logResp.blob();
+        const url = URL.createObjectURL(blob);
+        setLogPdfUrl(url);
+      }
+
+      setSubmitStep(2);
+    } catch (error) {
+      console.error('Save invoice failed:', error);
+      setNotification({ error: error.message || 'Unable to save invoice.' });
+    } finally {
+      setSubmitting(false);
+      submitInProgressRef.current = false;
+    }
+  };
+
+  // Step 2a: Send both invoice + logs
+  const doSendWithLogs = async () => {
+    if (submitInProgressRef.current) return;
+    submitInProgressRef.current = true;
+    setSubmitting(true);
+    setNotification(null);
+
+    try {
+      const payload = {
+        invNum: week.invNum,
+        clientEmail,
+        accountantEmail,
+        hours
+      };
+
+      const response = await fetch('/api/submit/weekly-with-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Unable to send.');
+      }
+
+      const data = await response.json();
+      handleSubmitResponse(data, savedPath, [clientEmail, accountantEmail], setNotification, setAlreadySaved, setSavedDate);
+    } catch (error) {
+      console.error('Send with logs failed:', error);
+      setNotification({ error: error.message || 'Unable to send.' });
+    } finally {
+      setSubmitting(false);
+      submitInProgressRef.current = false;
+    }
+  };
+
+  // Step 2b: Send invoice only (skip logs)
+  const doSendInvoiceOnly = async () => {
+    if (submitInProgressRef.current) return;
+    submitInProgressRef.current = true;
+    setSubmitting(true);
+    setNotification(null);
+
+    try {
+      const payload = {
+        hours,
+        clientEmail,
+        accountantEmail,
+        week: { start: week.start, end: week.end, invNum: week.invNum },
         template: activeTemplate
       };
 
@@ -1169,61 +1277,38 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Unable to submit your weekly invoice. Please check your settings and try again.`);
+        throw new Error(errorData.error || 'Unable to submit.');
       }
 
       const data = await response.json();
-
-      // Update UI with actual response data using shared handler
-      handleSubmitResponse(
-        data,
-        savedPath,
-        [clientEmail, accountantEmail],
-        setNotification,
-        setAlreadySaved,
-        setSavedDate
-      );
-
+      handleSubmitResponse(data, savedPath, [clientEmail, accountantEmail], setNotification, setAlreadySaved, setSavedDate);
     } catch (error) {
-      console.error('Weekly submit failed:', error);
-      setNotification({
-        error: error.message || 'Unable to submit weekly invoice. Please try again.'
-      });
+      console.error('Send invoice only failed:', error);
+      setNotification({ error: error.message || 'Unable to send.' });
     } finally {
-      // Always reset submitting state and ref in all code paths (success, error, or early return)
       setSubmitting(false);
       submitInProgressRef.current = false;
     }
   };
 
   const handleSubmit = async () => {
-    // Prevent multiple submissions
-    if (submitInProgressRef.current) {
-      return;
-    }
+    if (submitInProgressRef.current) return;
 
     // Pre-flight check: does this invoice already exist?
     try {
       const scanResponse = await fetch(`/api/scan?folder=${encodeURIComponent(config.saveFolder)}&invNum=${week.invNum}`);
-
       if (scanResponse.ok) {
         const scanData = await scanResponse.json();
-
-        // If PDF already exists, update saved status and show confirmation dialog
         if (scanData.found) {
           setAlreadySaved(true);
           setShowConfirm(true);
           return;
         }
       }
-
-      // No existing PDF or scan failed - proceed with submit
-      await doSend();
-
+      await doSaveInvoice();
     } catch (error) {
       console.error('Pre-flight scan failed:', error);
-      // If scan fails, proceed anyway (don't block the user)
-      await doSend();
+      await doSaveInvoice();
     }
   };
 
@@ -1235,7 +1320,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
 
   return (
     <Shell config={config} title="Weekly Invoice" subtitle={weekLabel} onBack={onBack} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
-      {showConfirm && <ConfirmModal savedPath={savedPath} onConfirm={doSend} onCancel={()=>setShowConfirm(false)} accent={acc}/>}
+      {showConfirm && <ConfirmModal savedPath={savedPath} onConfirm={doSaveInvoice} onCancel={()=>setShowConfirm(false)} accent={acc}/>}
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
         {/* PDF */}
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -1282,50 +1367,72 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
             </div>
           </div>
           <div style={{flex:1,overflowY:"auto",overflowX:"auto",display:"flex",justifyContent:"center",alignItems:"flex-start",padding:"24px 20px",background:chrome.previewBg}}>
-            <div style={{width:LETTER_W*zoom,minHeight:LETTER_H*zoom,flexShrink:0,boxShadow:"0 4px 32px rgba(0,0,0,0.25)",background:"white",overflow:"hidden"}}>
-              <div style={{transform:`scale(${zoom})`,transformOrigin:"top left",width:LETTER_W}}>
-                <PreviewComponent config={config} hours={hours} week={week} totalHours={totalHours} totalPay={totalPay}/>
+            {submitStep === 2 && logPdfUrl ? (
+              <iframe src={logPdfUrl} title="Weekly Service Log Preview"
+                style={{width:LETTER_W*zoom,height:"100%",minHeight:LETTER_H*zoom,border:"none",boxShadow:"0 4px 32px rgba(0,0,0,0.25)",background:"white"}}/>
+            ) : (
+              <div style={{width:LETTER_W*zoom,minHeight:LETTER_H*zoom,flexShrink:0,boxShadow:"0 4px 32px rgba(0,0,0,0.25)",background:"white",overflow:"hidden"}}>
+                <div style={{transform:`scale(${zoom})`,transformOrigin:"top left",width:LETTER_W}}>
+                  <PreviewComponent config={config} hours={hours} week={week} totalHours={totalHours} totalPay={totalPay}/>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
-        {/* Editor */}
+        {/* Editor sidebar */}
         <div style={{width:360,background:"#fdf8f4",borderLeft:`1px solid ${acc}18`,display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
           <div style={{flex:1,display:"flex",flexDirection:"column",padding:"20px 16px 0",overflowY:"auto"}}>
-            <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Hours This Week</div>
-            <div style={{flex:"0 0 auto"}}>
-              {DAYS.map(day=>(
-                <HourRow key={day} label={day} value={hours[day]} onChange={v=>setHour(day,v)} accent={acc}/>
-              ))}
-              <div style={{background:"white",borderRadius:8,padding:"8px 12px",margin:"8px 0 0",display:"flex",justifyContent:"space-between",border:`1px solid ${acc}22`}}>
-                <div><div style={{fontSize:12,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Hours</div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:21,color:"#2c1810",lineHeight:1.1}}>{totalHours}</div></div>
-                <div style={{textAlign:"right"}}><div style={{fontSize:12,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Total Due</div>
-                  <div style={{fontFamily:"'Playfair Display',serif",fontSize:23,color:acc,fontWeight:700,lineHeight:1.1}}>${totalPay}</div></div>
-              </div>
-            </div>
-            {/* Saved status pill */}
-            <div style={{flexShrink:0,marginTop:32,marginBottom:32}}>
-              {alreadySaved ? (
-                <div style={{display:"flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#4a7a50",maxWidth:"100%",overflow:"hidden",width:"fit-content"}}>
-                  <span>💾</span>
-                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                    {savedDate ? `Saved · ${week.invNum} · ${savedDate}` : `File exists · ${week.invNum}`}
-                  </span>
+
+            {submitStep === 1 ? (<>
+              {/* Step 1: Invoice editor */}
+              <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Hours This Week</div>
+              <div style={{flex:"0 0 auto"}}>
+                {DAYS.map(day=>(
+                  <HourRow key={day} label={day} value={hours[day]} onChange={v=>setHour(day,v)} accent={acc}
+                    sublabel={hoursSource[day]==="log"?"from log":undefined}/>
+                ))}
+                <div style={{background:"white",borderRadius:8,padding:"8px 12px",margin:"8px 0 0",display:"flex",justifyContent:"space-between",border:`1px solid ${acc}22`}}>
+                  <div><div style={{fontSize:12,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Hours</div>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:21,color:"#2c1810",lineHeight:1.1}}>{totalHours}</div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontSize:12,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Total Due</div>
+                    <div style={{fontFamily:"'Playfair Display',serif",fontSize:23,color:acc,fontWeight:700,lineHeight:1.1}}>${totalPay}</div></div>
                 </div>
-              ) : (
-                <div style={{display:"flex",alignItems:"center",gap:5,background:"#f5f0eb",border:"1px solid #e0d4cc",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#9a8070",width:"fit-content"}}>
-                  <span style={{fontSize:12}}>○</span> Not yet saved for this week
-                </div>
-              )}
-              <div onClick={()=>fetch('/api/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:config.saveFolder})}).catch(()=>{})}
-                style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:"#b0a090",marginTop:8,paddingLeft:11,cursor:"pointer"}}
-                title="Open folder">
-                <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
               </div>
-            </div>
-            <div style={{flexShrink:0,marginBottom:32}}>
-              <div>
+              {/* Saved status pill */}
+              <div style={{flexShrink:0,marginTop:32,marginBottom:32}}>
+                {alreadySaved ? (
+                  <div style={{display:"flex",alignItems:"center",gap:5,background:"#f0f8f2",border:"1px solid #b0d8b8",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#4a7a50",maxWidth:"100%",overflow:"hidden",width:"fit-content"}}>
+                    <span>💾</span>
+                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      {savedDate ? `Saved · ${week.invNum} · ${savedDate}` : `File exists · ${week.invNum}`}
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{display:"flex",alignItems:"center",gap:5,background:"#f5f0eb",border:"1px solid #e0d4cc",borderRadius:20,padding:"4px 11px",fontSize:13,color:"#9a8070",width:"fit-content"}}>
+                    <span style={{fontSize:12}}>○</span> Not yet saved for this week
+                  </div>
+                )}
+                <div onClick={()=>fetch('/api/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:config.saveFolder})}).catch(()=>{})}
+                  style={{display:"flex",alignItems:"center",gap:5,fontSize:13,color:"#b0a090",marginTop:8,paddingLeft:11,cursor:"pointer"}}
+                  title="Open folder">
+                  <span style={{fontSize:14}}>📁</span> <span style={{fontFamily:"monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>{config.saveFolder}</span>
+                </div>
+              </div>
+            </>) : (<>
+              {/* Step 2: Log review + email */}
+              <div style={{background:`linear-gradient(135deg, white, ${tint(acc,0.05)})`,borderRadius:12,border:`1.5px solid ${tint(acc,0.15)}`,padding:"16px 18px",marginBottom:20}}>
+                <div style={{fontSize:14,fontWeight:700,color:"#2c1810",marginBottom:6}}>Invoice Saved</div>
+                <div style={{fontSize:13,color:"#8a7060",lineHeight:1.4}}>
+                  Review the weekly service log below. When ready, send both documents to your recipients.
+                </div>
+              </div>
+
+              <button onClick={()=>setSubmitStep(1)}
+                style={{fontSize:13,color:acc,background:"none",border:"none",cursor:"pointer",padding:0,marginBottom:20,textAlign:"left"}}>
+                ← Back to Invoice
+              </button>
+
+              <div style={{flexShrink:0,marginBottom:32}}>
                 <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
                 {[{label:"Client",value:clientEmail,set:setClientEmail},{label:"Accountant",value:accountantEmail,set:setAccountantEmail}].map(({label,value,set})=>(
                   <div key={label} style={{marginBottom:7}}>
@@ -1337,15 +1444,27 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
                     </div>
                   ))}
               </div>
-            </div>
+            </>)}
+
             <div style={{flex:1}}/>
           </div>
           <div style={{flexShrink:0,borderTop:`1px solid ${acc}18`,background:"#fdf8f4"}}>
             {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup} accent={acc}/></div>}
             <div style={{padding:"10px 16px 14px"}}>
-              <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
-                {submitting ? "Submitting..." : "Save & Submit ✉"}
-              </button>
+              {submitStep === 1 ? (
+                <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+                  {submitting ? "Saving..." : "Save & Review Logs"}
+                </button>
+              ) : (
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <button onClick={doSendWithLogs} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+                    {submitting ? "Sending..." : "Send Invoice & Logs"}
+                  </button>
+                  <button onClick={doSendInvoiceOnly} disabled={submitting} style={{width:"100%",fontSize:14,fontWeight:600,padding:"10px 0",borderRadius:9,border:`1.5px solid ${acc}30`,background:"white",color:acc,cursor:submitting?"wait":"pointer",opacity:submitting?0.7:1}}>
+                    Send Invoice Only
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -2272,9 +2391,10 @@ function DailyLogPage({ config, onBack }) {
               {editingNewIdx === idx ? (
                 <input autoFocus value={name}
                   onChange={e => liveRenameSection(idx, e.target.value)}
+                  onFocus={e => e.target.select()}
                   onBlur={() => finalizeSectionName(idx, name)}
                   onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
-                  style={{fontSize:13,border:"none",outline:"none",background:"transparent",width:Math.max(40, name.length * 8 + 10),padding:0,fontFamily:"inherit",color:"#2c1810"}}
+                  style={{fontSize:13,border:"none",outline:"none",background:"transparent",width:Math.max(40, name.length * 8 + 10),padding:0,fontFamily:"inherit",color:name.match(/^Notes\s*\d*$/i)?"#b8a898":"#2c1810"}}
                   placeholder="Notes" />
               ) : (<>
                 {name}
@@ -2408,10 +2528,11 @@ function DailyLogPage({ config, onBack }) {
                   {isEditing ? (
                     <input value={s.name}
                       onChange={e => liveRenameSection(nameIdx, e.target.value)}
+                      onFocus={e => e.target.select()}
                       onBlur={() => finalizeSectionName(nameIdx, s.name)}
                       onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
                       placeholder="Notes"
-                      style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#2c1810",border:"none",outline:"none",background:"transparent",flex:1,padding:0}} />
+                      style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:s.name.match(/^Notes\s*\d*$/i)?"#b8a898":"#2c1810",border:"none",outline:"none",background:"transparent",flex:1,padding:0}} />
                   ) : (
                     <div style={{fontFamily:"'Playfair Display',serif",fontSize:18,fontWeight:700,color:"#2c1810",flex:1}}>{s.name}</div>
                   )}
