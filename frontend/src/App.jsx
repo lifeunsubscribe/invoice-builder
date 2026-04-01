@@ -92,10 +92,6 @@ const DEFAULT_ENABLED_VITALS = ["temperature","bpSystolic","bpDiastolic","weight
 const OCCUPATIONS = [
   {id:"",                label:"General Service Provider"},
   {id:"home-health-aide",label:"Home Health Aide"},
-  {id:"personal-care",   label:"Personal Care Assistant"},
-  {id:"tutor",           label:"Tutor / Instructor"},
-  {id:"therapist",       label:"Therapist"},
-  {id:"other",           label:"Other"},
 ];
 
 // Occupation-specific labels. Falls back to default ("") for anything not overridden.
@@ -119,16 +115,6 @@ const OCC_LABELS = {
     medsHeader: "Medications",
     recipientCardTitle: "Service Recipient",
     recipientCardDesc: "The patient you provide care for. Shows on invoices and logs.",
-  },
-  "personal-care": {
-    recipientName: "Client Name",
-    recipientAddress: "Client Address",
-    objective: "Care Objective",
-    objectivePlaceholder: "e.g., daily living assistance, mobility support, companionship",
-    vitalsHeader: "Vitals",
-    medsHeader: "Medications",
-    recipientCardTitle: "Service Recipient",
-    recipientCardDesc: "The client you provide care for.",
   },
 };
 
@@ -895,17 +881,37 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
 
   const inputStyle = {width:"100%",fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:8,padding:"9px 12px",color:"#2c1810",outline:"none",background:"#fdfaf8"};
   const labelStyle = {fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",display:"block",marginBottom:4};
+  const occLabels = getOccLabels(draft);
+  const sectionTitleStyle = {fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4,fontWeight:700};
 
   return (
     <Shell config={draft} title="Edit Profile" onBack={onBack} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
       <div style={{flex:1,overflowY:"auto",background:"#f9f3ee",padding:"28px 16px 32px"}}>
         <div style={{width:"100%",maxWidth:480,margin:"0 auto"}}>
 
-          {/* Invoice Details card */}
+          {/* Occupation selector */}
           <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
             <div style={{background:chrome.titleBar,padding:"16px 24px"}}>
-              <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4}}>Invoice Details</div>
-              <div style={{fontSize:14,color:chrome.mutedText}}>This info appears on every invoice and report.</div>
+              <div style={sectionTitleStyle}>Service Industry</div>
+              <div style={{fontSize:14,color:chrome.mutedText}}>Tailors labels and features to your line of work.</div>
+            </div>
+            <div style={{padding:"20px 24px"}}>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {OCCUPATIONS.map(o=>(
+                  <button key={o.id} onClick={()=>setDraft(d=>({...d,occupation:o.id}))}
+                    style={{fontSize:13,padding:"7px 14px",borderRadius:20,border:(draft.occupation||"")=== o.id?`2px solid ${acc}`:`1.5px solid #e8ddd8`,background:(draft.occupation||"")===o.id?tint(acc,0.08):"white",color:(draft.occupation||"")===o.id?"#2c1810":"#6a5a4a",fontWeight:(draft.occupation||"")===o.id?700:500,cursor:"pointer",transition:"all 0.15s"}}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Personal Details card */}
+          <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
+            <div style={{background:chrome.titleBar,padding:"16px 24px"}}>
+              <div style={sectionTitleStyle}>Personal Details</div>
+              <div style={{fontSize:14,color:chrome.mutedText}}>Your info — appears on every invoice and report.</div>
             </div>
             <div style={{padding:"20px 24px"}}>
               {[
@@ -947,8 +953,8 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
           <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
             <div style={{background:chrome.titleBar,padding:"16px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
-                <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4}}>Service Recipient</div>
-                <div style={{fontSize:14,color:chrome.mutedText}}>The person you provide service to. Shows on invoices and logs.</div>
+                <div style={sectionTitleStyle}>{occLabels.recipientCardTitle}</div>
+                <div style={{fontSize:14,color:chrome.mutedText}}>{occLabels.recipientCardDesc}</div>
               </div>
               {!hasClient && (
                 <button onClick={addClient} style={{fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:8,border:"none",background:acc,color:"white",cursor:"pointer"}}>+ Add</button>
@@ -968,18 +974,18 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
                 )}
 
                 <div style={{marginBottom:18}}>
-                  <label style={labelStyle}>Service Recipient</label>
+                  <label style={labelStyle}>{occLabels.recipientName}</label>
                   <input value={activeClient.name} onChange={e=>updateClient("name",e.target.value)} style={inputStyle}/>
                 </div>
                 <div style={{marginBottom:18}}>
-                  <label style={labelStyle}>Service Address</label>
+                  <label style={labelStyle}>{occLabels.recipientAddress}</label>
                   <input value={activeClient.address} onChange={e=>updateClient("address",e.target.value)} style={inputStyle}/>
                 </div>
                 <div style={{marginBottom:18}}>
-                  <label style={labelStyle}>Care Objective</label>
+                  <label style={labelStyle}>{occLabels.objective}</label>
                   <textarea value={activeClient.objective||""} onChange={e=>updateClient("objective",e.target.value)}
                     rows={2} style={{...inputStyle,resize:"vertical",minHeight:48,lineHeight:"1.4"}}
-                    placeholder="e.g., memory care, weight gain, meals, reduce high blood pressure"/>
+                    placeholder={occLabels.objectivePlaceholder}/>
                 </div>
 
                 {/* Default shift times */}
@@ -1051,7 +1057,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
           {/* Signature Font picker */}
           <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
             <div style={{background:chrome.titleBar,padding:"16px 24px"}}>
-              <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4}}>Signature</div>
+              <div style={sectionTitleStyle}>Signature</div>
               <div style={{fontSize:14,color:chrome.mutedText}}>Used on monthly reports and weekly service logs.</div>
             </div>
             <div style={{padding:"20px 24px"}}>
@@ -2116,6 +2122,7 @@ const EMPTY_VITALS = Object.fromEntries(ALL_VITALS.map(v => [v.key, null]));
 function DailyLogPage({ config, onBack }) {
   const acc = config.accent;
   const activeClient = getActiveClient(config);
+  const occLabels = getOccLabels(config);
   const [dayOffset, setDayOffset] = useState(0);
   const [sections, setSections] = useState([]);
   const [sectionNames, setSectionNames] = useState(null);
@@ -2517,7 +2524,10 @@ function DailyLogPage({ config, onBack }) {
     try {
       const r = await fetch(`/api/log-dates?year=${y}&month=${m + 1}`);
       const data = await r.json();
-      return data.dates || [];
+      const dates = data.dates || [];
+      // Filter out dates we've cleared but POST hasn't confirmed yet
+      const monthStr = `${y}-${pad(m + 1)}-`;
+      return dates.filter(day => !clearedDatesRef.current.has(`${monthStr}${pad(day)}`));
     } catch { return []; }
   };
 
@@ -2618,7 +2628,7 @@ function DailyLogPage({ config, onBack }) {
                 )}
                 {activeClient.objective && (
                   <div style={{fontSize:13,color:"#6a5a4a",lineHeight:1.4,marginTop:6,padding:"8px 12px",background:tint(acc,0.05),borderRadius:8,borderLeft:`3px solid ${tint(acc,0.3)}`}}>
-                    <span style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",fontWeight:600,display:"block",marginBottom:3}}>Objective</span>
+                    <span style={{fontSize:10,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",fontWeight:600,display:"block",marginBottom:3}}>{occLabels.objective}</span>
                     {activeClient.objective}
                   </div>
                 )}
@@ -2640,8 +2650,8 @@ function DailyLogPage({ config, onBack }) {
           {/* Vitals card */}
           {activeVitals.length>0&&<div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-              <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600}}>Vitals</div>
-              <button onClick={()=>setShowVitalsModal(true)} title="Edit vitals metrics" style={{fontSize:11,color:acc,background:"none",border:`1px solid ${acc}40`,borderRadius:6,padding:"2px 8px",cursor:"pointer"}}>Edit</button>
+              <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600}}>{occLabels.vitalsHeader}</div>
+              <button onClick={()=>setShowVitalsModal(true)} title={`Edit ${occLabels.vitalsHeader.toLowerCase()}`} style={{fontSize:11,color:acc,background:"none",border:`1px solid ${acc}40`,borderRadius:6,padding:"2px 8px",cursor:"pointer"}}>Edit</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:`repeat(auto-fit, minmax(${activeVitals.length<=4?130:105}px, 1fr))`,gap:12}}>
               {activeVitals.map(({key,label,unit,step})=>(<div key={key} style={{textAlign:"center",position:"relative"}} onMouseEnter={()=>setHoverVital(key)} onMouseLeave={()=>setHoverVital(null)}>
@@ -2655,7 +2665,7 @@ function DailyLogPage({ config, onBack }) {
           {showVitalsModal&&<div style={{position:"fixed",inset:0,background:"rgba(44,24,16,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)setShowVitalsModal(false);}}>
             <div style={{background:"white",borderRadius:16,width:380,maxWidth:"90vw",overflow:"hidden",boxShadow:"0 12px 60px rgba(0,0,0,0.25)"}}>
               <div style={{background:chrome.titleBar,padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:acc}}>Configure</div><div style={{fontSize:16,fontWeight:700,color:"#f0e0d0"}}>Vitals Metrics</div></div>
+                <div><div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:acc,fontWeight:700}}>Configure</div><div style={{fontSize:16,fontWeight:700,color:"#f0e0d0"}}>{occLabels.vitalsHeader} Metrics</div></div>
                 <button onClick={()=>setShowVitalsModal(false)} style={{color:"#a08878",background:"none",border:"none",fontSize:18,cursor:"pointer"}}>✕</button></div>
               <div style={{padding:"16px 20px",maxHeight:400,overflowY:"auto"}}>
                 {/* Enabled vitals — draggable to reorder */}
@@ -2663,7 +2673,7 @@ function DailyLogPage({ config, onBack }) {
                   <div key={key} draggable onDragStart={()=>setVitalDragIdx(idx)} onDragOver={e=>{e.preventDefault();setVitalDragOverIdx(idx);}}
                     onDrop={()=>{if(vitalDragIdx!=null&&vitalDragIdx!==idx){const arr=[...enabledVitals];const[moved]=arr.splice(vitalDragIdx,1);arr.splice(idx,0,moved);saveEnabledVitals(arr);}setVitalDragIdx(null);setVitalDragOverIdx(null);}}
                     onDragEnd={()=>{setVitalDragIdx(null);setVitalDragOverIdx(null);}}
-                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:vitalDragOverIdx===idx?`2px solid ${acc}`:"1px solid #f0e8e0",opacity:vitalDragIdx===idx?0.4:1,cursor:"grab"}}>
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderTop:vitalDragOverIdx===idx?`2px solid ${acc}`:"none",borderBottom:vitalDragOverIdx===idx?"none":"1px solid #f0e8e0",opacity:vitalDragIdx===idx?0.4:1,cursor:"grab"}}>
                     <span style={{color:"#c0b8b0",fontSize:14,userSelect:"none",flexShrink:0}}>⠿</span>
                     <input type="checkbox" checked onChange={()=>saveEnabledVitals(enabledVitals.filter(k=>k!==key))} style={{width:18,height:18,accentColor:acc,cursor:"pointer",flexShrink:0}}/>
                     <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#2c1810"}}>{v.label}</div><div style={{fontSize:12,color:"#b0988a"}}>{v.unit}</div></div>
@@ -2682,7 +2692,7 @@ function DailyLogPage({ config, onBack }) {
           {/* Medications checklist */}
           {(medChecklist.length > 0 || (activeClient.meds||[]).length > 0) && (
             <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px"}}>
-              <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600,marginBottom:10}}>Medications</div>
+              <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600,marginBottom:10}}>{occLabels.medsHeader}</div>
               {medChecklist.map((med, idx) => {
                 const isChecked = med.times && med.times.length > 0;
                 return (
