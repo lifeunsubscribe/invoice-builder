@@ -74,6 +74,8 @@ function getWeeksForMonth(year, month) {
   return weeks;
 }
 
+const SIGNATURE_FONTS = ["Dancing Script","Great Vibes","Sacramento","Pacifico","Satisfy"];
+
 const defaultConfig = {
   name:           "Jane Doe",
   address:        "123 Main Street, Denver, CO 80201",
@@ -87,7 +89,19 @@ const defaultConfig = {
   accent:         "#c47a86",
   invoiceNote:    "Thank you for the privilege of caring for your clients.",
   saveFolder:     deriveSaveFolder("Jane Doe"),
+  clients:        [],
+  activeClientId: "",
+  signatureFont:  "",
 };
+
+function getActiveClient(config) {
+  const clients = config.clients || [];
+  const active = clients.find(c => c.id === config.activeClientId);
+  return active || clients[0] || { id:"", name:"", address:"", objective:"", defaultShift:{start:"09:00",end:"17:00"}, meds:[] };
+}
+
+function makeClientId() { return "client-" + Date.now(); }
+function makeMedId() { return "med-" + Date.now() + "-" + Math.random().toString(36).slice(2,6); }
 
 // ── CHROME ────────────────────────────────────────────────────────────────
 const chrome = {
@@ -686,7 +700,14 @@ function LandingPage({ config, onNav, emailConfigured, onOpenEmailSetup }) {
 
 // ── PROFILE PAGE ──────────────────────────────────────────────────────────
 function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, onOpenEmailSetup }) {
-  const [draft, setDraft] = useState(config);
+  const [draft, setDraft] = useState(()=>{
+    // Ensure clients array exists in draft
+    const d = {...config};
+    if (!d.clients) d.clients = [];
+    if (!d.activeClientId) d.activeClientId = "";
+    if (!d.signatureFont) d.signatureFont = "";
+    return d;
+  });
   const [folderOverridden, setFolderOverridden] = useState(config.saveFolder && config.name ? config.saveFolder !== deriveSaveFolder(config.name) : false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
@@ -694,12 +715,9 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
   const saveInProgressRef = useRef(false);
   const acc = draft.accent;
 
-  // Scroll to folder section if requested
-  useEffect(()=>{
-    if (scrollToFolder && folderRef.current) {
-      setTimeout(()=>folderRef.current.scrollIntoView({ behavior:"smooth", block:"center" }), 120);
-    }
-  },[scrollToFolder]);
+  // Active client helper for this draft
+  const activeClient = getActiveClient(draft);
+  const hasClient = activeClient.id !== "";
 
   const updateField = (key, value) => {
     setDraft(d => {
@@ -709,18 +727,88 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
     });
   };
 
+  const updateClient = (field, value) => {
+    setDraft(d => {
+      const clients = (d.clients||[]).map(c =>
+        c.id === d.activeClientId ? {...c, [field]: value} : c
+      );
+      return {...d, clients};
+    });
+  };
+
+  const updateClientShift = (field, value) => {
+    setDraft(d => {
+      const clients = (d.clients||[]).map(c =>
+        c.id === d.activeClientId ? {...c, defaultShift: {...(c.defaultShift||{}), [field]: value}} : c
+      );
+      return {...d, clients};
+    });
+  };
+
+  const addClient = () => {
+    const id = makeClientId();
+    setDraft(d => ({
+      ...d,
+      clients: [...(d.clients||[]), {id, name:"", address:"", objective:"", defaultShift:{start:"09:00",end:"17:00"}, meds:[]}],
+      activeClientId: id
+    }));
+  };
+
+  const removeClient = (id) => {
+    setDraft(d => {
+      const clients = (d.clients||[]).filter(c => c.id !== id);
+      const activeClientId = d.activeClientId === id ? (clients[0]?.id || "") : d.activeClientId;
+      return {...d, clients, activeClientId};
+    });
+  };
+
+  // Medication CRUD
+  const addMed = () => {
+    setDraft(d => {
+      const newMed = {id: makeMedId(), name:"", dosage:"", frequency:"", route:"Oral"};
+      const clients = (d.clients||[]).map(c =>
+        c.id === d.activeClientId ? {...c, meds: [...(c.meds||[]), newMed]} : c
+      );
+      return {...d, clients};
+    });
+  };
+
+  const updateMed = (medId, field, value) => {
+    setDraft(d => {
+      const clients = (d.clients||[]).map(c =>
+        c.id === d.activeClientId
+          ? {...c, meds: (c.meds||[]).map(m => m.id === medId ? {...m, [field]: value} : m)}
+          : c
+      );
+      return {...d, clients};
+    });
+  };
+
+  const removeMed = (medId) => {
+    setDraft(d => {
+      const clients = (d.clients||[]).map(c =>
+        c.id === d.activeClientId
+          ? {...c, meds: (c.meds||[]).filter(m => m.id !== medId)}
+          : c
+      );
+      return {...d, clients};
+    });
+  };
+
+  // Scroll to folder section if requested
+  useEffect(()=>{
+    if (scrollToFolder && folderRef.current) {
+      setTimeout(()=>folderRef.current.scrollIntoView({ behavior:"smooth", block:"center" }), 120);
+    }
+  },[scrollToFolder]);
+
   // Save profile changes to persistent storage via API
   const handleSave = async () => {
-    // Prevent race condition from rapid clicks - ref updates synchronously
-    if (saveInProgressRef.current) {
-      return;
-    }
-
+    if (saveInProgressRef.current) return;
     saveInProgressRef.current = true;
     setSaving(true);
     setSaveError(null);
     try {
-      // POST updated config to backend for persistence
       const response = await fetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -729,28 +817,29 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
       if (!response.ok) {
         throw new Error(`Unable to save your profile settings. Please try again or contact support if the issue continues.`);
       }
-      // Update local state only after successful save (pessimistic update for data integrity)
       onSave({ ...draft, rate: Number(draft.rate) || 0 });
       onBack();
     } catch (error) {
       console.error('Save failed:', error);
       setSaveError(error.message);
     } finally {
-      // Always reset saving state and ref in all code paths (success, error, or early return)
       setSaving(false);
       saveInProgressRef.current = false;
     }
   };
 
+  const inputStyle = {width:"100%",fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:8,padding:"9px 12px",color:"#2c1810",outline:"none",background:"#fdfaf8"};
+  const labelStyle = {fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",display:"block",marginBottom:4};
+
   return (
     <Shell config={draft} title="Edit Profile" onBack={onBack} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
-      {/* Fixed-height scrollable body — buttons stay inside the scroll area, not pinned outside */}
       <div style={{flex:1,overflowY:"auto",background:"#f9f3ee",padding:"28px 16px 32px"}}>
         <div style={{width:"100%",maxWidth:480,margin:"0 auto"}}>
 
+          {/* Invoice Details card */}
           <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
             <div style={{background:chrome.titleBar,padding:"16px 24px"}}>
-              <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4}}>👤 Invoice Details</div>
+              <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4}}>Invoice Details</div>
               <div style={{fontSize:14,color:chrome.mutedText}}>This info appears on every invoice and report.</div>
             </div>
             <div style={{padding:"20px 24px"}}>
@@ -762,34 +851,153 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
                 {label:"Client / Agency Name", key:"clientName"},
                 {label:"Client Email",         key:"clientEmail"},
                 {label:"Accountant Email",     key:"accountantEmail"},
-                {label:"Service Recipient",        key:"patientName"},
-                {label:"Service Address",          key:"patientAddress"},
                 {label:"Invoice Footer Note",  key:"invoiceNote"},
               ].map(({label,key,type})=>(
                 <div key={key} style={{marginBottom:18}}>
-                  <label style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",display:"block",marginBottom:4}}>{label}</label>
-                  <input type={type||"text"} value={draft[key]} onChange={e=>updateField(key,e.target.value)}
-                    style={{width:"100%",fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:8,padding:"9px 12px",color:"#2c1810",outline:"none",background:"#fdfaf8"}}/>
+                  <label style={labelStyle}>{label}</label>
+                  <input type={type||"text"} value={draft[key]} onChange={e=>updateField(key,e.target.value)} style={inputStyle}/>
                 </div>
               ))}
 
-              {/* Save folder — scrollable target */}
+              {/* Save folder */}
               <div ref={folderRef} style={{marginBottom:13,scrollMarginTop:24}}>
-                <label style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",display:"block",marginBottom:4}}>
-                  Save Folder
-                  {!folderOverridden && ""}
-                </label>
+                <label style={labelStyle}>Save Folder</label>
                 <input value={draft.saveFolder}
                   onChange={e=>{setFolderOverridden(true);setDraft(d=>({...d,saveFolder:e.target.value}));}}
-                  style={{width:"100%",fontSize:14,fontFamily:"monospace",border:"1.5px solid #e8ddd8",borderRadius:8,padding:"9px 12px",color:"#5a4030",outline:"none",background:"#fdfaf8"}}/>
+                  style={{...inputStyle,fontSize:14,fontFamily:"monospace",color:"#5a4030"}}/>
                 {folderOverridden && (
                   <button onClick={()=>{setFolderOverridden(false);setDraft(d=>({...d,saveFolder:deriveSaveFolder(d.name)}));}}
                     style={{fontSize:12,color:acc,background:"none",border:"none",cursor:"pointer",marginTop:4,padding:0}}>↺ Reset to auto-derived</button>
                 )}
                 <div style={{background:"#f8f4f0",borderRadius:8,padding:"10px 12px",fontSize:12,color:"#9a8070",marginTop:8}}>
                   📄 Weekly → <span style={{fontFamily:"monospace"}}>{draft.saveFolder}/weekly/</span><br/>
-                  📊 Monthly → <span style={{fontFamily:"monospace"}}>{draft.saveFolder}/monthly/</span>
+                  📊 Monthly → <span style={{fontFamily:"monospace"}}>{draft.saveFolder}/monthly/</span><br/>
+                  📋 Logs → <span style={{fontFamily:"monospace"}}>{draft.saveFolder}/logs/</span>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Patient / Client card */}
+          <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
+            <div style={{background:chrome.titleBar,padding:"16px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4}}>Patient / Client</div>
+                <div style={{fontSize:14,color:chrome.mutedText}}>Care recipient info for daily service logs.</div>
+              </div>
+              {!hasClient && (
+                <button onClick={addClient} style={{fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:8,border:"none",background:acc,color:"white",cursor:"pointer"}}>+ Add</button>
+              )}
+            </div>
+            {hasClient && (
+              <div style={{padding:"20px 24px"}}>
+                {/* Client selector (only if multiple) */}
+                {(draft.clients||[]).length > 1 && (
+                  <div style={{marginBottom:18}}>
+                    <label style={labelStyle}>Active Patient</label>
+                    <select value={draft.activeClientId} onChange={e=>setDraft(d=>({...d,activeClientId:e.target.value}))}
+                      style={{...inputStyle,cursor:"pointer"}}>
+                      {(draft.clients||[]).map(c=><option key={c.id} value={c.id}>{c.name||"(unnamed)"}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                <div style={{marginBottom:18}}>
+                  <label style={labelStyle}>Patient Name</label>
+                  <input value={activeClient.name} onChange={e=>updateClient("name",e.target.value)} style={inputStyle}/>
+                </div>
+                <div style={{marginBottom:18}}>
+                  <label style={labelStyle}>Patient Address</label>
+                  <input value={activeClient.address} onChange={e=>updateClient("address",e.target.value)} style={inputStyle}/>
+                </div>
+                <div style={{marginBottom:18}}>
+                  <label style={labelStyle}>Care Objective</label>
+                  <textarea value={activeClient.objective||""} onChange={e=>updateClient("objective",e.target.value)}
+                    rows={2} style={{...inputStyle,resize:"vertical",minHeight:48,lineHeight:"1.4"}}
+                    placeholder="e.g., memory care, weight gain, meals, reduce high blood pressure"/>
+                </div>
+
+                {/* Default shift times */}
+                <div style={{marginBottom:18}}>
+                  <label style={labelStyle}>Default Shift</label>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <input type="time" value={activeClient.defaultShift?.start||"09:00"} onChange={e=>updateClientShift("start",e.target.value)}
+                      style={{...inputStyle,width:"auto",flex:1}}/>
+                    <span style={{color:"#b0988a",fontSize:13}}>to</span>
+                    <input type="time" value={activeClient.defaultShift?.end||"17:00"} onChange={e=>updateClientShift("end",e.target.value)}
+                      style={{...inputStyle,width:"auto",flex:1}}/>
+                  </div>
+                </div>
+
+                {/* Medications */}
+                <div style={{marginBottom:8}}>
+                  <label style={labelStyle}>Medications</label>
+                  {(activeClient.meds||[]).length === 0 && (
+                    <div style={{fontSize:13,color:"#c0b0a0",fontStyle:"italic",marginBottom:8}}>No medications configured yet.</div>
+                  )}
+                  {(activeClient.meds||[]).map((med,i) => (
+                    <div key={med.id} style={{background:"#fdfaf8",border:"1.5px solid #e8ddd8",borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+                      <div style={{display:"flex",gap:8,marginBottom:6}}>
+                        <div style={{flex:2}}>
+                          <label style={{...labelStyle,fontSize:10}}>Medication</label>
+                          <input value={med.name} onChange={e=>updateMed(med.id,"name",e.target.value)}
+                            placeholder="Name" style={{...inputStyle,fontSize:13,padding:"6px 10px"}}/>
+                        </div>
+                        <div style={{flex:1}}>
+                          <label style={{...labelStyle,fontSize:10}}>Dosage</label>
+                          <input value={med.dosage} onChange={e=>updateMed(med.id,"dosage",e.target.value)}
+                            placeholder="e.g., 5mg" style={{...inputStyle,fontSize:13,padding:"6px 10px"}}/>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+                        <div style={{flex:1}}>
+                          <label style={{...labelStyle,fontSize:10}}>Frequency</label>
+                          <input value={med.frequency} onChange={e=>updateMed(med.id,"frequency",e.target.value)}
+                            placeholder="e.g., 2x daily" style={{...inputStyle,fontSize:13,padding:"6px 10px"}}/>
+                        </div>
+                        <div style={{flex:1}}>
+                          <label style={{...labelStyle,fontSize:10}}>Route</label>
+                          <select value={med.route||"Oral"} onChange={e=>updateMed(med.id,"route",e.target.value)}
+                            style={{...inputStyle,fontSize:13,padding:"6px 10px",cursor:"pointer"}}>
+                            {["Oral","Topical","Injection","Inhaled","Sublingual","Other"].map(r=><option key={r}>{r}</option>)}
+                          </select>
+                        </div>
+                        <button onClick={()=>removeMed(med.id)} title="Remove medication"
+                          style={{fontSize:16,color:"#d08080",background:"none",border:"none",cursor:"pointer",padding:"6px",marginBottom:1,flexShrink:0}}>✕</button>
+                      </div>
+                    </div>
+                  ))}
+                  <button onClick={addMed} style={{fontSize:13,fontWeight:600,color:acc,background:"none",border:`1.5px dashed ${acc}50`,borderRadius:8,padding:"8px 14px",cursor:"pointer",width:"100%",marginTop:4}}>
+                    + Add Medication
+                  </button>
+                </div>
+
+                {/* Multi-client management */}
+                <div style={{borderTop:"1px solid #f0e8e0",paddingTop:12,marginTop:16,display:"flex",gap:8}}>
+                  <button onClick={addClient} style={{fontSize:12,color:acc,background:"none",border:`1.5px solid ${acc}40`,borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>+ Add Patient</button>
+                  {(draft.clients||[]).length > 1 && (
+                    <button onClick={()=>removeClient(activeClient.id)} style={{fontSize:12,color:"#c07070",background:"none",border:"1.5px solid #e0c0c0",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>Remove This Patient</button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Signature Font picker */}
+          <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
+            <div style={{background:chrome.titleBar,padding:"16px 24px"}}>
+              <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4}}>Signature</div>
+              <div style={{fontSize:14,color:chrome.mutedText}}>Used on monthly reports and weekly service logs.</div>
+            </div>
+            <div style={{padding:"20px 24px"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {SIGNATURE_FONTS.map(f=>(
+                  <button key={f} onClick={()=>setDraft(d=>({...d,signatureFont:f}))}
+                    style={{textAlign:"left",padding:"7px 12px",borderRadius:7,border:draft.signatureFont===f?`2px solid ${acc}`:`1.5px solid ${acc}30`,background:draft.signatureFont===f?"#fff5f0":"white",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontFamily:`'${f}', cursive`,fontSize:20,color:"#2c1810",lineHeight:"28px"}}>{draft.name||"Your Name"}</span>
+                    <span style={{fontSize:11,color:"#b0988a"}}>{f}</span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -808,12 +1016,12 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
           {/* Error message if save failed */}
           {saveError && (
             <div style={{background:"#fef3e8",border:"1.5px solid #e8b060",borderRadius:10,padding:"12px 16px",marginBottom:12}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#8a5010",marginBottom:3}}>⚠️ Save Failed</div>
+              <div style={{fontSize:12,fontWeight:700,color:"#8a5010",marginBottom:3}}>Save Failed</div>
               <div style={{fontSize:12,color:"#a87020"}}>{saveError}</div>
             </div>
           )}
 
-          {/* Buttons — inside scroll area so they're never clipped */}
+          {/* Buttons */}
           <div style={{display:"flex",gap:10}}>
             <button onClick={onBack} disabled={saving} style={{flex:1,fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:10,border:"1.5px solid #e8ddd8",background:"white",color:"#9a8070",cursor:saving?"not-allowed":"pointer",opacity:saving?0.5:1}}>Cancel</button>
             <button onClick={handleSave} disabled={saving} style={{flex:2,fontSize:14,fontWeight:700,padding:"12px 0",borderRadius:10,border:"none",background:acc,color:"white",cursor:saving?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:saving?0.7:1}}>
@@ -1675,6 +1883,7 @@ function DailyLogPage({ config, onBack }) {
   const [saveStatus, setSaveStatus] = useState("idle");
   const [editingNewIdx, setEditingNewIdx] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const calBtnRef = useRef(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
@@ -1891,6 +2100,14 @@ function DailyLogPage({ config, onBack }) {
     scheduleSave();
   };
 
+  // Clear all content for the current day
+  const clearDay = () => {
+    pushUndo({ type: "content", sections: sections.map(s => ({...s})) });
+    setSections(prev => prev.map(s => ({ ...s, content: "" })));
+    setShowClearConfirm(false);
+    scheduleSave();
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
@@ -1936,6 +2153,23 @@ function DailyLogPage({ config, onBack }) {
 
   return (
     <Shell config={config} title="Daily Service Log" subtitle={dateInfo.fullDate} onBack={handleBack} emailConfigured={null} onOpenEmailSetup={()=>{}}>
+      {showClearConfirm && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:16}}>
+          <div style={{background:"white",borderRadius:16,maxWidth:360,width:"100%",overflow:"hidden",boxShadow:"0 8px 48px rgba(0,0,0,0.25)"}}>
+            <div style={{background:chrome.titleBar,padding:"16px 22px"}}>
+              <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:"#e0c090",marginBottom:4}}>🗑 Clear Day</div>
+              <div style={{fontSize:14,color:chrome.mutedText}}>This will erase all notes for {dateInfo.fullDate}.</div>
+            </div>
+            <div style={{padding:"18px 22px"}}>
+              <div style={{fontSize:14,color:"#4a3028",lineHeight:1.6,marginBottom:16}}>All section content will be cleared. This can be undone.</div>
+              <div style={{display:"flex",gap:9}}>
+                <button onClick={() => setShowClearConfirm(false)} style={{flex:1,fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"1.5px solid #e8ddd8",background:"white",color:"#9a8070",cursor:"pointer"}}>Cancel</button>
+                <button onClick={clearDay} style={{flex:1,fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"none",background:"#c47070",color:"white",cursor:"pointer"}}>Clear All Notes</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         {/* Toolbar */}
         <div style={{background:chrome.toolbar,borderBottom:`1px solid ${chrome.border}`,padding:"7px 20px",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
@@ -1956,6 +2190,8 @@ function DailyLogPage({ config, onBack }) {
             style={{fontSize:15,color:undoStack.length?chrome.mutedText:chrome.border,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:undoStack.length?"pointer":"default"}}>↩</button>
           <button className="bsm" onClick={redo} disabled={redoStack.length===0} title="Redo (Ctrl+Shift+Z)"
             style={{fontSize:15,color:redoStack.length?chrome.mutedText:chrome.border,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:redoStack.length?"pointer":"default"}}>↪</button>
+          <button className="bsm" onClick={() => setShowClearConfirm(true)} title="Clear all notes for this day"
+            style={{fontSize:14,color:chrome.mutedText,background:"none",border:`1px solid ${chrome.border}`,borderRadius:5,padding:"4px 8px",cursor:"pointer",marginLeft:4}}>🗑</button>
           <div style={{width:1,height:18,background:chrome.border}}/>
           <div style={{fontSize:12,color:saveStatus==="saving"?acc:saveStatus==="saved"?"#82ab86":saveStatus==="error"?"#c47070":chrome.mutedText,fontWeight:500,minWidth:60,textAlign:"right"}}>
             {saveStatus==="saving"?"Saving...":saveStatus==="saved"?"Saved":saveStatus==="error"?"Save failed":""}
