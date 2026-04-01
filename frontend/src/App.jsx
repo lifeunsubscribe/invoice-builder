@@ -894,12 +894,12 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
             </div>
           </div>
 
-          {/* Patient / Client card */}
+          {/* Service Recipient card */}
           <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
             <div style={{background:chrome.titleBar,padding:"16px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
               <div>
-                <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4}}>Patient / Client</div>
-                <div style={{fontSize:14,color:chrome.mutedText}}>Care recipient info for daily service logs.</div>
+                <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:acc,marginBottom:4}}>Service Recipient</div>
+                <div style={{fontSize:14,color:chrome.mutedText}}>The person you provide service to. Shows on invoices and logs.</div>
               </div>
               {!hasClient && (
                 <button onClick={addClient} style={{fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:8,border:"none",background:acc,color:"white",cursor:"pointer"}}>+ Add</button>
@@ -910,7 +910,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
                 {/* Client selector (only if multiple) */}
                 {(draft.clients||[]).length > 1 && (
                   <div style={{marginBottom:18}}>
-                    <label style={labelStyle}>Active Patient</label>
+                    <label style={labelStyle}>Active Recipient</label>
                     <select value={draft.activeClientId} onChange={e=>setDraft(d=>({...d,activeClientId:e.target.value}))}
                       style={{...inputStyle,cursor:"pointer"}}>
                       {(draft.clients||[]).map(c=><option key={c.id} value={c.id}>{c.name||"(unnamed)"}</option>)}
@@ -919,11 +919,11 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
                 )}
 
                 <div style={{marginBottom:18}}>
-                  <label style={labelStyle}>Patient Name</label>
+                  <label style={labelStyle}>Service Recipient</label>
                   <input value={activeClient.name} onChange={e=>updateClient("name",e.target.value)} style={inputStyle}/>
                 </div>
                 <div style={{marginBottom:18}}>
-                  <label style={labelStyle}>Patient Address</label>
+                  <label style={labelStyle}>Service Address</label>
                   <input value={activeClient.address} onChange={e=>updateClient("address",e.target.value)} style={inputStyle}/>
                 </div>
                 <div style={{marginBottom:18}}>
@@ -988,11 +988,11 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
                   </button>
                 </div>
 
-                {/* Multi-client management */}
+                {/* Multi-recipient management */}
                 <div style={{borderTop:"1px solid #f0e8e0",paddingTop:12,marginTop:16,display:"flex",gap:8}}>
-                  <button onClick={addClient} style={{fontSize:12,color:acc,background:"none",border:`1.5px solid ${acc}40`,borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>+ Add Patient</button>
+                  <button onClick={addClient} style={{fontSize:12,color:acc,background:"none",border:`1.5px solid ${acc}40`,borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>+ Add Recipient</button>
                   {(draft.clients||[]).length > 1 && (
-                    <button onClick={()=>removeClient(activeClient.id)} style={{fontSize:12,color:"#c07070",background:"none",border:"1.5px solid #e0c0c0",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>Remove This Patient</button>
+                    <button onClick={()=>removeClient(activeClient.id)} style={{fontSize:12,color:"#c07070",background:"none",border:"1.5px solid #e0c0c0",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>Remove This Recipient</button>
                   )}
                 </div>
               </div>
@@ -2359,6 +2359,11 @@ function DailyLogPage({ config, onBack }) {
     setVitals(clearedVitals);
     setShift(clearedShift);
     setMedChecklist(clearedMeds);
+    // Update refs immediately so any pending flush uses cleared data
+    sectionsRef.current = clearedSections;
+    vitalsRef.current = clearedVitals;
+    shiftRef.current = clearedShift;
+    medChecklistRef.current = clearedMeds;
     setShowClearConfirm(false);
     // Save immediately — don't debounce, so calendar and navigation see it right away
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
