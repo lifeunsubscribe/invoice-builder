@@ -3153,7 +3153,7 @@ export default function App() {
       const resp = await fetch('/api/self-update', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({downloadUrl: updateInfo.downloadUrl})
+        body: JSON.stringify({downloadUrl: updateInfo.downloadUrl, isZip: updateInfo.isZip || false})
       });
       if (!resp.ok) {
         const err = await resp.json().catch(()=>({}));

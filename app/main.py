@@ -245,13 +245,19 @@ def check_update():
             data = json.loads(resp.read().decode())
         remote = data.get("body", "").replace("Build ", "").strip()
         assets = data.get("assets", [])
-        download_url = assets[0].get("browser_download_url", DOWNLOAD_URL) if assets else DOWNLOAD_URL
+        # Prefer zip for faster download, fall back to exe
+        zip_asset = next((a for a in assets if a["name"].endswith(".zip")), None)
+        exe_asset = next((a for a in assets if a["name"].endswith(".exe")), None)
+        chosen = zip_asset or exe_asset
+        download_url = chosen["browser_download_url"] if chosen else DOWNLOAD_URL
+        is_zip = chosen["name"].endswith(".zip") if chosen else False
         if remote and remote != local:
             return jsonify({
                 "updateAvailable": True,
                 "currentVersion": local,
                 "latestVersion": remote,
-                "downloadUrl": download_url
+                "downloadUrl": download_url,
+                "isZip": is_zip
             }), 200
     except Exception as e:
         logger.warning("Update check failed: %s", e)
@@ -298,6 +304,7 @@ def self_update():
 
     data = request.get_json() or {}
     download_url = data.get("downloadUrl", "")
+    is_zip = data.get("isZip", False)
     if not download_url:
         return jsonify({"error": "No download URL"}), 400
 
@@ -312,21 +319,39 @@ def self_update():
     if os.path.exists(update_dir):
         shutil.rmtree(update_dir, ignore_errors=True)
     os.makedirs(update_dir, exist_ok=True)
+
+    download_target = os.path.join(update_dir, "update.zip" if is_zip else exe_name)
     new_exe = os.path.join(update_dir, exe_name)
 
-    # Download the new exe using curl (built into Windows 10+, handles redirects reliably)
+    # Download using curl (built into Windows 10+, handles redirects reliably)
     try:
         import subprocess
-        logger.info("Downloading update from %s", download_url)
+        logger.info("Downloading update from %s (zip=%s)", download_url, is_zip)
         CREATE_NO_WINDOW = 0x08000000
         result = subprocess.run(
-            ['curl.exe', '-L', '-o', new_exe, '-f', download_url],
+            ['curl.exe', '-L', '-o', download_target, '-f', download_url],
             capture_output=True, text=True, timeout=180,
             creationflags=CREATE_NO_WINDOW if sys.platform == 'win32' else 0
         )
         if result.returncode != 0:
             logger.warning("curl download failed (exit %d): %s", result.returncode, result.stderr)
             return jsonify({"error": f"Download failed: {result.stderr}"}), 500
+
+        # Extract zip if needed
+        if is_zip:
+            import zipfile
+            logger.info("Extracting zip: %d bytes", os.path.getsize(download_target))
+            with zipfile.ZipFile(download_target, 'r') as zf:
+                # Find the exe inside the zip
+                exe_entries = [n for n in zf.namelist() if n.lower().endswith('.exe')]
+                if not exe_entries:
+                    return jsonify({"error": "No exe found in update zip"}), 500
+                zf.extract(exe_entries[0], update_dir)
+                extracted = os.path.join(update_dir, exe_entries[0])
+                if extracted != new_exe:
+                    shutil.move(extracted, new_exe)
+            os.remove(download_target)
+
         import hashlib
         file_size = os.path.getsize(new_exe)
         with open(new_exe, 'rb') as f:

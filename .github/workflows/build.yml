@@ -113,6 +113,13 @@ jobs:
           path: "dist/Invoice Builder.exe"
           retention-days: 30
 
+      - name: Compress exe
+        run: |
+          Compress-Archive -Path "dist\Invoice Builder.exe" -DestinationPath "dist\Invoice.Builder.zip" -CompressionLevel Optimal
+          $orig = (Get-Item "dist\Invoice Builder.exe").Length
+          $zip  = (Get-Item "dist\Invoice.Builder.zip").Length
+          Write-Host "Original: $([math]::Round($orig/1MB,1)) MB -> Zip: $([math]::Round($zip/1MB,1)) MB"
+
       - name: Create/update GitHub Release
         run: |
           $version = Get-Content "app\build_version.txt" -Raw
@@ -122,11 +129,12 @@ jobs:
           # Delete existing 'latest' release if it exists
           gh release delete latest --yes 2>$null
 
-          # Create new release
+          # Create new release with both files
           gh release create latest `
             --title "Invoice Builder (latest)" `
             --notes "Build $version" `
             --latest `
+            "dist/Invoice.Builder.zip" `
             "dist/Invoice Builder.exe"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
