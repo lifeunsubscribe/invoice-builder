@@ -2314,8 +2314,8 @@ function DailyLogPage({ config, onBack }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       signal: abortRef.current.signal,
-    }).then(r => { if (r.ok) { setSaveStatus("saved"); setSaveCount(c => c + 1); } else setSaveStatus("error"); })
-      .catch(e => { if (e.name !== "AbortError") setSaveStatus("error"); });
+    }).then(r => { if (r.ok) { setSaveStatus("saved"); setSaveCount(c => c + 1); } else { r.json().then(d=>console.error("[log save]",r.status,d)).catch(()=>{}); setSaveStatus("error"); } })
+      .catch(e => { if (e.name !== "AbortError") { console.error("[log save] fetch error:", e); setSaveStatus("error"); } });
   };
 
   const scheduleSave = () => {
@@ -2800,15 +2800,14 @@ function DailyLogPage({ config, onBack }) {
                 if (key==="bpDiastolic") return null;
                 // Combined BP fraction input
                 if (key==="bpSystolic") {
-                  const hasDia = enabledVitals.includes("bpDiastolic");
                   return (<div key="bp" style={{textAlign:"center",position:"relative"}} onMouseEnter={()=>setHoverVital("bp")} onMouseLeave={()=>setHoverVital(null)}>
                     {hoverVital==="bp"&&<button onClick={()=>{removeVitalFromConfig("bpSystolic");removeVitalFromConfig("bpDiastolic");}} title="Remove BP" style={{position:"absolute",top:-6,right:-4,width:18,height:18,borderRadius:"50%",border:"none",background:"#e8ddd4",color:"#8a7060",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1,lineHeight:1}}>×</button>}
                     <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:2,border:"1.5px solid #e8ddd8",borderRadius:10,padding:"6px 4px",background:"#fdfaf8"}}>
                       <input type="number" step="1" value={vitals.bpSystolic===null?"":vitals.bpSystolic} onChange={e=>updateVital("bpSystolic",e.target.value)} placeholder="—"
                         style={{width:52,fontSize:26,fontWeight:700,textAlign:"center",border:"none",outline:"none",background:"transparent",color:"#2c1810",padding:0}}/>
-                      {hasDia&&<><span style={{fontSize:26,fontWeight:300,color:"#c0b0a0"}}>/</span>
+                      <span style={{fontSize:26,fontWeight:300,color:"#c0b0a0"}}>/</span>
                       <input type="number" step="1" value={vitals.bpDiastolic===null?"":vitals.bpDiastolic} onChange={e=>updateVital("bpDiastolic",e.target.value)} placeholder="—"
-                        style={{width:52,fontSize:26,fontWeight:700,textAlign:"center",border:"none",outline:"none",background:"transparent",color:"#2c1810",padding:0}}/></>}
+                        style={{width:52,fontSize:26,fontWeight:700,textAlign:"center",border:"none",outline:"none",background:"transparent",color:"#2c1810",padding:0}}/>
                     </div>
                     <div style={{fontSize:11,color:"#9a8070",marginTop:4,fontWeight:500}}>BP <span style={{color:"#b0a090"}}>mmHg</span></div>
                   </div>);
@@ -2829,22 +2828,28 @@ function DailyLogPage({ config, onBack }) {
                 <button onClick={()=>setShowVitalsModal(false)} style={{color:"#a08878",background:"none",border:"none",fontSize:18,cursor:"pointer"}}>✕</button></div>
               <div style={{padding:"16px 20px",maxHeight:400,overflowY:"auto"}}>
                 {/* Enabled vitals — draggable to reorder */}
-                {enabledVitals.map((key,idx)=>{const v=ALL_VITALS.find(x=>x.key===key);if(!v)return null;return(
+                {enabledVitals.filter(k=>k!=="bpDiastolic").map((key,idx)=>{
+                  const isBP = key==="bpSystolic";
+                  const v = isBP ? {key:"bpSystolic",label:"Blood Pressure",unit:"mmHg"} : ALL_VITALS.find(x=>x.key===key);
+                  if(!v)return null;return(
                   <div key={key} draggable onDragStart={()=>setVitalDragIdx(idx)} onDragOver={e=>{e.preventDefault();setVitalDragOverIdx(idx);}}
-                    onDrop={()=>{if(vitalDragIdx!=null&&vitalDragIdx!==idx){const arr=[...enabledVitals];const[moved]=arr.splice(vitalDragIdx,1);arr.splice(idx,0,moved);saveEnabledVitals(arr);}setVitalDragIdx(null);setVitalDragOverIdx(null);}}
+                    onDrop={()=>{if(vitalDragIdx!=null&&vitalDragIdx!==idx){const arr=[...enabledVitals.filter(k=>k!=="bpDiastolic")];const[moved]=arr.splice(vitalDragIdx,1);arr.splice(idx,0,moved);const final=arr.flatMap(k=>k==="bpSystolic"?["bpSystolic","bpDiastolic"]:[k]);saveEnabledVitals(final);}setVitalDragIdx(null);setVitalDragOverIdx(null);}}
                     onDragEnd={()=>{setVitalDragIdx(null);setVitalDragOverIdx(null);}}
                     style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderTop:vitalDragOverIdx===idx?`2px solid ${acc}`:"none",borderBottom:vitalDragOverIdx===idx?"none":"1px solid #f0e8e0",opacity:vitalDragIdx===idx?0.4:1,cursor:"grab"}}>
                     <span style={{color:"#c0b8b0",fontSize:14,userSelect:"none",flexShrink:0}}>⠿</span>
-                    <input type="checkbox" checked onChange={()=>saveEnabledVitals(enabledVitals.filter(k=>k!==key))} style={{width:18,height:18,accentColor:acc,cursor:"pointer",flexShrink:0}}/>
+                    <input type="checkbox" checked onChange={()=>saveEnabledVitals(enabledVitals.filter(k=>isBP?k!=="bpSystolic"&&k!=="bpDiastolic":k!==key))} style={{width:18,height:18,accentColor:acc,cursor:"pointer",flexShrink:0}}/>
                     <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#2c1810"}}>{v.label}</div><div style={{fontSize:12,color:"#b0988a"}}>{v.unit}</div></div>
                   </div>);})}
                 {/* Disabled vitals — can be added */}
-                {ALL_VITALS.filter(v=>!enabledVitals.includes(v.key)).map(v=>(
+                {ALL_VITALS.filter(v=>v.key!=="bpDiastolic").filter(v=>!enabledVitals.includes(v.key)).map(v=>{
+                  const isBP = v.key==="bpSystolic";
+                  const display = isBP ? {key:"bpSystolic",label:"Blood Pressure",unit:"mmHg"} : v;
+                  return (
                   <label key={v.key} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid #f0e8e0",cursor:"pointer",opacity:0.6}}>
                     <span style={{width:14,flexShrink:0}}/>
-                    <input type="checkbox" checked={false} onChange={()=>saveEnabledVitals([...enabledVitals,v.key])} style={{width:18,height:18,accentColor:acc,cursor:"pointer",flexShrink:0}}/>
-                    <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#2c1810"}}>{v.label}</div><div style={{fontSize:12,color:"#b0988a"}}>{v.unit}</div></div>
-                  </label>))}
+                    <input type="checkbox" checked={false} onChange={()=>saveEnabledVitals(isBP?[...enabledVitals,"bpSystolic","bpDiastolic"]:[...enabledVitals,v.key])} style={{width:18,height:18,accentColor:acc,cursor:"pointer",flexShrink:0}}/>
+                    <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"#2c1810"}}>{display.label}</div><div style={{fontSize:12,color:"#b0988a"}}>{display.unit}</div></div>
+                  </label>);})}
               </div>
               <div style={{padding:"12px 20px",borderTop:"1px solid #f0e8e0"}}><button onClick={()=>setShowVitalsModal(false)} style={{width:"100%",fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"none",background:acc,color:"white",cursor:"pointer"}}>Done</button></div>
             </div></div>}

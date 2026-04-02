@@ -119,7 +119,7 @@ def delete_log():
 
 
 TIME_PATTERN = re.compile(r'^\d{2}:\d{2}$')
-VITALS_KEYS = {'temperature', 'bpSystolic', 'bpDiastolic', 'weight', 'pulse', 'o2sat'}
+VITALS_KEYS = {'temperature', 'bpSystolic', 'bpDiastolic', 'weight', 'pulse', 'o2sat', 'respRate', 'bloodSugar', 'painLevel'}
 
 
 def _validate_vitals(vitals):
