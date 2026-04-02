@@ -2226,6 +2226,7 @@ function DailyLogPage({ config, onBack }) {
   const [newMed, setNewMed] = useState({name:"",dosage:"",route:"Oral"});
   const [showVitalsModal, setShowVitalsModal] = useState(false);
   const [hoverVital, setHoverVital] = useState(null);
+  const [timestamps, setTimestamps] = useState(()=>localStorage.getItem("logTimestamps")!=="off");
 
   // Enabled vitals from config
   const [localEnabledVitals, setLocalEnabledVitals] = useState(null);
@@ -2294,7 +2295,8 @@ function DailyLogPage({ config, onBack }) {
     const hasText = secs.some(s => s.content && s.content.trim());
     const hasVitals = Object.values(vitalsRef.current).some(v => v !== null);
     const hasMeds = medChecklistRef.current.some(m => m.times && m.times.length > 0);
-    if (!hasText && !hasVitals && !hasMeds) return Promise.resolve();
+    const hasShift = shiftRef.current.start || shiftRef.current.end;
+    if (!hasText && !hasVitals && !hasMeds && !hasShift) return Promise.resolve();
     const ds = dirtyDateRef.current || dateInfo.dateStr;
     dirtyDateRef.current = null;
     if (abortRef.current) abortRef.current.abort();
@@ -2404,7 +2406,26 @@ function DailyLogPage({ config, onBack }) {
     return () => ac.abort();
   }, [dateInfo.dateStr, sectionNames]);
 
-  useEffect(() => () => { flush(); }, []);
+  // On unmount: flush without aborting any in-flight save
+  useEffect(() => () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    if (!dirtyRef.current) return;
+    dirtyRef.current = false;
+    const secs = sectionsRef.current;
+    const hasText = secs.some(s => s.content && s.content.trim());
+    const hasVitals = Object.values(vitalsRef.current).some(v => v !== null);
+    const hasMeds = medChecklistRef.current.some(m => m.times && m.times.length > 0);
+    const hasShift = shiftRef.current.start || shiftRef.current.end;
+    if (!hasText && !hasVitals && !hasMeds && !hasShift) return;
+    const ds = dirtyDateRef.current || dateInfo.dateStr;
+    // Use sendBeacon for reliable unmount save (not abortable)
+    const body = JSON.stringify({
+      date: ds, sections: secs, vitals: vitalsRef.current,
+      shift: shiftRef.current, meds: medChecklistRef.current,
+      clientId: activeClient.id || "",
+    });
+    navigator.sendBeacon("/api/log", new Blob([body], {type: "application/json"}));
+  }, []);
 
   const handleBack = async () => { await flush(); onBack(); };
   const prevDay = async () => { await flush(); setDayOffset(o => o - 1); };
@@ -2722,6 +2743,14 @@ function DailyLogPage({ config, onBack }) {
             style={{fontSize:13,color:acc,background:"none",border:`1px dashed ${acc}`,borderRadius:12,padding:"4px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
             + add section
           </button>
+          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:11,color:"#b0a090"}}>🕐</span>
+            <button onClick={()=>{const next=!timestamps;setTimestamps(next);localStorage.setItem("logTimestamps",next?"on":"off");}}
+              title={timestamps?"Timestamps on — click to disable":"Timestamps off — click to enable"}
+              style={{width:34,height:18,borderRadius:9,border:"none",background:timestamps?acc:"#d8d0c8",cursor:"pointer",position:"relative",transition:"background 0.2s",padding:0}}>
+              <div style={{width:14,height:14,borderRadius:"50%",background:"white",position:"absolute",top:2,left:timestamps?18:2,transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
+            </button>
+          </div>
         </div>
 
         {/* Section content area */}
@@ -2902,7 +2931,7 @@ function DailyLogPage({ config, onBack }) {
                   <span style={{cursor:"grab",color:"#c0b8b0",fontSize:14,userSelect:"none",flexShrink:0}} title="Drag to reorder">⠿</span>
                 </div>
                 <AutoTextarea
-                  timestamped
+                  timestamped={timestamps}
                   value={s.content}
                   onChange={e => updateContent(realIdx, e.target.value)}
                   placeholder={`Enter ${(s.name || "notes").toLowerCase()} here...`}

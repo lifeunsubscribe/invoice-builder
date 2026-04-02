@@ -170,7 +170,7 @@ def save_log():
     {"date": "YYYY-MM-DD", "sections": [...], "vitals": {...}, "meds": [...], "shift": {...}, "clientId": "..."}
     Only date and sections are required; vitals, meds, shift, clientId are optional.
     """
-    data = request.get_json()
+    data = request.get_json(force=True, silent=True)
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
 
