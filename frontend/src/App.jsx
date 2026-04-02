@@ -2166,9 +2166,18 @@ function makeTimestamp() {
 function AutoTextarea({ value, onChange, placeholder, style, timestamped, ...props }) {
   const ref = useRef(null);
   const pendingStampRef = useRef(false);
+  const cursorRef = useRef(null);
   useEffect(() => {
-    if (ref.current) { ref.current.style.height = "auto"; ref.current.style.height = ref.current.scrollHeight + "px"; }
-  }, [value]);
+    if (ref.current) {
+      ref.current.style.height = "auto";
+      ref.current.style.height = ref.current.scrollHeight + "px";
+      // Restore cursor after re-render (e.g. timestamp toggle)
+      if (cursorRef.current != null) {
+        ref.current.selectionStart = ref.current.selectionEnd = cursorRef.current;
+        cursorRef.current = null;
+      }
+    }
+  }, [value, timestamped]);
 
   const handleKeyDown = (e) => {
     if (!timestamped) return;
@@ -2193,8 +2202,8 @@ function AutoTextarea({ value, onChange, placeholder, style, timestamped, ...pro
     }
   };
 
-  return <textarea ref={ref} value={value} onChange={onChange} placeholder={placeholder}
-    onKeyDown={handleKeyDown} {...props}
+  return <textarea ref={ref} value={value} onChange={e=>{cursorRef.current=e.target.selectionStart;onChange(e);}} placeholder={placeholder}
+    onKeyDown={handleKeyDown} onSelect={e=>{cursorRef.current=e.target.selectionStart;}} {...props}
     style={{...style, overflow:"hidden", resize:"none"}} />;
 }
 
