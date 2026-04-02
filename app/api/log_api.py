@@ -242,7 +242,17 @@ def get_log_sections():
     Falls back to defaults if not configured.
     """
     config = _load_config()
-    sections = (config or {}).get('logSections', DEFAULT_SECTIONS)
+    if not config:
+        return jsonify({"sections": DEFAULT_SECTIONS}), 200
+    sections = config.get('logSections', DEFAULT_SECTIONS)
+    # Seed occupation-specific defaults if empty
+    if not sections and config.get('occupation') == 'home-health-aide':
+        sections = ["Food", "Activities", "Travel", "Visitors", "Comments"]
+        config['logSections'] = sections
+        try:
+            _save_config(config)
+        except OSError:
+            pass
     return jsonify({"sections": sections}), 200
 
 
@@ -285,6 +295,58 @@ def save_log_sections():
         return jsonify({"success": True}), 200
     except OSError:
         return jsonify({"error": "Failed to save config"}), 500
+
+
+@log_bp.route('/log-sections/purge', methods=['POST'])
+def purge_section():
+    """
+    POST /api/log-sections/purge
+
+    Remove a named section from all existing daily log files.
+    Expects {"name": "Food"}.
+    Returns count of files modified.
+    """
+    data = request.get_json()
+    if not data or not isinstance(data.get('name'), str) or not data['name'].strip():
+        return jsonify({"error": "name is required"}), 400
+
+    name = data['name'].strip()
+
+    config = _load_config()
+    if not config:
+        return jsonify({"error": "Failed to load config"}), 500
+
+    save_folder = config.get('saveFolder', '')
+    if not save_folder:
+        return jsonify({"modified": 0}), 200
+
+    logs_dir = os.path.join(expand_path(save_folder), 'logs')
+    if not os.path.isdir(logs_dir):
+        return jsonify({"modified": 0}), 200
+
+    modified = 0
+    try:
+        for fname in os.listdir(logs_dir):
+            if not fname.startswith('LOG-') or not fname.endswith('.json'):
+                continue
+            fpath = os.path.join(logs_dir, fname)
+            try:
+                with open(fpath, 'r', encoding='utf-8') as f:
+                    log_data = json.load(f)
+                secs = log_data.get('sections', [])
+                filtered = [s for s in secs if s.get('name') != name]
+                if len(filtered) < len(secs):
+                    log_data['sections'] = filtered
+                    with open(fpath, 'w', encoding='utf-8') as f:
+                        json.dump(log_data, f, indent=2, ensure_ascii=False)
+                    modified += 1
+            except (json.JSONDecodeError, OSError):
+                continue
+    except OSError as e:
+        logger.exception("Error purging section '%s': %s", name, e)
+        return jsonify({"error": "Failed to scan log files"}), 500
+
+    return jsonify({"modified": modified}), 200
 
 
 @log_bp.route('/log-dates', methods=['GET'])
@@ -341,10 +403,6 @@ def get_log_dates():
                         # Check meds with recorded times
                         meds = data.get("meds", [])
                         if any(m.get("times") for m in meds):
-                            has_content = True
-                        # Check shift times
-                        shift = data.get("shift", {})
-                        if shift.get("start") or shift.get("end"):
                             has_content = True
                         if has_content:
                             dates.append(int(day_str))

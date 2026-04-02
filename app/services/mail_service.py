@@ -70,49 +70,41 @@ def _get_smtp_credentials():
     return gmail_address, gmail_password
 
 
-def send_invoice_email(recipients, pdf_bytes, filename, subject, body):
+def send_invoice_email(recipients, pdf_bytes=None, filename=None, subject='',
+                       body='', attachments=None):
     """
-    Send an email with PDF invoice attachment via Gmail SMTP.
+    Send an email with one or more PDF attachments via Gmail SMTP.
 
     Args:
         recipients: list of str, recipient email addresses
-        pdf_bytes: bytes, PDF file contents to attach
-        filename: str, name for the PDF attachment (e.g., "INV-20260324.pdf")
+        pdf_bytes: bytes, PDF file contents (legacy single-attachment mode)
+        filename: str, attachment name (legacy single-attachment mode)
         subject: str, email subject line
         body: str, plain text email body
+        attachments: list of dicts, each with 'bytes' and 'filename' keys
+            (overrides pdf_bytes/filename when provided)
 
     Returns:
-        dict with success status:
-            - {"success": True} if email sent successfully
-            - {"success": False, "error": "message"} if sending failed
-
-    Notes:
-        - Uses Gmail SMTP (smtp.gmail.com:587) with TLS encryption
-        - Credentials loaded from .env via GMAIL_ADDRESS and GMAIL_APP_PASSWORD
-        - PDF attached with application/pdf MIME type
-        - All errors caught and returned (no exceptions raised)
+        dict: {"success": True} or {"success": False, "error": "..."}
     """
+    # Build attachments list (support both old and new calling conventions)
+    if attachments is None:
+        if not pdf_bytes:
+            return {"success": False, "error": "No PDF data provided"}
+        attachments = [{"bytes": pdf_bytes, "filename": filename or "document.pdf"}]
+
     # Validate inputs
     if not recipients or len(recipients) == 0:
-        return {
-            "success": False,
-            "error": "No recipients specified"
-        }
+        return {"success": False, "error": "No recipients specified"}
 
-    if not pdf_bytes:
-        return {
-            "success": False,
-            "error": "No PDF data provided"
-        }
+    if not attachments:
+        return {"success": False, "error": "No attachments provided"}
 
     # Load SMTP credentials
     try:
         gmail_address, gmail_password = _get_smtp_credentials()
     except ValueError as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}
 
     # Create email message
     try:
@@ -124,15 +116,16 @@ def send_invoice_email(recipients, pdf_bytes, filename, subject, body):
         # Attach plain text body
         msg.attach(MIMEText(body, 'plain'))
 
-        # Attach PDF with correct MIME type
-        pdf_attachment = MIMEBase('application', 'pdf')
-        pdf_attachment.set_payload(pdf_bytes)
-        encoders.encode_base64(pdf_attachment)
-        pdf_attachment.add_header(
-            'Content-Disposition',
-            f'attachment; filename={filename}'
-        )
-        msg.attach(pdf_attachment)
+        # Attach all PDFs
+        for att in attachments:
+            pdf_attachment = MIMEBase('application', 'pdf')
+            pdf_attachment.set_payload(att['bytes'])
+            encoders.encode_base64(pdf_attachment)
+            pdf_attachment.add_header(
+                'Content-Disposition',
+                f'attachment; filename={att["filename"]}'
+            )
+            msg.attach(pdf_attachment)
 
     except UnicodeEncodeError as e:
         logger.exception("Encoding error in email content: %s", e)
@@ -205,6 +198,20 @@ def create_weekly_email_body(name, week_start, week_end, total_hours, total_pay)
     return f"""Hi,
 
 Please find attached my invoice for the week of {week_start} – {week_end}.
+
+Total hours: {total_hours}
+Total due: ${total_pay:.2f}
+
+Thank you,
+{name}"""
+
+
+def create_weekly_with_logs_email_body(name, week_start, week_end, total_hours,
+                                       total_pay):
+    """Generate email body for weekly invoice + service log attachment."""
+    return f"""Hi,
+
+Please find attached my invoice and weekly service log for the week of {week_start} – {week_end}.
 
 Total hours: {total_hours}
 Total due: ${total_pay:.2f}

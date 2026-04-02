@@ -1,0 +1,108 @@
+{% extends "invoice_base.html" %}
+{#
+  Coastal Invoice Template
+
+  Color scheme (FIXED — does not respond to user palette setting):
+  - Primary accent: #4a94b4 (ocean blue)
+  - Header: sky-blue gradient on white, solid ocean-blue bottom border
+  - Text: #0e2d3d (deep ocean), #2a6080 (medium blue), #5a8aa0 (blue-gray)
+  - Background: white with sky-blue tints (#f0f8fc alternating rows)
+  - Typography: sans-serif throughout (clean, airy — unlike the serif warmth of Morning Light)
+
+  Layout structure: Morning Light family (light-header)
+  1. Header  — sky-blue gradient, bottom border, provider info + invoice number
+  2. Client info section — pale sky background
+  3. Invoice table — days with hours > 0 only
+  4. Total section — right-aligned minimal, thin blue separator
+  5. Footer — pale sky bg, italic note
+#}
+
+{% block title %}Invoice {{ week.invNum }} - {{ config.name }}{% endblock %}
+
+{% block content %}
+<div style="font-family: sans-serif; background: white; width: 100%; min-height: 100%;">
+
+  {# ── HEADER ──────────────────────────────────────────────────────────── #}
+  <div style="background: linear-gradient(135deg, rgba(74, 148, 180, 0.28), rgba(74, 148, 180, 0.45)); border-bottom: 4px solid #4a94b4; padding: 34px 38px 28px; position: relative;">
+    <div style="font-size: 13px; color: #4a94b4; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center;">
+      <span style="font-size: 15px; margin-right: 7px; font-family: 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;">🌊</span> {{ invoice_title|default('Contractor Invoice') }}
+    </div>
+    <div style="font-size: 27px; font-weight: 600; color: #0e2d3d; letter-spacing: -0.3px; margin-bottom: 7px;">{{ config.name }}</div>
+    <div style="font-size: 13px; color: #2a6080;">{{ config.address }}</div>
+    <div style="font-size: 13px; color: #2a6080; margin-top: 2px;">{{ config.personalEmail }}</div>
+    <div style="position: absolute; right: 38px; top: 34px; text-align: right;">
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #4a94b4;">Invoice</div>
+      <div style="font-size: 16px; color: #0e2d3d; font-weight: 700; font-family: monospace; margin-top: 4px;">{{ week.invNum }}</div>
+      <div style="font-size: 13px; color: #2a6080; margin-top: 6px;">{{ week.end }}</div>
+    </div>
+  </div>
+
+  {# ── CLIENT INFO ─────────────────────────────────────────────────────── #}
+  <div style="background: #f0f8fc; padding: 24px 38px 22px; display: flex; border-bottom: 1px solid #c8e4f0;">
+    <div style="margin-right: 52px;">
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #4a94b4; margin-bottom: 7px;">Billed To</div>
+      <div style="font-size: 15px; font-weight: 700; color: #0e2d3d;">{{ config.clientName }}</div>
+      <div style="font-size: 13px; color: #2a6080; margin-top: 3px;">{{ config.clientEmail }}</div>
+    </div>
+    {% if config.patientName %}
+    <div style="margin-right: 52px;">
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #4a94b4; margin-bottom: 7px;">Service Recipient</div>
+      <div style="font-size: 15px; font-weight: 700; color: #0e2d3d;">{{ config.patientName }}</div>
+      {% if config.patientAddress %}<div style="font-size: 13px; color: #2a6080; margin-top: 3px;">{{ config.patientAddress }}</div>{% endif %}
+    </div>
+    {% endif %}
+    <div>
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #4a94b4; margin-bottom: 7px;">Service Week</div>
+      <div style="font-size: 14px; color: #0e2d3d;">{{ week.start }} – {{ week.end }}</div>
+    </div>
+  </div>
+
+  {# ── INVOICE TABLE ───────────────────────────────────────────────────── #}
+  <div style="padding-top: 6px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+      <thead>
+        <tr>
+          {% for header in ['Day', 'Hours', 'Rate', 'Amount'] %}
+          <th style="padding: 11px {% if header == 'Amount' %}38px{% else %}0{% endif %} 11px {% if header == 'Day' %}38px{% else %}0{% endif %}; text-align: {% if header == 'Day' %}left{% else %}right{% endif %}; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #4a94b4; font-weight: 700; border-bottom: 1.5px solid #c8e4f0;">
+            {{ header }}
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% set days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+        {% set ns = namespace(visible_row=0) %}
+        {% for day in days %}
+          {% if hours[day] > 0 %}
+            <tr style="background: {% if ns.visible_row % 2 == 0 %}white{% else %}#f0f8fc{% endif %};">
+              <td style="padding: 12px 38px; color: #0e2d3d; font-size: 14px;">
+                <span>{{ day }}</span>
+                {% if week.dayDates and week.dayDates[day] %}
+                <span style="font-size: 11px; color: #4a94b4; opacity: 0.7; margin-left: 8px;">{{ week.dayDates[day] }}</span>
+                {% endif %}
+              </td>
+              <td style="padding: 12px 0; text-align: right; color: #0e2d3d;">{{ hours[day] }}</td>
+              <td style="padding: 12px 0; text-align: right; color: #5a8aa0; opacity: 0.8;">${{ "%.2f"|format(config.rate) }}</td>
+              <td style="padding: 12px 38px 12px 0; text-align: right; color: #0e2d3d; font-weight: 600; font-family: monospace;">${{ "%.2f"|format(hours[day] * config.rate) }}</td>
+            </tr>
+            {% set ns.visible_row = ns.visible_row + 1 %}
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {# ── TOTAL ───────────────────────────────────────────────────────────── #}
+  <div style="margin: 0 38px; border-top: 2px solid #c8e4f0; margin-top: 16px; padding-top: 20px; padding-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+    <div style="font-size: 13px; color: #5a8aa0;">{{ total_hours }} hrs · ${{ "%.2f"|format(config.rate) }}/hr</div>
+    <div style="text-align: right;">
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #4a94b4; margin-bottom: 4px;">Total Due</div>
+      <div style="font-size: 30px; font-weight: 700; color: #0e2d3d;">${{ total_pay }}</div>
+    </div>
+  </div>
+
+  {# ── FOOTER ──────────────────────────────────────────────────────────── #}
+  <div style="background: #f0f8fc; border-top: 1px solid #c8e4f0; padding: 15px 38px; font-size: 12px; color: #5a8aa0; font-style: italic; text-align: center;">{{ config.invoiceNote }}</div>
+
+</div>
+{% endblock %}

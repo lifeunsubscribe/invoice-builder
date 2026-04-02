@@ -3,6 +3,7 @@ import sys
 import json
 import logging
 from flask import Blueprint, jsonify, request
+from app.themes import get_all_themes, get_chrome_palette, THEME_ORDER
 
 logger = logging.getLogger(__name__)
 
@@ -79,25 +80,122 @@ def derive_save_folder(full_name):
     last = parts[-1]
     return f"~/Documents/{first}-{last[0].lower()}-invoices"
 
+DEFAULT_CONFIG = {
+    "name": "",
+    "address": "",
+    "personalEmail": "",
+    "rate": 0,
+    "clientName": "",
+    "clientEmail": "",
+    "accountantEmail": "",
+    "template": "morning-light",
+    "accent": "#c47a86",
+    "patientName": "",
+    "patientAddress": "",
+    "invoiceNote": "",
+    "saveFolder": "",
+    "logSections": [],
+    "clients": [],
+    "activeClientId": "",
+    "signatureFont": "",
+    "enabledVitals": ["temperature", "bpSystolic", "bpDiastolic", "weight", "pulse", "o2sat"],
+    "occupation": "",
+    "agency": ""
+}
+
+
 def get_or_create_config(config_path):
     """Create config.json with empty defaults if it doesn't exist."""
     if not os.path.exists(config_path):
         with open(config_path, 'w') as f:
-            json.dump({
-                "name": "",
-                "address": "",
-                "personalEmail": "",
-                "rate": 0,
-                "clientName": "",
-                "clientEmail": "",
-                "accountantEmail": "",
-                "accent": "#c47a86",
-                "patientName": "",
-                "patientAddress": "",
-                "invoiceNote": "",
-                "saveFolder": "",
-                "logSections": []
-            }, f, indent=2)
+            json.dump(DEFAULT_CONFIG, f, indent=2)
+
+
+def _migrate_config(config_data):
+    """
+    Migrate older config formats forward. Currently handles:
+    - Moving flat patientName/patientAddress into a clients[] array
+    - Ensuring new fields exist with defaults
+    Returns True if the config was modified and should be saved.
+    """
+    changed = False
+
+    # Ensure new fields exist
+    for key, default in [("template", "morning-light"), ("clients", []), ("activeClientId", ""), ("signatureFont", ""),
+                         ("enabledVitals", ["temperature", "bpSystolic", "bpDiastolic", "weight", "pulse", "o2sat"]),
+                         ("occupation", ""), ("agency", "")]:
+        if key not in config_data:
+            config_data[key] = default
+            changed = True
+
+    # Migrate flat patient fields to clients array
+    flat_name = config_data.get("patientName", "").strip()
+    flat_addr = config_data.get("patientAddress", "").strip()
+    clients = config_data.get("clients", [])
+
+    if not clients and flat_name:
+        # No clients array yet — create from flat fields
+        config_data["clients"] = [{
+            "id": "client-1",
+            "name": flat_name,
+            "address": flat_addr,
+            "objective": "",
+            "defaultShift": {"start": "09:00", "end": "17:00"},
+            "meds": []
+        }]
+        config_data["activeClientId"] = "client-1"
+        changed = True
+    elif clients and flat_name:
+        # Clients array exists — if the active client has no name but flat fields
+        # do, backfill (handles case where client card was added but not populated)
+        active_id = config_data.get("activeClientId", "")
+        active = next((c for c in clients if c.get("id") == active_id), clients[0] if clients else None)
+        if active and not active.get("name", "").strip():
+            active["name"] = flat_name
+            if flat_addr and not active.get("address", "").strip():
+                active["address"] = flat_addr
+            changed = True
+
+    # Auto-detect occupation for existing HHA users (have patient data, no occupation set)
+    if not config_data.get("occupation") and (flat_name or any(c.get("name") for c in config_data.get("clients", []))):
+        config_data["occupation"] = "home-health-aide"
+        changed = True
+
+    # Seed default log sections for HHA if empty
+    if config_data.get("occupation") == "home-health-aide" and not config_data.get("logSections"):
+        config_data["logSections"] = ["Food", "Activities", "Travel", "Visitors", "Comments"]
+        changed = True
+
+    return changed
+
+
+def _sync_flat_patient_fields(config_data):
+    """
+    Sync flat patientName/patientAddress from the active client so that
+    invoice templates (which reference config.patientName) keep working.
+    """
+    clients = config_data.get("clients", [])
+    active_id = config_data.get("activeClientId", "")
+    client = None
+    for c in clients:
+        if c.get("id") == active_id:
+            client = c
+            break
+    if not client and clients:
+        client = clients[0]
+    if client:
+        config_data["patientName"] = client.get("name", "")
+        config_data["patientAddress"] = client.get("address", "")
+
+@config_bp.route('/themes', methods=['GET'])
+def get_themes():
+    """
+    GET /api/themes
+
+    Returns ordered list of theme chrome palettes for the frontend UI.
+    """
+    return jsonify([get_chrome_palette(tid) for tid in THEME_ORDER]), 200
+
 
 @config_bp.route('/config', methods=['GET'])
 def get_config():
@@ -113,6 +211,15 @@ def get_config():
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config_data = json.load(f)
+
+        # Auto-migrate older config formats
+        if _migrate_config(config_data):
+            try:
+                with open(config_path, 'w', encoding='utf-8') as f:
+                    json.dump(config_data, f, indent=2, ensure_ascii=False)
+            except OSError:
+                pass  # Migration is best-effort; still return the data
+
         return jsonify(config_data), 200
     except PermissionError as e:
         logger.exception("Permission denied reading config file: %s", e)
@@ -173,6 +280,22 @@ def update_config():
                 "error": "Configuration too large",
                 "message": "Configuration must be less than 1MB"
             }), 400
+
+        # Validate template ID if present
+        template = config_data.get('template', '')
+        if template and template not in THEME_ORDER:
+            config_data['template'] = 'morning-light'
+
+        # Sync flat patient fields from active client for template compat
+        _sync_flat_patient_fields(config_data)
+
+        # Seed default log sections when occupation is set and sections are empty
+        OCC_DEFAULT_SECTIONS = {
+            "home-health-aide": ["Food", "Activities", "Travel", "Visitors", "Comments"],
+        }
+        occ = config_data.get("occupation", "")
+        if occ in OCC_DEFAULT_SECTIONS and not config_data.get("logSections"):
+            config_data["logSections"] = OCC_DEFAULT_SECTIONS[occ]
 
         # Find the old save folder (before this save) so we can detect moves
         old_save_folder = ''

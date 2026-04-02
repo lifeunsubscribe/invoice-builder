@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<!--
+  Weekly Service Log Template — Garden Theme (Botanical)
+
+  Color scheme:
+  - Primary: #2d4a2d (deep green)
+  - Accent: #5a8a5a (garden green)
+  - Text: #2d4a2d (dark), #6a8a60 (medium), #7a9a70 (light)
+  - Background: white, #f6fbf4 (light green)
+
+  Template variables:
+  - config: dict with name, address, personalEmail
+  - client: dict with name, address, objective
+  - daily_logs: list of 5 dicts (Mon-Fri), each with:
+      date_label: "Monday, March 24, 2026"
+      shift: {start, end} or empty
+      vitals: {temperature, bpSystolic, bpDiastolic, weight, pulse, o2sat} or empty
+      meds: [{name, dosage, route, times}] or empty
+      sections: [{name, content}] or empty
+      has_data: boolean
+  - week_label: "March 24 – March 28, 2026"
+  - signature_font: Google Font name
+  - sign_date: date string
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Service Log {{ week_label|default('') }} - {{ config.name|default('') }}</title>
+  {% if signature_font|default('') %}
+  <link href="https://fonts.googleapis.com/css2?family={{ signature_font|default('Dancing Script')|replace(' ', '+') }}:wght@400;700&display=swap" rel="stylesheet">
+  {% endif %}
+  <style>
+    @page {
+      size: letter;
+      margin: 18pt 14pt;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: sans-serif; color: #2d4a2d; }
+    table { border-collapse: collapse; width: 100%; }
+
+    .header {
+      background: linear-gradient(135deg, #2d4a2d, #3d6b3d);
+      padding: 28px 34px 22px;
+    }
+    .header-label {
+      font-size: 13px; color: #a8d8a0; letter-spacing: 2.5px;
+      text-transform: uppercase; margin-bottom: 8px;
+    }
+    .header-title {
+      font-size: 26px; font-weight: 700; color: #e8f5e4; margin-bottom: 6px;
+    }
+    .header-sub {
+      font-size: 14px; color: #a8c8a0;
+    }
+    .accent-bar {
+      background: #5a8a5a; padding: 5px 0; text-align: center;
+      font-size: 11px; color: #c8e8c0; letter-spacing: 16px;
+    }
+    .day-section {
+      page-break-inside: avoid;
+      padding: 20px 34px 16px;
+    }
+    .day-header {
+      font-size: 17px; font-weight: 700; color: #2d4a2d;
+      border-bottom: 2px solid #5a8a5a; padding-bottom: 6px; margin-bottom: 12px;
+    }
+    .day-meta {
+      display: flex; gap: 24px; font-size: 12px; color: #5a8a5a;
+      margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .day-meta strong { color: #2d4a2d; }
+    .objective {
+      font-size: 12px; color: #6a8a60; font-style: italic;
+      margin-bottom: 14px; line-height: 1.4;
+    }
+    .vitals-grid {
+      display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+    }
+    .vital-item {
+      background: #f6fbf4; border-radius: 6px; padding: 8px 14px;
+      text-align: center; min-width: 80px;
+    }
+    .vital-value {
+      font-size: 18px; font-weight: 700; color: #2d4a2d;
+    }
+    .vital-label {
+      font-size: 9px; color: #7a9a70; text-transform: uppercase;
+      letter-spacing: 1px; margin-top: 2px;
+    }
+    .meds-table {
+      width: 100%; margin-bottom: 14px; font-size: 12px;
+    }
+    .meds-table th {
+      background: #f6fbf4; padding: 6px 10px; text-align: left;
+      font-size: 10px; color: #5a8a5a; text-transform: uppercase;
+      letter-spacing: 1px; border-bottom: 1px solid #d0e8c8;
+    }
+    .meds-table td {
+      padding: 5px 10px; border-bottom: 1px solid #e8f4e4; color: #2d4a2d;
+    }
+    .section-title {
+      font-size: 13px; font-weight: 700; color: #2d4a2d;
+      margin-bottom: 4px; margin-top: 10px;
+    }
+    .section-content {
+      font-size: 12px; color: #2d4a2d; line-height: 1.5;
+      white-space: pre-wrap; margin-bottom: 8px;
+    }
+    .no-log {
+      font-size: 13px; color: #7a9a70; font-style: italic;
+      padding: 12px 0;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .signature-block {
+      padding: 24px 34px;
+      margin-top: 20px;
+    }
+    .sig-line {
+      border-bottom: 1px solid #d0e8c8; padding-bottom: 4px;
+      margin-bottom: 4px; min-height: 34px;
+      display: flex; align-items: flex-end;
+    }
+    .sig-label {
+      font-size: 10px; color: #7a9a70; text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .divider {
+      border: none; border-top: 1px solid #d0e8c8; margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-label">Weekly Service Log</div>
+    <div class="header-title">{{ client.name|default('') }}</div>
+    <div class="header-sub">
+      {{ config.name|default('') }} &middot; {{ week_label|default('') }}
+    </div>
+  </div>
+  <div class="accent-bar">✦ ✦ ✦</div>
+
+  {% for day in daily_logs %}
+  {% if not loop.first %}<hr class="divider">{% endif %}
+
+  <div class="day-section">
+    <div class="day-header">{{ day.date_label|default('') }}</div>
+
+    {% if day.has_data %}
+    <!-- Shift & meta -->
+    <div class="day-meta">
+      {% if day.shift and (day.shift.start or day.shift.end) %}
+      <span><strong>Shift:</strong>
+        {{ day.shift.start|default('')}} – {{ day.shift.end|default('') }}
+        {% if day.shift_hours %} ({{ day.shift_hours }} hrs){% endif %}
+      </span>
+      {% endif %}
+      {% if client.address|default('') %}
+      <span><strong>Location:</strong> {{ client.address }}</span>
+      {% endif %}
+    </div>
+
+    {% if client.objective|default('') %}
+    <div class="objective"><strong>Objective:</strong> {{ client.objective }}</div>
+    {% endif %}
+
+    <!-- Vitals -->
+    {% if day.vitals and day.has_vitals %}
+    <div class="vitals-grid">
+      {% if day.vitals.temperature is not none %}
+      <div class="vital-item">
+        <div class="vital-value">{{ day.vitals.temperature }}</div>
+        <div class="vital-label">Temp °F</div>
+      </div>
+      {% endif %}
+      {% if day.vitals.bpSystolic is not none or day.vitals.bpDiastolic is not none %}
+      <div class="vital-item">
+        <div class="vital-value">{{ day.vitals.bpSystolic|default('—') }}/{{ day.vitals.bpDiastolic|default('—') }}</div>
+        <div class="vital-label">BP mmHg</div>
+      </div>
+      {% endif %}
+      {% if day.vitals.weight is not none %}
+      <div class="vital-item">
+        <div class="vital-value">{{ day.vitals.weight }}</div>
+        <div class="vital-label">Weight lbs</div>
+      </div>
+      {% endif %}
+      {% if day.vitals.pulse is not none %}
+      <div class="vital-item">
+        <div class="vital-value">{{ day.vitals.pulse }}</div>
+        <div class="vital-label">Pulse BPM</div>
+      </div>
+      {% endif %}
+      {% if day.vitals.o2sat is not none %}
+      <div class="vital-item">
+        <div class="vital-value">{{ day.vitals.o2sat }}%</div>
+        <div class="vital-label">O₂ Sat</div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Medications -->
+    {% if day.meds %}
+    <table class="meds-table">
+      <thead>
+        <tr><th>Medication</th><th>Dosage</th><th>Route</th><th>Time(s)</th></tr>
+      </thead>
+      <tbody>
+        {% for med in day.meds %}
+        {% if med.times %}
+        <tr>
+          <td>{{ med.name|default('') }}</td>
+          <td>{{ med.dosage|default('') }}</td>
+          <td>{{ med.route|default('') }}</td>
+          <td>{{ med.times|join(', ') }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <!-- Free-text sections -->
+    {% for sec in day.sections %}
+    {% if sec.content|default('')|trim %}
+    <div class="section-title">{{ sec.name }}</div>
+    <div class="section-content">{{ sec.content }}</div>
+    {% endif %}
+    {% endfor %}
+
+    {% else %}
+    <div class="no-log">No log recorded for this day.</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+
+  <!-- Signature -->
+  <div class="signature-block">
+    <div style="display: flex; gap: 40px;">
+      <div style="flex: 1;">
+        <div class="sig-line">
+          {% if signature_font|default('') %}
+          <span style="font-family: '{{ signature_font }}', cursive; font-size: 24px; color: #2d4a2d;">
+            {{ config.name|default('') }}
+          </span>
+          {% endif %}
+        </div>
+        <div class="sig-label">Provider Signature</div>
+      </div>
+      <div style="flex: 1;">
+        <div class="sig-line">
+          <span style="font-size: 14px; color: #2d4a2d;">{{ sign_date|default('') }}</span>
+        </div>
+        <div class="sig-label">Date</div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

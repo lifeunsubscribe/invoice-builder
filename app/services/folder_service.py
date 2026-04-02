@@ -137,6 +137,25 @@ def logs_path(base: str, date_str: str) -> str:
     return path
 
 
+def weekly_log_path(base: str, inv_num: str) -> str:
+    """
+    Generate the full path for a weekly service log PDF file.
+
+    Args:
+        base: Base folder path
+        inv_num: Invoice number (e.g., "INV-20260324")
+
+    Returns:
+        Full path to the log PDF (e.g., "{base}/logs/INV-20260324-LOG.pdf")
+    """
+    if '..' in inv_num or os.path.isabs(inv_num):
+        raise ValueError(f"Path traversal detected in inv_num: {inv_num}")
+
+    path = f"{base}/logs/{inv_num}-LOG.pdf"
+    validate_safe_path(base, path)
+    return path
+
+
 def ensure_folders(base: str) -> None:
     """
     Create weekly/, monthly/, and logs/ subdirectories if they don't exist.

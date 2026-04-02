@@ -2,19 +2,48 @@ import { useState, useMemo, useEffect, useRef } from "react";
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-const PALETTES = [
-  { label:"Rose",       value:"#c47a86" },
-  { label:"Sage",       value:"#82ab86" },
-  { label:"Dusty Blue", value:"#7498bc" },
-  { label:"Terracotta", value:"#cf7d5c" },
-  { label:"Lavender",   value:"#9a86c0" },
-  { label:"Marigold",   value:"#d4a438" },
-];
 const TEMPLATES = [
-  { id:"morning-light", label:"🌸 Morning Light" },
-  { id:"caring-hands",  label:"🤍 Caring Hands"  },
-  { id:"garden",        label:"🌿 Garden"         },
+  { id:"morning-light", label:"Morning Light", emoji:"🌸", structure:"light-header", fontStyle:"serif",
+    accent:"#b76e79", headerBg:"linear-gradient(135deg,rgba(183,110,121,0.16),rgba(183,110,121,0.28))", headerBorder:"4px solid #b76e79",
+    headerAccent:"#b76e79", headerName:"#2c1810", headerMeta:"#6a4a40", textDark:"#2c1810", textMedium:"#6a4a40", textLight:"#9a8070",
+    rowEven:"white", rowOdd:"#fdf8f4", infoBg:"#fdf2f4", infoBorder:"#f0dce0", footerBg:"#fdf2f4", footerText:"#9a8070",
+    chromeBg:"#fdf8f4", chromeBorder:"#f0dce0", chromeMuted:"#9a8070" },
+  { id:"caring-hands", label:"Caring Hands", emoji:"🤍", structure:"dark-header", fontStyle:"sans",
+    accent:"#7ab5a8", headerBg:"#1a2a3a", headerBorder:"3px solid #7ab5a8",
+    headerAccent:"#7ab5a8", headerName:"white", headerMeta:"#8aacaa", textDark:"#1a2a3a", textMedium:"#4a6a60", textLight:"#7a9a90",
+    rowEven:"white", rowOdd:"#f4f9f8", infoBg:"#f4f8f8", infoBorder:"#e0eeec", footerBg:"white", footerText:"#7a9a90",
+    totalBg:"#1a2a3a", totalText:"white",
+    chromeBg:"#f4f8f8", chromeBorder:"#e0eeec", chromeMuted:"#7a9a90" },
+  { id:"garden", label:"Garden", emoji:"🌿", structure:"botanical", fontStyle:"sans",
+    accent:"#5a8a5a", headerBg:"linear-gradient(135deg,#2d4a2d,#3d6b3d)", headerBorder:"none",
+    headerAccent:"#a8d8a0", headerName:"#e8f5e4", headerMeta:"#a8c8a0", textDark:"#2d4a2d", textMedium:"#6a8a60", textLight:"#7a9a70",
+    rowEven:"#fffef8", rowOdd:"#f4f8f0", infoBg:"#f6fbf4", infoBorder:"#d0e8c8", footerBg:"#f0f8ec", footerText:"#7a9a70",
+    dividerBg:"#5a8a5a", dividerText:"#c8e8c0",
+    chromeBg:"#f6fbf4", chromeBorder:"#d0e8c8", chromeMuted:"#7a9a70" },
+  { id:"golden-hour", label:"Golden Hour", emoji:"☀️", structure:"light-header", fontStyle:"serif",
+    accent:"#c4922a", headerBg:"linear-gradient(135deg,rgba(196,146,42,0.32),rgba(196,146,42,0.50))", headerBorder:"4px solid #c4922a",
+    headerAccent:"#c4922a", headerName:"#3a2600", headerMeta:"#7a5020", textDark:"#3a2600", textMedium:"#7a5020", textLight:"#a87840",
+    rowEven:"white", rowOdd:"#fdf8ee", infoBg:"#fdf5e8", infoBorder:"#e8d8b0", footerBg:"#fdf5e8", footerText:"#a87840",
+    chromeBg:"#fdf8ee", chromeBorder:"#e8d8b0", chromeMuted:"#a87840" },
+  { id:"lavender-eve", label:"Lavender Eve", emoji:"🌙", structure:"dark-header", fontStyle:"sans",
+    accent:"#9b7fd4", headerBg:"#2a1f3d", headerBorder:"3px solid #9b7fd4",
+    headerAccent:"#c4b0f0", headerName:"white", headerMeta:"#b0a0d0", textDark:"#2a1f3d", textMedium:"#5a4a70", textLight:"#8a7aa0",
+    rowEven:"white", rowOdd:"#f8f5fd", infoBg:"#f5f2fd", infoBorder:"#e0d8f4", footerBg:"white", footerText:"#8a7aa0",
+    totalBg:"#2a1f3d", totalText:"white",
+    chromeBg:"#f8f5fd", chromeBorder:"#e0d8f4", chromeMuted:"#8a7aa0" },
+  { id:"coastal", label:"Coastal", emoji:"🌊", structure:"light-header", fontStyle:"sans",
+    accent:"#4a94b4", headerBg:"linear-gradient(135deg,rgba(74,148,180,0.28),rgba(74,148,180,0.45))", headerBorder:"4px solid #4a94b4",
+    headerAccent:"#4a94b4", headerName:"#0e2d3d", headerMeta:"#2a6080", textDark:"#0e2d3d", textMedium:"#2a6080", textLight:"#5a8aa0",
+    rowEven:"white", rowOdd:"#f0f8fc", infoBg:"#f0f8fc", infoBorder:"#c8e4f0", footerBg:"#f0f8fc", footerText:"#5a8aa0",
+    chromeBg:"#f0f8fc", chromeBorder:"#c8e4f0", chromeMuted:"#5a8aa0" },
+  { id:"terracotta", label:"Terracotta", emoji:"🦊", structure:"botanical", fontStyle:"sans",
+    accent:"#d4601a", headerBg:"linear-gradient(135deg,#4a1c06,#7a3010)", headerBorder:"none",
+    headerAccent:"#ffc090", headerName:"#fff0e8", headerMeta:"#f0b880", textDark:"#3a1500", textMedium:"#8a4820", textLight:"#b87050",
+    rowEven:"#fffdf9", rowOdd:"#fef3e8", infoBg:"#fef3e8", infoBorder:"#f0c090", footerBg:"#fef3e8", footerText:"#b87050",
+    dividerBg:"#d4601a", dividerText:"#ffe0c0",
+    chromeBg:"#fff3e8", chromeBorder:"#f0c090", chromeMuted:"#b87050" },
 ];
+function getTheme(id) { return TEMPLATES.find(t=>t.id===id) || TEMPLATES[0]; }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────
 function tint(hex, alpha) {
@@ -105,6 +134,7 @@ const OCC_LABELS = {
     medsHeader: "Supplies / Materials",
     recipientCardTitle: "Service Recipient",
     recipientCardDesc: "The person or entity you provide service to.",
+    invoiceTitle: "Contractor Invoice",
   },
   "home-health-aide": {
     recipientName: "Patient Name",
@@ -115,6 +145,7 @@ const OCC_LABELS = {
     medsHeader: "Medications",
     recipientCardTitle: "Service Recipient",
     recipientCardDesc: "The patient you provide care for. Shows on invoices and logs.",
+    invoiceTitle: "Home Health Invoice",
   },
 };
 
@@ -133,7 +164,8 @@ const defaultConfig = {
   accountantEmail:"accountant@cpa.com",
   patientName:    "",
   patientAddress: "",
-  accent:         "#c47a86",
+  template:       "morning-light",
+  accent:         "#b76e79",
   invoiceNote:    "Thank you for the privilege of caring for your clients.",
   saveFolder:     deriveSaveFolder("Jane Doe"),
   clients:        [],
@@ -141,6 +173,7 @@ const defaultConfig = {
   signatureFont:  "",
   enabledVitals:  DEFAULT_ENABLED_VITALS,
   occupation:     "",
+  agency:         "",
 };
 
 function getActiveClient(config) {
@@ -153,10 +186,8 @@ function makeClientId() { return "client-" + Date.now(); }
 function makeMedId() { return "med-" + Date.now() + "-" + Math.random().toString(36).slice(2,6); }
 
 // ── CHROME ────────────────────────────────────────────────────────────────
-const chrome = {
-  titleBar:"#2e2218", toolbar:"#241a12", previewBg:"#ccc8c4",
-  border:"#4a3828", mutedText:"#a08878", brightText:"#e8d8cc",
-};
+const chromeBase = { titleBar:"#2e2218", toolbar:"#241a12", previewBg:"#ccc8c4", border:"#4a3828", mutedText:"#a08878", brightText:"#e8d8cc" };
+const chrome = chromeBase; // default; pages can derive from theme
 
 // ── CALENDAR PICKER ──────────────────────────────────────────────────────
 function CalendarPicker({ accent, onSelect, onClose, highlightedDays, initialYear, initialMonth, selectedDay, mode, anchorRef, refreshKey }) {
@@ -386,7 +417,7 @@ function InvoiceTable({ hours, config, rowEven, rowOdd, textColor, accentColor, 
   return (
     <table style={{width:"100%",borderCollapse:"collapse",fontSize:14,fontFamily:"sans-serif"}}>
       <thead><tr>{["Day","Hours","Rate","Amount"].map(h=>(
-        <th key={h} style={{padding:`11px ${h==="Amount"?"38px":"0"} 11px ${h==="Day"?"38px":"0"}`,textAlign:h==="Day"?"left":"right",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:accentColor,fontWeight:700,borderBottom:"1.5px solid #e0e8e0"}}>{h}</th>
+        <th key={h} style={{padding:`11px ${h==="Amount"?"38px":"0"} 11px ${h==="Day"?"38px":"0"}`,textAlign:h==="Day"?"left":"right",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:accentColor,fontWeight:700,borderBottom:`1.5px solid ${accentColor}30`}}>{h}</th>
       ))}</tr></thead>
       <tbody>{DAYS.filter(d=>hours[d]>0).map((day,i)=>(
         <tr key={day} style={{background:i%2===0?rowEven:rowOdd}}>
@@ -403,161 +434,182 @@ function InvoiceTable({ hours, config, rowEven, rowOdd, textColor, accentColor, 
   );
 }
 
-const ML_ACC="#b76e79";
-function TemplateMorningLight({ config, hours, week, totalHours, totalPay }) {
+function TemplateLightHeader({ config, hours, week, totalHours, totalPay, theme }) {
+  const t = theme || getTheme("morning-light");
+  const isSerif = t.fontStyle === "serif";
+  const headFont = isSerif ? "'Georgia',serif" : "sans-serif";
   return (
-    <div style={{fontFamily:"'Georgia',serif",background:"white",width:"100%",minHeight:"100%"}}>
-      <div style={{background:`linear-gradient(135deg,${ML_ACC}28,${ML_ACC}48)`,borderBottom:`4px solid ${ML_ACC}`,padding:"34px 38px 28px",position:"relative"}}>
-        <div style={{fontSize:13,color:ML_ACC,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7,fontFamily:"sans-serif"}}><span style={{fontSize:15}}>🌸</span> Contractor Invoice</div>
-        <h1 style={{margin:0,fontSize:27,fontWeight:700,color:"#2c1810",letterSpacing:-0.5}}>{config.name}</h1>
-        <p style={{margin:"7px 0 3px",fontSize:13,color:"#6a4a40",fontFamily:"sans-serif"}}>{config.address}</p>
-        <p style={{margin:0,fontSize:13,color:"#6a4a40",fontFamily:"sans-serif"}}>{config.personalEmail}</p>
+    <div style={{fontFamily:headFont,background:"white",width:"100%",minHeight:"100%"}}>
+      <div style={{background:t.headerBg,borderBottom:t.headerBorder,padding:"34px 38px 28px",position:"relative"}}>
+        <div style={{fontSize:13,color:t.headerAccent,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7,fontFamily:"sans-serif"}}><span style={{fontSize:15}}>{t.emoji}</span> {getOccLabels(config).invoiceTitle}</div>
+        <h1 style={{margin:0,fontSize:27,fontWeight:700,color:t.headerName,letterSpacing:-0.5}}>{config.name}</h1>
+        <p style={{margin:"7px 0 3px",fontSize:13,color:t.headerMeta,fontFamily:"sans-serif"}}>{config.address}</p>
+        <p style={{margin:0,fontSize:13,color:t.headerMeta,fontFamily:"sans-serif"}}>{config.personalEmail}</p>
         <div style={{position:"absolute",right:38,top:34,textAlign:"right"}}>
-          <div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC}}>Invoice</div>
-          <div style={{fontSize:16,color:"#2c1810",fontWeight:700,fontFamily:"monospace",marginTop:4}}>{week.invNum}</div>
-          <div style={{fontSize:13,fontFamily:"sans-serif",color:"#9a8070",marginTop:6}}>{week.end}</div>
+          <div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:t.headerAccent}}>Invoice</div>
+          <div style={{fontSize:16,color:t.textDark,fontWeight:700,fontFamily:"monospace",marginTop:4}}>{week.invNum}</div>
+          <div style={{fontSize:13,fontFamily:"sans-serif",color:t.textLight,marginTop:6}}>{week.end}</div>
         </div>
       </div>
-      <div style={{background:`${ML_ACC}0a`,padding:"26px 38px 22px",borderBottom:`1px solid ${ML_ACC}22`,display:"flex",gap:52}}>
-        <div><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC,marginBottom:7}}>Billed To</div>
-          <div style={{fontSize:15,fontWeight:700,color:"#2c1810",fontFamily:"sans-serif"}}>{config.clientName}</div>
-          <div style={{fontSize:13,fontFamily:"sans-serif",color:"#6a4a40",marginTop:3}}>{config.clientEmail}</div></div>
-        {config.patientName && <div style={{marginRight:52}}><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC,marginBottom:7}}>Service Recipient</div>
-          <div style={{fontSize:15,fontWeight:700,color:"#2c1810",fontFamily:"sans-serif"}}>{config.patientName}</div>
-          {config.patientAddress && <div style={{fontSize:13,fontFamily:"sans-serif",color:"#6a4a40",marginTop:3}}>{config.patientAddress}</div>}</div>}
-        <div><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC,marginBottom:7}}>Week Of</div>
-          <div style={{fontSize:14,color:"#2c1810",fontFamily:"sans-serif"}}>{week.start} – {week.end}</div></div>
+      <div style={{background:t.infoBg,padding:"26px 38px 22px",borderBottom:`1px solid ${t.infoBorder}`,display:"flex",gap:52}}>
+        <div><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Billed To</div>
+          <div style={{fontSize:15,fontWeight:700,color:t.textDark,fontFamily:"sans-serif"}}>{config.clientName}</div>
+          <div style={{fontSize:13,fontFamily:"sans-serif",color:t.textMedium,marginTop:3}}>{config.clientEmail}</div></div>
+        {config.patientName && <div style={{marginRight:52}}><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Service Recipient</div>
+          <div style={{fontSize:15,fontWeight:700,color:t.textDark,fontFamily:"sans-serif"}}>{config.patientName}</div>
+          {config.patientAddress && <div style={{fontSize:13,fontFamily:"sans-serif",color:t.textMedium,marginTop:3}}>{config.patientAddress}</div>}</div>}
+        <div><div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Week Of</div>
+          <div style={{fontSize:14,color:t.textDark,fontFamily:"sans-serif"}}>{week.start} – {week.end}</div></div>
       </div>
-      <div style={{paddingTop:6}}><InvoiceTable hours={hours} config={config} rowEven="white" rowOdd="#fdf8f4" accentColor={ML_ACC} textColor="#2c1810" dayDates={week.dayDates}/></div>
-      <div style={{margin:"0 38px",borderTop:`2px solid ${ML_ACC}44`,marginTop:16,paddingTop:20,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
-        <div style={{fontFamily:"sans-serif",fontSize:13,color:"#9a8070"}}>{totalHours} hrs · ${config.rate.toFixed(2)}/hr</div>
+      <div style={{paddingTop:6}}><InvoiceTable hours={hours} config={config} rowEven={t.rowEven} rowOdd={t.rowOdd} accentColor={t.accent} textColor={t.textDark} dayDates={week.dayDates}/></div>
+      <div style={{margin:"0 38px",borderTop:`2px solid ${t.accent}44`,marginTop:16,paddingTop:20,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+        <div style={{fontFamily:"sans-serif",fontSize:13,color:t.textLight}}>{totalHours} hrs · ${config.rate.toFixed(2)}/hr</div>
         <div style={{textAlign:"right"}}>
-          <div style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC,marginBottom:4}}>Total Due</div>
-          <div style={{fontSize:30,fontWeight:700,color:ML_ACC,fontFamily:"'Georgia',serif"}}>${totalPay}</div>
+          <div style={{fontFamily:"sans-serif",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:4}}>Total Due</div>
+          <div style={{fontSize:30,fontWeight:700,color:t.accent,fontFamily:headFont}}>${totalPay}</div>
         </div>
       </div>
-      <div style={{background:`${ML_ACC}12`,borderTop:`1px solid ${ML_ACC}22`,padding:"15px 38px",fontFamily:"sans-serif",fontSize:12,color:"#9a8070",fontStyle:"italic",textAlign:"center"}}>{config.invoiceNote}</div>
+      <div style={{background:t.footerBg,borderTop:`1px solid ${t.infoBorder}`,padding:"15px 38px",fontFamily:"sans-serif",fontSize:12,color:t.footerText,fontStyle:"italic",textAlign:"center"}}>{config.invoiceNote}</div>
     </div>
   );
 }
 
-const CH_ACC="#7ab5a8";
-function TemplateCaringHands({ config, hours, week, totalHours, totalPay }) {
+function TemplateDarkHeader({ config, hours, week, totalHours, totalPay, theme }) {
+  const t = theme || getTheme("caring-hands");
   return (
     <div style={{fontFamily:"sans-serif",background:"white",width:"100%",minHeight:"100%"}}>
-      <div style={{background:"#1a2a3a",padding:"34px 38px 28px",position:"relative"}}>
-        <div style={{fontSize:13,color:CH_ACC,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>🤍</span> Contractor Invoice</div>
-        <div style={{fontSize:27,fontWeight:700,color:"white",marginBottom:7}}>{config.name}</div>
-        <div style={{fontSize:13,color:"#8aacaa"}}>{config.address}</div>
-        <div style={{fontSize:13,color:"#8aacaa",marginTop:2}}>{config.personalEmail}</div>
+      <div style={{background:t.headerBg,padding:"34px 38px 28px",position:"relative"}}>
+        <div style={{fontSize:13,color:t.headerAccent,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>{t.emoji}</span> {getOccLabels(config).invoiceTitle}</div>
+        <div style={{fontSize:27,fontWeight:700,color:t.headerName,marginBottom:7}}>{config.name}</div>
+        <div style={{fontSize:13,color:t.headerMeta}}>{config.address}</div>
+        <div style={{fontSize:13,color:t.headerMeta,marginTop:2}}>{config.personalEmail}</div>
         <div style={{position:"absolute",right:38,top:34,textAlign:"right"}}>
-          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC}}>Invoice</div>
-          <div style={{fontSize:16,color:"white",fontWeight:700,fontFamily:"monospace",marginTop:4}}>{week.invNum}</div>
-          <div style={{fontSize:13,color:"#8aacaa",marginTop:6}}>{week.end}</div>
+          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.headerAccent}}>Invoice</div>
+          <div style={{fontSize:16,color:t.headerName,fontWeight:700,fontFamily:"monospace",marginTop:4}}>{week.invNum}</div>
+          <div style={{fontSize:13,color:t.headerMeta,marginTop:6}}>{week.end}</div>
         </div>
       </div>
-      <div style={{height:4,background:`linear-gradient(90deg,${CH_ACC},${CH_ACC}66)`}}/>
-      <div style={{background:"#f4f8f8",padding:"24px 38px 22px",display:"flex",gap:52,borderBottom:"1px solid #e0eeec"}}>
-        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC,marginBottom:7}}>Billed To</div>
-          <div style={{fontSize:15,fontWeight:700,color:"#1a2a3a"}}>{config.clientName}</div>
-          <div style={{fontSize:13,color:"#4a6a60",marginTop:3}}>{config.clientEmail}</div></div>
-        {config.patientName && <div style={{marginRight:52}}><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC,marginBottom:7}}>Service Recipient</div>
-          <div style={{fontSize:15,fontWeight:700,color:"#1a2a3a"}}>{config.patientName}</div>
-          {config.patientAddress && <div style={{fontSize:13,color:"#4a6a60",marginTop:3}}>{config.patientAddress}</div>}</div>}
-        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC,marginBottom:7}}>Service Period</div>
-          <div style={{fontSize:14,color:"#1a2a3a"}}>{week.start} – {week.end}</div></div>
+      <div style={{height:4,background:`linear-gradient(90deg,${t.accent},${t.accent}40)`}}/>
+      <div style={{background:t.infoBg,padding:"24px 38px 22px",display:"flex",gap:52,borderBottom:`1px solid ${t.infoBorder}`}}>
+        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Billed To</div>
+          <div style={{fontSize:15,fontWeight:700,color:t.textDark}}>{config.clientName}</div>
+          <div style={{fontSize:13,color:t.textMedium,marginTop:3}}>{config.clientEmail}</div></div>
+        {config.patientName && <div style={{marginRight:52}}><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Service Recipient</div>
+          <div style={{fontSize:15,fontWeight:700,color:t.textDark}}>{config.patientName}</div>
+          {config.patientAddress && <div style={{fontSize:13,color:t.textMedium,marginTop:3}}>{config.patientAddress}</div>}</div>}
+        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Service Period</div>
+          <div style={{fontSize:14,color:t.textDark}}>{week.start} – {week.end}</div></div>
       </div>
-      <div style={{paddingTop:6}}><InvoiceTable hours={hours} config={config} rowEven="white" rowOdd="#f4f9f8" accentColor={CH_ACC} textColor="#1a2a3a" dayDates={week.dayDates}/></div>
+      <div style={{paddingTop:6}}><InvoiceTable hours={hours} config={config} rowEven={t.rowEven} rowOdd={t.rowOdd} accentColor={t.accent} textColor={t.textDark} dayDates={week.dayDates}/></div>
       <div style={{margin:"32px 38px 18px",display:"flex",justifyContent:"flex-end"}}>
-        <div style={{background:"#1a2a3a",borderRadius:10,padding:"16px 28px",textAlign:"right"}}>
-          <div style={{fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC,marginBottom:6}}>{totalHours} hours · Total Due</div>
-          <div style={{fontSize:30,fontWeight:700,color:"white"}}>${totalPay}</div>
+        <div style={{background:t.totalBg,borderRadius:10,padding:"16px 28px",textAlign:"right"}}>
+          <div style={{fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:t.headerAccent,marginBottom:6}}>{totalHours} hours · Total Due</div>
+          <div style={{fontSize:30,fontWeight:700,color:t.totalText}}>${totalPay}</div>
         </div>
       </div>
-      <div style={{borderTop:"1px solid #d8eae8",padding:"15px 38px",fontSize:12,color:"#7a9a90",fontStyle:"italic",textAlign:"center"}}>{config.invoiceNote}</div>
+      <div style={{borderTop:`1px solid ${t.infoBorder}`,padding:"15px 38px",fontSize:12,color:t.footerText,fontStyle:"italic",textAlign:"center"}}>{config.invoiceNote}</div>
     </div>
   );
 }
 
-const GD_ACC="#5a8a5a";
-function TemplateGarden({ config, hours, week, totalHours, totalPay }) {
+function TemplateBotanical({ config, hours, week, totalHours, totalPay, theme }) {
+  const t = theme || getTheme("garden");
   return (
-    <div style={{fontFamily:"sans-serif",background:"#fffef8",width:"100%",minHeight:"100%"}}>
-      <div style={{background:"linear-gradient(135deg,#2d4a2d,#3d6b3d)",padding:"34px 38px 28px",position:"relative"}}>
-        <div style={{fontSize:13,color:"#a8d8a0",letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>🌿</span> Contractor Invoice</div>
-        <div style={{fontSize:27,fontWeight:500,color:"#e8f5e4",letterSpacing:0.5}}>{config.name}</div>
-        <div style={{fontSize:13,color:"#a8c8a0",marginTop:6}}>{config.address}</div>
-        <div style={{fontSize:13,color:"#a8c8a0",marginTop:2}}>{config.personalEmail}</div>
+    <div style={{fontFamily:"sans-serif",background:t.rowEven,width:"100%",minHeight:"100%"}}>
+      <div style={{background:t.headerBg,padding:"34px 38px 28px",position:"relative"}}>
+        <div style={{fontSize:13,color:t.headerAccent,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>{t.emoji}</span> {getOccLabels(config).invoiceTitle}</div>
+        <div style={{fontSize:27,fontWeight:500,color:t.headerName,letterSpacing:0.5}}>{config.name}</div>
+        <div style={{fontSize:13,color:t.headerMeta,marginTop:6}}>{config.address}</div>
+        <div style={{fontSize:13,color:t.headerMeta,marginTop:2}}>{config.personalEmail}</div>
         <div style={{position:"absolute",right:38,top:34,background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"13px 20px",textAlign:"right"}}>
-          <div style={{fontSize:10,color:"#a8d8a0",letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Invoice</div>
+          <div style={{fontSize:10,color:t.headerAccent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Invoice</div>
           <div style={{fontSize:16,color:"white",fontWeight:700,fontFamily:"monospace"}}>{week.invNum}</div>
-          <div style={{fontSize:13,color:"#a8c8a0",marginTop:4}}>{week.end}</div>
+          <div style={{fontSize:13,color:t.headerMeta,marginTop:4}}>{week.end}</div>
         </div>
       </div>
-      <div style={{background:"#5a8a5a",padding:"6px 38px",fontSize:11,color:"#c8e8c0",letterSpacing:4}}>✦ ✦ ✦</div>
-      <div style={{background:"#f6fbf4",padding:"24px 38px 22px",borderBottom:"1px solid #d0e8c8",display:"flex",gap:52}}>
-        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:GD_ACC,marginBottom:7}}>Billed To</div>
-          <div style={{fontSize:15,fontWeight:700,color:"#2d4a2d"}}>{config.clientName}</div>
-          <div style={{fontSize:13,color:"#6a8a60",marginTop:3}}>{config.clientEmail}</div></div>
-        {config.patientName && <div style={{marginRight:52}}><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:GD_ACC,marginBottom:7}}>Service Recipient</div>
-          <div style={{fontSize:15,fontWeight:700,color:"#2d4a2d"}}>{config.patientName}</div>
-          {config.patientAddress && <div style={{fontSize:13,color:"#6a8a60",marginTop:3}}>{config.patientAddress}</div>}</div>}
-        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:GD_ACC,marginBottom:7}}>Service Week</div>
-          <div style={{fontSize:14,color:"#2d4a2d"}}>{week.start} – {week.end}</div></div>
+      <div style={{background:t.dividerBg,padding:"6px 38px",fontSize:11,color:t.dividerText,letterSpacing:4}}>✦ ✦ ✦</div>
+      <div style={{background:t.infoBg,padding:"24px 38px 22px",borderBottom:`1px solid ${t.infoBorder}`,display:"flex",gap:52}}>
+        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Billed To</div>
+          <div style={{fontSize:15,fontWeight:700,color:t.textDark}}>{config.clientName}</div>
+          <div style={{fontSize:13,color:t.textMedium,marginTop:3}}>{config.clientEmail}</div></div>
+        {config.patientName && <div style={{marginRight:52}}><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Service Recipient</div>
+          <div style={{fontSize:15,fontWeight:700,color:t.textDark}}>{config.patientName}</div>
+          {config.patientAddress && <div style={{fontSize:13,color:t.textMedium,marginTop:3}}>{config.patientAddress}</div>}</div>}
+        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Service Week</div>
+          <div style={{fontSize:14,color:t.textDark}}>{week.start} – {week.end}</div></div>
       </div>
-      <div style={{paddingTop:6}}><InvoiceTable hours={hours} config={config} rowEven="#fffef8" rowOdd="#f4f8f0" accentColor={GD_ACC} textColor="#2d4a2d" dayDates={week.dayDates}/></div>
-      <div style={{margin:"0 38px",borderTop:"2px dashed #b8d8b0",marginTop:16,paddingTop:20,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{fontSize:13,color:"#7a9a70"}}>{totalHours} hrs · ${config.rate.toFixed(2)}/hr</div>
+      <div style={{paddingTop:6}}><InvoiceTable hours={hours} config={config} rowEven={t.rowEven} rowOdd={t.rowOdd} accentColor={t.accent} textColor={t.textDark} dayDates={week.dayDates}/></div>
+      <div style={{margin:"0 38px",borderTop:`2px dashed ${t.infoBorder}`,marginTop:16,paddingTop:20,paddingBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{fontSize:13,color:t.textLight}}>{totalHours} hrs · ${config.rate.toFixed(2)}/hr</div>
         <div style={{textAlign:"right"}}>
-          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:GD_ACC,marginBottom:4}}>Total Due</div>
-          <div style={{fontSize:30,fontWeight:700,color:"#2d4a2d"}}>${totalPay}</div>
+          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:4}}>Total Due</div>
+          <div style={{fontSize:30,fontWeight:700,color:t.textDark}}>${totalPay}</div>
         </div>
       </div>
-      <div style={{background:"#f0f8ec",borderTop:"1px solid #c0d8b8",padding:"15px 38px",fontSize:12,color:"#7a9a70",fontStyle:"italic",textAlign:"center"}}>{config.invoiceNote}</div>
+      <div style={{background:t.footerBg,borderTop:`1px solid ${t.infoBorder}`,padding:"15px 38px",fontSize:12,color:t.footerText,fontStyle:"italic",textAlign:"center"}}>{config.invoiceNote}</div>
     </div>
   );
+}
+
+function InvoicePreview({ config, hours, week, totalHours, totalPay, themeId }) {
+  const t = getTheme(themeId);
+  const props = { config, hours, week, totalHours, totalPay, theme: t };
+  if (t.structure === "dark-header") return <TemplateDarkHeader {...props}/>;
+  if (t.structure === "botanical") return <TemplateBotanical {...props}/>;
+  return <TemplateLightHeader {...props}/>;
 }
 
 // ── MONTHLY REPORT PDF ────────────────────────────────────────────────────
-function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
+function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont, themeId }) {
+  const t = getTheme(themeId || config.template || "morning-light");
   const totalHours = weekData.reduce((s,w)=>s+w.hours,0);
   const totalPay   = (totalHours*config.rate).toFixed(2);
   const worked     = weekData.filter(w=>w.hours>0);
+  const isBotanical = t.structure === "botanical";
+  const isDark = t.structure === "dark-header";
+  // Total box style: dark-header keeps dark box; light-header & botanical use tinted box
+  const totalBoxStyle = isDark
+    ? {background:t.totalBg,borderRadius:10,padding:"16px 28px",textAlign:"right"}
+    : {background:t.infoBg,border:`2px solid ${t.accent}`,borderRadius:10,padding:"16px 28px",textAlign:"right"};
+  const totalAmountColor = isDark ? t.totalText : t.textDark;
+  const totalLabelColor = isDark ? t.headerAccent : t.accent;
   return (
     <div style={{fontFamily:"sans-serif",background:"white",width:"100%",minHeight:880,display:"flex",flexDirection:"column"}}>
-      <div style={{background:"linear-gradient(135deg,#2c3e50,#3d5468)",padding:"34px 38px 28px",position:"relative"}}>
-        <div style={{fontSize:13,color:"#a8c8d8",letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>📋</span> Monthly Hours Summary</div>
-        <div style={{fontSize:27,fontWeight:700,color:"white",marginBottom:7}}>{config.name}</div>
-        <div style={{fontSize:13,color:"#8aacbc"}}>{config.address}</div>
-        <div style={{fontSize:13,color:"#8aacbc",marginTop:2}}>{config.personalEmail}</div>
+      <div style={{background:t.headerBg,borderBottom:t.structure==="light-header"?t.headerBorder:"none",padding:"34px 38px 28px",position:"relative"}}>
+        <div style={{fontSize:13,color:t.headerAccent,letterSpacing:2.5,textTransform:"uppercase",marginBottom:10,display:"flex",alignItems:"center",gap:7}}><span style={{fontSize:15}}>{t.emoji}</span> Monthly Hours Summary</div>
+        <div style={{fontSize:27,fontWeight:700,color:t.headerName,marginBottom:7}}>{config.name}</div>
+        <div style={{fontSize:13,color:t.headerMeta}}>{config.address}</div>
+        <div style={{fontSize:13,color:t.headerMeta,marginTop:2}}>{config.personalEmail}</div>
         <div style={{position:"absolute",right:38,top:34,textAlign:"right"}}>
-          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#a8c8d8"}}>Report Period</div>
-          <div style={{fontSize:18,color:"white",fontWeight:700,marginTop:4}}>{monthLabel}</div>
+          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.headerAccent}}>Report Period</div>
+          <div style={{fontSize:18,color:t.headerName,fontWeight:700,marginTop:4}}>{monthLabel}</div>
         </div>
       </div>
-      <div style={{height:4,background:"linear-gradient(90deg,#7ab5c8,#7ab5c888)"}}/>
-      <div style={{background:"#f4f8fa",padding:"22px 38px 20px",display:"flex",gap:52,borderBottom:"1px solid #d8eaf0"}}>
-        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:7}}>Submitted To</div>
-          <div style={{fontSize:13,fontWeight:700,color:"#1a2a3a"}}>{config.clientName}</div>
-          <div style={{fontSize:12,color:"#4a6a70",marginTop:2}}>{config.clientEmail}</div></div>
-        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:7}}>Prepared For</div>
-          <div style={{fontSize:13,fontWeight:700,color:"#1a2a3a"}}>Accountant of Record</div>
-          <div style={{fontSize:12,color:"#4a6a70",marginTop:2}}>{config.accountantEmail}</div></div>
-        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:7}}>Rate</div>
-          <div style={{fontSize:16,fontWeight:700,color:"#1a2a3a"}}>${config.rate.toFixed(2)}<span style={{fontSize:11,fontWeight:500,color:"#5a8090"}}>/hr</span></div></div>
+      {isBotanical
+        ? <div style={{background:t.dividerBg,padding:"5px 0",textAlign:"center",fontSize:11,color:t.dividerText,letterSpacing:16}}>✦ ✦ ✦</div>
+        : <div style={{height:4,background:`linear-gradient(90deg,${t.accent},${t.accent}${isDark?"40":"88"})`}}/>}
+      <div style={{background:t.infoBg,padding:"22px 38px 20px",display:"flex",gap:52,borderBottom:`1px solid ${t.infoBorder}`}}>
+        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Submitted To</div>
+          <div style={{fontSize:13,fontWeight:700,color:t.textDark}}>{config.clientName}</div>
+          <div style={{fontSize:12,color:t.textMedium,marginTop:2}}>{config.clientEmail}</div></div>
+        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Prepared For</div>
+          <div style={{fontSize:13,fontWeight:700,color:t.textDark}}>Accountant of Record</div>
+          <div style={{fontSize:12,color:t.textMedium,marginTop:2}}>{config.accountantEmail}</div></div>
+        <div><div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:7}}>Rate</div>
+          <div style={{fontSize:16,fontWeight:700,color:t.textDark}}>${config.rate.toFixed(2)}<span style={{fontSize:11,fontWeight:500,color:t.textLight}}>/hr</span></div></div>
       </div>
       <div style={{paddingTop:6}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead><tr>{["Week","Period","Hours","Rate","Amount"].map(h=>(
-            <th key={h} style={{padding:`10px 38px 10px ${h==="Week"?"38px":"0"}`,textAlign:h==="Week"||h==="Period"?"left":"right",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",fontWeight:700,borderBottom:"1.5px solid #d8eaf0"}}>{h}</th>
+            <th key={h} style={{padding:`10px 38px 10px ${h==="Week"?"38px":"0"}`,textAlign:h==="Week"||h==="Period"?"left":"right",fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,fontWeight:700,borderBottom:`1.5px solid ${t.infoBorder}`}}>{h}</th>
           ))}</tr></thead>
           <tbody>{weekData.map((w,i)=>(
-            <tr key={i} style={{background:i%2===0?"white":"#f6fbfd",opacity:w.hours===0?0.4:1}}>
-              <td style={{padding:"12px 38px",color:"#1a2a3a",fontWeight:600}}>Week {i+1}</td>
-              <td style={{padding:"12px 0",color:"#4a6a70",fontSize:12}}>{w.label}</td>
-              <td style={{padding:"12px 0",textAlign:"right",color:"#1a2a3a"}}>{w.hours}</td>
-              <td style={{padding:"12px 0",textAlign:"right",color:"#5a90a8",opacity:0.8}}>${config.rate.toFixed(2)}</td>
-              <td style={{padding:"12px 38px 12px 0",textAlign:"right",color:w.hours>0?"#1a2a3a":"#aaa",fontWeight:w.hours>0?600:500}}>
+            <tr key={i} style={{background:i%2===0?t.rowEven:t.rowOdd,opacity:w.hours===0?0.4:1}}>
+              <td style={{padding:"12px 38px",color:t.textDark,fontWeight:600}}>Week {i+1}</td>
+              <td style={{padding:"12px 0",color:t.textMedium,fontSize:12}}>{w.label}</td>
+              <td style={{padding:"12px 0",textAlign:"right",color:t.textDark}}>{w.hours}</td>
+              <td style={{padding:"12px 0",textAlign:"right",color:t.accent,opacity:0.8}}>${config.rate.toFixed(2)}</td>
+              <td style={{padding:"12px 38px 12px 0",textAlign:"right",color:w.hours>0?t.textDark:"#aaa",fontWeight:w.hours>0?600:500}}>
                 {w.hours>0?`$${(w.hours*config.rate).toFixed(2)}`:"—"}
               </td>
             </tr>
@@ -565,32 +617,32 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont }) {
         </table>
       </div>
       <div style={{margin:"28px 38px 18px",display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
-        <div style={{fontSize:13,color:"#7a9aaa"}}>{worked.length} week{worked.length!==1?"s":""} worked · ${config.rate.toFixed(2)}/hr</div>
-        <div style={{background:"#2c3e50",borderRadius:10,padding:"16px 28px",textAlign:"right"}}>
-          <div style={{fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:"#a8c8d8",marginBottom:6}}>{totalHours} total hours · Amount Due</div>
-          <div style={{fontSize:30,fontWeight:700,color:"white"}}>${totalPay}</div>
+        <div style={{fontSize:13,color:t.textLight}}>{worked.length} week{worked.length!==1?"s":""} worked · ${config.rate.toFixed(2)}/hr</div>
+        <div style={totalBoxStyle}>
+          <div style={{fontSize:11,letterSpacing:1.5,textTransform:"uppercase",color:totalLabelColor,marginBottom:6}}>{totalHours} total hours · Amount Due</div>
+          <div style={{fontSize:30,fontWeight:700,color:totalAmountColor}}>${totalPay}</div>
         </div>
       </div>
-      <div style={{margin:"0 38px",borderTop:"1px dashed #c8dce8"}}/>
+      <div style={{margin:"0 38px",borderTop:`1px dashed ${t.infoBorder}`}}/>
       <div style={{flex:1}}/>
       <div style={{margin:"0 38px 20px",paddingTop:16,display:"flex",gap:48}}>
         <div style={{flex:1}}>
-          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:6}}>Provider Signature</div>
+          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:6}}>Provider Signature</div>
           {signatureFont
-            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:28,color:"#1a2a3a",paddingBottom:2,height:38,display:"flex",alignItems:"flex-end"}}>{config.name}</div>
+            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:28,color:t.textDark,paddingBottom:2,height:38,display:"flex",alignItems:"flex-end"}}>{config.name}</div>
             : <div style={{height:38}}/>}
-          <div style={{borderBottom:"1px solid #1a2a3a",height:1,width:"80%"}}/>
-          <div style={{fontSize:11,color:"#7a9aaa",marginTop:5}}>{config.name}</div>
+          <div style={{borderBottom:`1px solid ${t.textDark}`,height:1,width:"80%"}}/>
+          <div style={{fontSize:11,color:t.textLight,marginTop:5}}>{config.name}</div>
         </div>
         <div style={{flex:1}}>
-          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:"#5a90a8",marginBottom:6}}>Date</div>
+          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,marginBottom:6}}>Date</div>
           {signatureFont
-            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:22,color:"#1a2a3a",paddingBottom:2,height:38,display:"flex",alignItems:"flex-end"}}>{new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
+            ? <div style={{fontFamily:`'${signatureFont}', cursive`,fontSize:22,color:t.textDark,paddingBottom:2,height:38,display:"flex",alignItems:"flex-end"}}>{new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</div>
             : <div style={{height:38}}/>}
-          <div style={{borderBottom:"1px solid #1a2a3a",height:1,width:"60%"}}/>
+          <div style={{borderBottom:`1px solid ${t.textDark}`,height:1,width:"60%"}}/>
         </div>
       </div>
-      <div style={{background:"#f4f8fa",borderTop:"1px solid #d8eaf0",padding:"13px 38px",fontSize:11,color:"#7a9aaa",textAlign:"center",fontStyle:"italic"}}>
+      <div style={{background:t.footerBg,borderTop:`1px solid ${t.infoBorder}`,padding:"13px 38px",fontSize:11,color:t.footerText,textAlign:"center",fontStyle:"italic"}}>
         This summary is provided for accounting and tax purposes. Weekly invoices are available upon request.
       </div>
     </div>
@@ -711,7 +763,7 @@ function LandingPage({ config, onNav, emailConfigured, onOpenEmailSetup }) {
     { id:"profile", emoji:"👤", label:"Edit Profile",      desc:"Invoice & Custom Settings",     primary:false },
   ];
   return (
-    <Shell config={config} title="Contractor Invoice" subtitle={config.name} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
+    <Shell config={config} title={getOccLabels(config).invoiceTitle} subtitle={config.name} emailConfigured={emailConfigured} onOpenEmailSetup={onOpenEmailSetup}>
       <style>{`
         .landing-cards{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:520px}
         @media(min-width:700px){.landing-cards{display:grid;grid-template-columns:1fr 1fr;max-width:760px;gap:16px}}
@@ -911,17 +963,16 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
             </div>
             <div style={{padding:"20px 24px"}}>
               {[
-                {label:"Full Name",            key:"name"},
+                {label:"Full Name",            key:"name",          required:true},
                 {label:"Address",              key:"address"},
-                {label:"Personal Email",       key:"personalEmail"},
-                {label:"Hourly Rate ($)",       key:"rate",type:"number"},
-                {label:"Client / Agency Name", key:"clientName"},
-                {label:"Client Email",         key:"clientEmail"},
+                {label:"Personal Email",       key:"personalEmail", required:true},
+                {label:"Hourly Rate ($)",       key:"rate",type:"number", required:true},
+                {label:"Agency",               key:"agency"},
                 {label:"Accountant Email",     key:"accountantEmail"},
                 {label:"Invoice Footer Note",  key:"invoiceNote"},
-              ].map(({label,key,type})=>(
+              ].map(({label,key,type,required})=>(
                 <div key={key} style={{marginBottom:18}}>
-                  <label style={labelStyle}>{label}</label>
+                  <label style={labelStyle}>{label}{required ? <span style={{color:acc,marginLeft:3}}>*</span> : ""}</label>
                   <input type={type||"text"} value={draft[key]} onChange={e=>updateField(key,e.target.value)} style={inputStyle}/>
                 </div>
               ))}
@@ -945,44 +996,53 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
             </div>
           </div>
 
-          {/* Service Recipient card */}
+          {/* Client & Service Recipient card */}
           <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
-            <div style={{background:chrome.titleBar,padding:"16px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-              <div>
-                <div style={sectionTitleStyle}>{occLabels.recipientCardTitle}</div>
-                <div style={{fontSize:14,color:chrome.mutedText}}>{occLabels.recipientCardDesc}</div>
-              </div>
-              {!hasClient && (
-                <button onClick={addClient} style={{fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:8,border:"none",background:acc,color:"white",cursor:"pointer"}}>+ Add</button>
-              )}
+            <div style={{background:chrome.titleBar,padding:"16px 24px"}}>
+              <div style={sectionTitleStyle}>Client & {occLabels.recipientCardTitle}</div>
+              <div style={{fontSize:14,color:chrome.mutedText}}>Who you bill and who receives your services.</div>
             </div>
-            {hasClient && (
-              <div style={{padding:"20px 24px"}}>
-                {/* Client selector (only if multiple) */}
-                {(draft.clients||[]).length > 1 && (
-                  <div style={{marginBottom:18}}>
-                    <label style={labelStyle}>Active Recipient</label>
-                    <select value={draft.activeClientId} onChange={e=>setDraft(d=>({...d,activeClientId:e.target.value}))}
-                      style={{...inputStyle,cursor:"pointer"}}>
-                      {(draft.clients||[]).map(c=><option key={c.id} value={c.id}>{c.name||"(unnamed)"}</option>)}
-                    </select>
-                  </div>
-                )}
+            <div style={{padding:"20px 24px"}}>
+              {/* Client — required, always visible */}
+              <div style={{marginBottom:18}}>
+                <label style={labelStyle}>Client Name <span style={{color:acc}}>*</span></label>
+                <input value={draft.clientName} onChange={e=>updateField("clientName",e.target.value)} style={inputStyle}
+                  placeholder="Person or entity that pays for services"/>
+              </div>
+              <div style={{marginBottom:18}}>
+                <label style={labelStyle}>Client Email <span style={{color:acc}}>*</span></label>
+                <input value={draft.clientEmail} onChange={e=>updateField("clientEmail",e.target.value)} style={inputStyle}
+                  placeholder="Billing email"/>
+              </div>
 
-                <div style={{marginBottom:18}}>
-                  <label style={labelStyle}>{occLabels.recipientName}</label>
-                  <input value={activeClient.name} onChange={e=>updateClient("name",e.target.value)} style={inputStyle}/>
+              {/* Service Recipient — optional */}
+              <div style={{borderTop:"1px solid #f0e8e0",paddingTop:16,marginTop:8,marginBottom:hasClient?0:8}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:hasClient?16:0}}>
+                  <div>
+                    <div style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",fontWeight:600}}>{occLabels.recipientCardTitle}</div>
+                    <div style={{fontSize:12,color:"#b0a090",marginTop:2}}>{occLabels.recipientCardDesc}</div>
+                  </div>
+                  {!hasClient && (
+                    <button onClick={addClient} style={{fontSize:12,fontWeight:700,padding:"6px 14px",borderRadius:8,border:"none",background:acc,color:"white",cursor:"pointer",flexShrink:0,marginLeft:12}}>+ Add</button>
+                  )}
                 </div>
-                <div style={{marginBottom:18}}>
-                  <label style={labelStyle}>{occLabels.recipientAddress}</label>
-                  <input value={activeClient.address} onChange={e=>updateClient("address",e.target.value)} style={inputStyle}/>
-                </div>
-                <div style={{marginBottom:18}}>
-                  <label style={labelStyle}>{occLabels.objective}</label>
-                  <textarea value={activeClient.objective||""} onChange={e=>updateClient("objective",e.target.value)}
-                    rows={2} style={{...inputStyle,resize:"vertical",minHeight:48,lineHeight:"1.4"}}
-                    placeholder={occLabels.objectivePlaceholder}/>
-                </div>
+              </div>
+
+            {hasClient && (<>
+              <div style={{marginBottom:18}}>
+                <label style={labelStyle}>{occLabels.recipientName}</label>
+                <input value={activeClient.name} onChange={e=>updateClient("name",e.target.value)} style={inputStyle}/>
+              </div>
+              <div style={{marginBottom:18}}>
+                <label style={labelStyle}>{occLabels.recipientAddress}</label>
+                <input value={activeClient.address} onChange={e=>updateClient("address",e.target.value)} style={inputStyle}/>
+              </div>
+              <div style={{marginBottom:18}}>
+                <label style={labelStyle}>{occLabels.objective}</label>
+                <textarea value={activeClient.objective||""} onChange={e=>updateClient("objective",e.target.value)}
+                  rows={2} style={{...inputStyle,resize:"vertical",minHeight:48,lineHeight:"1.4"}}
+                  placeholder={occLabels.objectivePlaceholder}/>
+              </div>
 
                 {/* Default shift times */}
                 <div style={{marginBottom:18}}>
@@ -1039,15 +1099,26 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
                   </button>
                 </div>
 
-                {/* Multi-recipient management */}
-                <div style={{borderTop:"1px solid #f0e8e0",paddingTop:12,marginTop:16,display:"flex",gap:8}}>
+              {/* Multi-recipient management */}
+              <div style={{borderTop:"1px solid #f0e8e0",paddingTop:12,marginTop:16}}>
+                {(draft.clients||[]).length > 1 && (
+                  <div style={{marginBottom:10}}>
+                    <label style={labelStyle}>Active Recipient</label>
+                    <select value={draft.activeClientId} onChange={e=>setDraft(d=>({...d,activeClientId:e.target.value}))}
+                      style={{...inputStyle,cursor:"pointer"}}>
+                      {(draft.clients||[]).map(c=><option key={c.id} value={c.id}>{c.name||"(unnamed)"}</option>)}
+                    </select>
+                  </div>
+                )}
+                <div style={{display:"flex",gap:8}}>
                   <button onClick={addClient} style={{fontSize:12,color:acc,background:"none",border:`1.5px solid ${acc}40`,borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>+ Add Recipient</button>
                   {(draft.clients||[]).length > 1 && (
                     <button onClick={()=>removeClient(activeClient.id)} style={{fontSize:12,color:"#c07070",background:"none",border:"1.5px solid #e0c0c0",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}>Remove This Recipient</button>
                   )}
                 </div>
               </div>
-            )}
+            </>)}
+            </div>
           </div>
 
           {/* Signature Font picker */}
@@ -1069,14 +1140,34 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
             </div>
           </div>
 
-          {/* Color picker */}
-          <div style={{background:"white",borderRadius:16,padding:"20px 24px",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:20}}>
-            <div style={{fontSize:11,letterSpacing:1,textTransform:"uppercase",color:"#9a8070",marginBottom:12}}>Color Palette</div>
-            <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-              {PALETTES.map(p=>(
-                <button key={p.value} onClick={()=>setDraft(d=>({...d,accent:p.value}))} title={p.label}
-                  style={{width:36,height:36,borderRadius:"50%",background:p.value,border:draft.accent===p.value?`3px solid ${chrome.titleBar}`:"3px solid transparent",cursor:"pointer",transition:"all 0.15s"}}/>
-              ))}
+          {/* Theme Picker */}
+          <div style={{background:"white",borderRadius:16,overflow:"hidden",boxShadow:"0 2px 20px rgba(0,0,0,0.07)",marginBottom:16}}>
+            <div style={{background:chrome.titleBar,padding:"16px 24px"}}>
+              <div style={sectionTitleStyle}>Template Theme</div>
+              <div style={{fontSize:14,color:chrome.mutedText}}>Applied to all invoices, reports, and service logs.</div>
+            </div>
+            <div style={{padding:"16px 24px",display:"flex",flexDirection:"column",gap:6}}>
+              {TEMPLATES.map(tmpl=>{
+                const selected = (draft.template||"morning-light") === tmpl.id;
+                return (
+                  <button key={tmpl.id} onClick={()=>setDraft(d=>({...d,template:tmpl.id,accent:tmpl.accent}))}
+                    style={{textAlign:"left",padding:"10px 14px",borderRadius:10,border:selected?`2.5px solid ${tmpl.accent}`:`1.5px solid ${tmpl.accent}30`,background:selected?tmpl.chromeBg:"white",cursor:"pointer",display:"flex",alignItems:"center",gap:14,transition:"all 0.15s"}}>
+                    {/* Mini preview swatch */}
+                    <div style={{width:56,height:36,borderRadius:6,overflow:"hidden",flexShrink:0,display:"flex",flexDirection:"column"}}>
+                      <div style={{flex:1,background:tmpl.structure==="light-header"?tmpl.headerBg:tmpl.structure==="dark-header"?tmpl.headerBg:tmpl.headerBg}}/>
+                      <div style={{height:3,background:tmpl.structure==="botanical"?tmpl.dividerBg:`linear-gradient(90deg,${tmpl.accent},${tmpl.accent}40)`}}/>
+                      <div style={{flex:1,background:tmpl.infoBg}}/>
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:15,fontWeight:600,color:selected?tmpl.textDark:"#2c1810",display:"flex",alignItems:"center",gap:6}}>
+                        <span>{tmpl.emoji}</span> {tmpl.label}
+                      </div>
+                      <div style={{fontSize:11,color:tmpl.textLight,marginTop:1}}>{tmpl.structure.replace("-"," ")} · {tmpl.fontStyle}</div>
+                    </div>
+                    {selected && <div style={{width:8,height:8,borderRadius:"50%",background:tmpl.accent,flexShrink:0}}/>}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1162,12 +1253,13 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
   const [clientEmail,     setClientEmail]     = useState(config.clientEmail);
   const [accountantEmail, setAccountantEmail] = useState(config.accountantEmail);
   const [zoom,            setZoom]            = useState(()=>{const s=localStorage.getItem("invoiceZoom");return s?parseFloat(s):0.9;});
-  const [activeTemplate,  setActiveTemplate]  = useState(()=>localStorage.getItem("invoiceTemplate")||"morning-light");
+  const activeTemplate = config.template || "morning-light";
   const [notification,    setNotification]    = useState(null);
   const [alreadySaved,    setAlreadySaved]    = useState(false);
   const [savedDate,       setSavedDate]       = useState(null);
   const [showConfirm,     setShowConfirm]     = useState(false);
   const [submitting,      setSubmitting]      = useState(false);
+  const [previewing,      setPreviewing]      = useState(false);
   const [submitStep,      setSubmitStep]      = useState(1); // 1=invoice, 2=log review
   const [savedInvoicePath, setSavedInvoicePath] = useState(null);
   const [logPdfUrl,       setLogPdfUrl]       = useState(null);
@@ -1196,7 +1288,8 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
             setHours(prev => ({...prev, ...data.dailyHours}));
             const src = {}; DAYS.forEach(d => { src[d] = "saved"; }); setHoursSource(src);
           }
-          if (data.template) setActiveTemplate(data.template);
+          // Sidecar records which template was used at save time,
+          // but the live preview always uses the current profile theme
         } else {
           // No saved invoice — auto-populate from daily log shift times
           fetch(`/api/log-week?monday=${mondayStr}`)
@@ -1241,7 +1334,6 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
         clientEmail,
         accountantEmail,
         week: { start: week.start, end: week.end, invNum: week.invNum },
-        template: activeTemplate,
         saveOnly: true
       };
 
@@ -1287,7 +1379,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
   const doPreviewLogsOnly = async () => {
     if (submitInProgressRef.current) return;
     submitInProgressRef.current = true;
-    setSubmitting(true);
+    setPreviewing(true);
     setNotification(null);
     try {
       const logResp = await fetch('/api/submit/preview-weekly-log', {
@@ -1299,13 +1391,13 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
         const blob = await logResp.blob();
         setLogPdfUrl(URL.createObjectURL(blob));
       }
-      setSavedInvoicePath(null); // mark as not saved
+      setSavedInvoicePath(null);
       setSubmitStep(2);
     } catch (error) {
       console.error('Log preview failed:', error);
       setNotification({ error: error.message || 'Unable to preview logs.' });
     } finally {
-      setSubmitting(false);
+      setPreviewing(false);
       submitInProgressRef.current = false;
     }
   };
@@ -1359,8 +1451,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
         hours,
         clientEmail,
         accountantEmail,
-        week: { start: week.start, end: week.end, invNum: week.invNum },
-        template: activeTemplate
+        week: { start: week.start, end: week.end, invNum: week.invNum }
       };
 
       const response = await fetch('/api/submit/weekly', {
@@ -1412,7 +1503,6 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
     }
   };
 
-  const PreviewComponent = activeTemplate==="morning-light"?TemplateMorningLight:activeTemplate==="caring-hands"?TemplateCaringHands:TemplateGarden;
   const LETTER_W=680, LETTER_H=Math.round(LETTER_W*(11/8.5));
 
   const isCurrent = weekOffset === 0;
@@ -1424,12 +1514,8 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
       <div style={{flex:1,display:"flex",overflow:"hidden"}}>
         {/* PDF */}
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-          {/* Toolbar: templates left | zoom center | week nav right */}
+          {/* Toolbar: week nav + zoom */}
           <div style={{background:chrome.toolbar,borderBottom:`1px solid ${chrome.border}`,padding:"7px 20px",display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-            <span style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:chrome.mutedText,marginRight:2}}>Template</span>
-            {TEMPLATES.map(t=>(
-              <button key={t.id} className="tmpl-btn" onClick={()=>{setActiveTemplate(t.id);localStorage.setItem("invoiceTemplate",t.id);}} style={{fontFamily:"sans-serif",fontSize:14,padding:"5px 12px",borderRadius:20,border:`1px solid ${activeTemplate===t.id?acc:chrome.border}`,background:activeTemplate===t.id?acc:"transparent",color:activeTemplate===t.id?"white":chrome.mutedText,cursor:"pointer"}}>{t.label}</button>
-            ))}
             <div style={{flex:1}}/>
             {/* Week nav + Zoom — right */}
             <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -1473,7 +1559,7 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
             ) : (
               <div style={{width:LETTER_W*zoom,minHeight:LETTER_H*zoom,flexShrink:0,boxShadow:"0 4px 32px rgba(0,0,0,0.25)",background:"white",overflow:"hidden"}}>
                 <div style={{transform:`scale(${zoom})`,transformOrigin:"top left",width:LETTER_W}}>
-                  <PreviewComponent config={config} hours={hours} week={week} totalHours={totalHours} totalPay={totalPay}/>
+                  <InvoicePreview config={config} hours={hours} week={week} totalHours={totalHours} totalPay={totalPay} themeId={activeTemplate}/>
                 </div>
               </div>
             )}
@@ -1566,12 +1652,12 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
             {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup} accent={acc}/></div>}
             <div style={{padding:"10px 16px 14px"}}>
               {submitStep === 1 ? (<>
-                <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
-                  {submitting ? "Saving..." : "Save & Review Logs"}
+                <button onClick={handleSubmit} disabled={submitting||previewing} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:(submitting||previewing)?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:(submitting||previewing)?0.7:1}}>
+                  {submitting ? "Saving..." : "Save & Continue"}
                 </button>
-                <button onClick={doPreviewLogsOnly} disabled={submitting}
-                  style={{width:"100%",fontSize:13,color:"#9a8070",background:"none",border:"none",cursor:submitting?"wait":"pointer",padding:"8px 0 0",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>
-                  Preview Logs Only
+                <button onClick={doPreviewLogsOnly} disabled={submitting||previewing}
+                  style={{width:"100%",fontSize:13,color:"#9a8070",background:"none",border:"none",cursor:(submitting||previewing)?"wait":"pointer",padding:"8px 0 0",textDecoration:"underline",textDecorationColor:"#d0c0b8"}}>
+                  {previewing ? "Loading..." : "Continue Without Saving"}
                 </button>
               </>) : (
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -1811,7 +1897,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
           <div style={{flex:1,overflowY:"auto",overflowX:"auto",display:"flex",justifyContent:"center",alignItems:"flex-start",padding:"24px 20px",background:chrome.previewBg}}>
             <div style={{width:LETTER_W*zoom,minHeight:LETTER_H*zoom,flexShrink:0,boxShadow:"0 4px 32px rgba(0,0,0,0.25)",background:"white",overflow:"hidden"}}>
               <div style={{transform:`scale(${zoom})`,transformOrigin:"top left",width:LETTER_W}}>
-                <MonthlyReportPDF config={config} weekData={weeksWithData} monthLabel={monthLabel} signatureFont={signatureFont}/>
+                <MonthlyReportPDF config={config} weekData={weeksWithData} monthLabel={monthLabel} signatureFont={signatureFont} themeId={config.template}/>
               </div>
             </div>
           </div>
@@ -2127,6 +2213,7 @@ function DailyLogPage({ config, onBack }) {
   const [editingNewIdx, setEditingNewIdx] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [removeSectionPrompt, setRemoveSectionPrompt] = useState(null); // null or section name string
   const calBtnRef = useRef(null);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
@@ -2203,6 +2290,11 @@ function DailyLogPage({ config, onBack }) {
     if (!dirtyRef.current) return Promise.resolve();
     dirtyRef.current = false;
     const secs = overrideSections || sectionsRef.current;
+    // Don't save if there's no real content (prevents empty log files from auto-save)
+    const hasText = secs.some(s => s.content && s.content.trim());
+    const hasVitals = Object.values(vitalsRef.current).some(v => v !== null);
+    const hasMeds = medChecklistRef.current.some(m => m.times && m.times.length > 0);
+    if (!hasText && !hasVitals && !hasMeds) return Promise.resolve();
     const ds = dirtyDateRef.current || dateInfo.dateStr;
     dirtyDateRef.current = null;
     if (abortRef.current) abortRef.current.abort();
@@ -2378,14 +2470,22 @@ function DailyLogPage({ config, onBack }) {
     scheduleSave();
   };
 
-  // Remove section from config — affects all future logs (pill "x" button)
+  // Remove section from config — shows confirmation prompt first
   const removeSectionFromConfig = (name) => {
+    setRemoveSectionPrompt(name);
+  };
+
+  const confirmRemoveSection = (purgeExisting) => {
+    const name = removeSectionPrompt;
+    if (!name) return;
+    setRemoveSectionPrompt(null);
     pushUndo({ type: "structure", sections: sections.map(s => ({...s})), names: [...sectionNames] });
     const updated = sectionNames.filter(n => n !== name);
     setSectionNames(updated);
-    // Don't remove from current sections array — just from config
-    // The display filter will hide it, but it stays in the saved file
     fetch("/api/log-sections", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sections: updated }) }).catch(() => {});
+    if (purgeExisting) {
+      fetch("/api/log-sections/purge", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) }).catch(() => {});
+    }
   };
 
   // Undo
@@ -2550,7 +2650,25 @@ function DailyLogPage({ config, onBack }) {
           </div>
         </div>
       )}
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      {removeSectionPrompt && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,padding:16}}>
+          <div style={{background:"white",borderRadius:16,maxWidth:380,width:"100%",overflow:"hidden",boxShadow:"0 8px 48px rgba(0,0,0,0.25)"}}>
+            <div style={{background:chrome.titleBar,padding:"16px 22px"}}>
+              <div style={{fontSize:11,letterSpacing:3,textTransform:"uppercase",color:"#e0c090",marginBottom:4}}>Remove Section</div>
+              <div style={{fontSize:14,color:chrome.mutedText}}>Remove <strong style={{color:chrome.brightText}}>"{removeSectionPrompt}"</strong> from your sections?</div>
+            </div>
+            <div style={{padding:"18px 22px"}}>
+              <div style={{fontSize:14,color:"#4a3028",lineHeight:1.6,marginBottom:16}}>This section won't appear on new logs. You can also clear it from all previous logs.</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <button onClick={() => confirmRemoveSection(true)} style={{fontSize:14,fontWeight:700,padding:"10px 0",borderRadius:9,border:"none",background:"#c47070",color:"white",cursor:"pointer"}}>Remove from all logs</button>
+                <button onClick={() => confirmRemoveSection(false)} style={{fontSize:14,fontWeight:600,padding:"10px 0",borderRadius:9,border:"1.5px solid #e8ddd8",background:"white",color:"#4a3028",cursor:"pointer"}}>Only future logs</button>
+                <button onClick={() => setRemoveSectionPrompt(null)} style={{fontSize:13,padding:"8px 0",background:"none",border:"none",color:"#9a8070",cursor:"pointer"}}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      <div style={{flex:"1 1 0",display:"flex",flexDirection:"column",overflow:"hidden",minHeight:0}}>
         {/* Toolbar */}
         <div style={{background:chrome.toolbar,borderBottom:`1px solid ${chrome.border}`,padding:"7px 20px",display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
           {/* Calendar button */}
@@ -2607,11 +2725,11 @@ function DailyLogPage({ config, onBack }) {
         </div>
 
         {/* Section content area */}
-        <div style={{flex:1,overflowY:"auto",padding:"20px 24px",background:"linear-gradient(160deg,#f9f3ee,#f2ebe4)",display:"flex",flexDirection:"column",gap:16}}>
+        <div style={{flex:"1 1 0",minHeight:0,overflowY:"auto",padding:"20px 24px",background:"linear-gradient(160deg,#f9f3ee,#f2ebe4)",display:"flex",flexDirection:"column",gap:16}}>
 
           {/* Patient info card */}
           {activeClient.name && (
-            <div style={{background:`linear-gradient(135deg, white, ${tint(acc,0.04)})`,borderRadius:14,border:`1.5px solid ${tint(acc,0.2)}`,padding:"16px 20px",display:"flex",alignItems:"flex-start",gap:14}}>
+            <div style={{background:`linear-gradient(135deg, white, ${tint(acc,0.04)})`,borderRadius:14,border:`1.5px solid ${tint(acc,0.2)}`,padding:"16px 20px",display:"flex",alignItems:"flex-start",gap:14,flexShrink:0}}>
               <div style={{width:40,height:40,borderRadius:"50%",background:tint(acc,0.12),display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:acc,flexShrink:0,marginTop:2}}>
                 {activeClient.name.charAt(0).toUpperCase()}
               </div>
@@ -2631,7 +2749,7 @@ function DailyLogPage({ config, onBack }) {
           )}
 
           {/* Shift times */}
-          <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+          <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",flexShrink:0}}>
             <span style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600}}>Shift</span>
             <input type="time" value={shift.start} onChange={e=>updateShift("start",e.target.value)}
               style={{fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:8,padding:"6px 10px",color:"#2c1810",outline:"none",background:"#fdfaf8"}}/>
@@ -2642,12 +2760,12 @@ function DailyLogPage({ config, onBack }) {
           </div>
 
           {/* Vitals card */}
-          {activeVitals.length>0&&<div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px"}}>
+          {activeVitals.length>0&&<div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px",flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
               <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600}}>{occLabels.vitalsHeader}</div>
               <button onClick={()=>setShowVitalsModal(true)} title={`Edit ${occLabels.vitalsHeader.toLowerCase()}`} style={{fontSize:11,color:acc,background:"none",border:`1px solid ${acc}40`,borderRadius:6,padding:"2px 8px",cursor:"pointer"}}>Edit</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:`repeat(auto-fit, minmax(${activeVitals.length<=4?130:105}px, 1fr))`,gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:`repeat(${activeVitals.length}, minmax(0, 140px))`,gap:12,justifyContent:"center"}}>
               {activeVitals.map(({key,label,unit,step})=>(<div key={key} style={{textAlign:"center",position:"relative"}} onMouseEnter={()=>setHoverVital(key)} onMouseLeave={()=>setHoverVital(null)}>
                 {hoverVital===key&&<button onClick={()=>removeVitalFromConfig(key)} title={`Remove ${label}`} style={{position:"absolute",top:-6,right:-4,width:18,height:18,borderRadius:"50%",border:"none",background:"#e8ddd4",color:"#8a7060",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1,lineHeight:1}}>×</button>}
                 <input type="number" step={step||"1"} value={vitals[key]===null?"":vitals[key]} onChange={e=>updateVital(key,e.target.value)} placeholder="—"
@@ -2685,7 +2803,7 @@ function DailyLogPage({ config, onBack }) {
 
           {/* Medications checklist */}
           {(medChecklist.length > 0 || (activeClient.meds||[]).length > 0) && (
-            <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px"}}>
+            <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px",flexShrink:0}}>
               <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600,marginBottom:10}}>{occLabels.medsHeader}</div>
               {medChecklist.map((med, idx) => {
                 const isChecked = med.times && med.times.length > 0;
@@ -2743,7 +2861,7 @@ function DailyLogPage({ config, onBack }) {
             return (
               <div key={s.name}
                 draggable={!isEditing} onDragStart={() => handleDragStart(nameIdx)} onDragOver={e => handleDragOver(e, nameIdx)} onDrop={() => handleDrop(nameIdx)} onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
-                style={{background:"white",borderRadius:14,border:dragOverIdx===nameIdx?`2px dashed ${acc}`:"1px solid #e8ddd4",boxShadow:"0 2px 10px rgba(0,0,0,0.04)",overflow:"hidden",opacity:dragIdx===nameIdx?0.5:1,transition:"border 0.15s"}}>
+                style={{background:"white",borderRadius:14,border:dragOverIdx===nameIdx?`2px dashed ${acc}`:"1px solid #e8ddd4",boxShadow:"0 2px 10px rgba(0,0,0,0.04)",overflow:"hidden",opacity:dragIdx===nameIdx?0.5:1,transition:"border 0.15s",flexShrink:0}}>
                 <div style={{padding:"14px 20px 8px",borderBottom:"1px solid #f0e8e0",display:"flex",alignItems:"center",gap:8}}>
                   {isEditing ? (
                     <input value={s.name}

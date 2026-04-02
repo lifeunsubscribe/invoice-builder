@@ -14,17 +14,22 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request
 from werkzeug.exceptions import BadRequest
 
-from app.services.pdf_service import render_weekly_pdf, render_monthly_pdf
+from app.services.pdf_service import (
+    render_weekly_pdf, render_monthly_pdf, render_weekly_log_pdf
+)
 from app.services.mail_service import (
     send_invoice_email,
     create_weekly_email_body,
+    create_weekly_with_logs_email_body,
     create_monthly_email_body
 )
 from app.services.folder_service import (
     expand_path,
     ensure_folders,
     weekly_path,
+    weekly_log_path,
     monthly_path,
+    logs_path,
     write_sidecar
 )
 from app.middleware.rate_limiter import limiter, SUBMIT_RATE_LIMIT
@@ -158,7 +163,7 @@ def submit_weekly():
             }), 400
 
         # Validate required fields
-        required_fields = ['hours', 'week', 'template']
+        required_fields = ['hours', 'week']
         missing_fields = [field for field in required_fields if field not in payload]
 
         if missing_fields:
@@ -280,11 +285,12 @@ def submit_weekly():
 
         # Generate PDF
         try:
+            template_id = config.get('template', 'morning-light')
             pdf_bytes = render_weekly_pdf(
                 config=config,
                 hours=payload['hours'],
                 week=week,
-                template_id=payload['template']
+                template_id=template_id
             )
         except ValueError as e:
             # Missing config keys means profile is incomplete
@@ -324,12 +330,21 @@ def submit_weekly():
                 "totalHours": sum(payload['hours'].values()),
                 "dailyHours": payload['hours'],
                 "week": week,
-                "template": payload.get('template', 'morning-light')
+                "template": config.get('template', 'morning-light')
             }
             write_sidecar(pdf_path, sidecar_data)
         except Exception as e:
             # Non-critical error - log but continue
             logger.warning("Failed to write sidecar JSON: %s", e)
+
+        # If saveOnly, skip email and return immediately
+        if payload.get('saveOnly'):
+            return jsonify({
+                "success": True,
+                "saved": pdf_path,
+                "sent": [],
+                "overwrite": overwrite
+            }), 200
 
         # Send emails (only if recipients provided)
         recipients = [e for e in [client_email, accountant_email] if e]
@@ -604,10 +619,12 @@ def submit_monthly():
 
         # Generate PDF
         try:
+            template_id = config.get('template', 'morning-light')
             pdf_bytes = render_monthly_pdf(
                 config=config,
                 week_data=payload['weekData'],
                 month_label=month_label,
+                template_id=template_id,
                 signature_font=signature_font,
                 sign_date=sign_date
             )
@@ -697,6 +714,264 @@ def submit_monthly():
 
     except Exception as e:
         logger.exception("Unexpected error in submit_monthly: %s", e)
+        return jsonify({
+            "success": False,
+            "error": "Internal server error",
+            "message": "An unexpected error occurred"
+        }), 500
+
+
+def _load_daily_logs_for_week(save_folder, monday_str):
+    """
+    Load Mon-Fri daily logs for a given week.
+
+    Returns list of 5 dicts (Mon-Fri), each enriched with date_label and has_data.
+    """
+    from app.api.config_api import get_config_path, get_or_create_config
+    config_path = get_config_path()
+    get_or_create_config(config_path)
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config = json.load(f)
+
+    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    monday = datetime.strptime(monday_str, '%Y%m%d')
+    daily_logs = []
+
+    # Get active client info
+    clients = config.get('clients', [])
+    active_id = config.get('activeClientId', '')
+    client = None
+    for c in clients:
+        if c.get('id') == active_id:
+            client = c
+            break
+    if not client and clients:
+        client = clients[0]
+    client = client or {'name': '', 'address': '', 'objective': ''}
+
+    for i, day_name in enumerate(day_names):
+        date = monday + timedelta(days=i)
+        date_str = date.strftime('%Y-%m-%d')
+        date_label = date.strftime('%A, %B ') + str(date.day) + date.strftime(', %Y')
+
+        try:
+            path = logs_path(save_folder, date_str)
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            daily_logs.append({
+                'date_label': date_label,
+                'shift': data.get('shift', {}),
+                'vitals': data.get('vitals', {}),
+                'meds': data.get('meds', []),
+                'sections': data.get('sections', []),
+                'has_data': True,
+            })
+        except (FileNotFoundError, json.JSONDecodeError, ValueError):
+            daily_logs.append({
+                'date_label': date_label,
+                'shift': {}, 'vitals': {}, 'meds': [], 'sections': [],
+                'has_data': False,
+            })
+
+    return daily_logs, client
+
+
+@submit_bp.route('/preview-weekly-log', methods=['POST'])
+@limiter.limit(SUBMIT_RATE_LIMIT)
+def preview_weekly_log():
+    """
+    POST /api/submit/preview-weekly-log
+
+    Generates a weekly service log PDF preview (without saving).
+    Returns PDF bytes as application/pdf.
+
+    Expects JSON: {"invNum": "INV-20260324"}
+    """
+    try:
+        payload = request.get_json()
+        if not payload:
+            return jsonify({"error": "Invalid JSON"}), 400
+
+        inv_num = payload.get('invNum', '')
+        if not inv_num or not re.match(r'^INV-\d{8}$', inv_num):
+            return jsonify({"error": "Invalid invoice number"}), 400
+
+        # Load config
+        from app.api.config_api import get_config_path, get_or_create_config
+        config_path = get_config_path()
+        get_or_create_config(config_path)
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+        save_folder = expand_path(config.get('saveFolder', ''))
+        if not save_folder:
+            return jsonify({"error": "No save folder configured"}), 400
+
+        monday_str = inv_num.replace('INV-', '')
+        daily_logs, client = _load_daily_logs_for_week(save_folder, monday_str)
+
+        # Compute week label
+        monday = datetime.strptime(monday_str, '%Y%m%d')
+        friday = monday + timedelta(days=4)
+        week_label = (f"{monday.strftime('%B')} {monday.day} – "
+                      f"{friday.strftime('%B')} {friday.day}, {friday.year}")
+
+        signature_font = config.get('signatureFont', '')
+        sign_date = datetime.now().strftime('%B ') + str(datetime.now().day) + datetime.now().strftime(', %Y')
+
+        template_id = config.get('template', 'morning-light')
+        pdf_bytes = render_weekly_log_pdf(
+            config=config, client=client, daily_logs=daily_logs,
+            week_label=week_label, template_id=template_id,
+            signature_font=signature_font, sign_date=sign_date
+        )
+
+        from flask import Response
+        return Response(pdf_bytes, mimetype='application/pdf')
+
+    except ValueError as e:
+        return jsonify({"error": f"Invalid template or config: {e}"}), 400
+    except Exception as e:
+        logger.exception("Error generating log preview: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@submit_bp.route('/weekly-with-logs', methods=['POST'])
+@limiter.limit(SUBMIT_RATE_LIMIT)
+def submit_weekly_with_logs():
+    """
+    POST /api/submit/weekly-with-logs
+
+    Generates the weekly log PDF, saves it, reads the already-saved invoice PDF,
+    and emails both as attachments.
+
+    Expects JSON: {
+        "invNum": "INV-20260324",
+        "clientEmail": "...",
+        "accountantEmail": "...",
+        "hours": {"Monday": 8, ...}  (for email body totals)
+    }
+    """
+    try:
+        payload = request.get_json()
+        if not payload:
+            return jsonify({"error": "Invalid JSON"}), 400
+
+        inv_num = payload.get('invNum', '')
+        if not inv_num or not re.match(r'^INV-\d{8}$', inv_num):
+            return jsonify({"error": "Invalid invoice number"}), 400
+
+        # Load config
+        from app.api.config_api import get_config_path, get_or_create_config
+        config_path = get_config_path()
+        get_or_create_config(config_path)
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+
+        save_folder = expand_path(config.get('saveFolder', ''))
+        if not save_folder:
+            return jsonify({"error": "No save folder configured"}), 400
+
+        ensure_folders(save_folder)
+
+        # Read the already-saved invoice PDF
+        invoice_pdf_path = weekly_path(save_folder, inv_num)
+        if not os.path.exists(invoice_pdf_path):
+            return jsonify({"error": "Invoice PDF not found. Save the invoice first."}), 400
+
+        with open(invoice_pdf_path, 'rb') as f:
+            invoice_pdf_bytes = f.read()
+
+        # Generate weekly log PDF
+        monday_str = inv_num.replace('INV-', '')
+        daily_logs, client = _load_daily_logs_for_week(save_folder, monday_str)
+
+        monday = datetime.strptime(monday_str, '%Y%m%d')
+        friday = monday + timedelta(days=4)
+        week_label = (f"{monday.strftime('%B')} {monday.day} – "
+                      f"{friday.strftime('%B')} {friday.day}, {friday.year}")
+
+        signature_font = config.get('signatureFont', '')
+        sign_date = datetime.now().strftime('%B ') + str(datetime.now().day) + datetime.now().strftime(', %Y')
+
+        template_id = config.get('template', 'morning-light')
+        log_pdf_bytes = render_weekly_log_pdf(
+            config=config, client=client, daily_logs=daily_logs,
+            week_label=week_label, template_id=template_id,
+            signature_font=signature_font, sign_date=sign_date
+        )
+
+        # Save log PDF
+        log_pdf_path = weekly_log_path(save_folder, inv_num)
+        with open(log_pdf_path, 'wb') as f:
+            f.write(log_pdf_bytes)
+
+        # Email both PDFs
+        client_email = (payload.get('clientEmail') or '').strip()
+        accountant_email = (payload.get('accountantEmail') or '').strip()
+        recipients = [e for e in [client_email, accountant_email] if e]
+
+        email_error = None
+        if recipients:
+            hours = payload.get('hours', {})
+            total_hours = sum(hours.values()) if hours else 0
+            total_pay = total_hours * config.get('rate', 0)
+
+            # Compute date range for email subject
+            day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            worked_days = [i for i, day in enumerate(day_order) if hours.get(day, 0) > 0]
+            if worked_days:
+                first_worked = monday + timedelta(days=worked_days[0])
+                last_worked = monday + timedelta(days=worked_days[-1])
+                work_start = f"{first_worked.strftime('%B')} {first_worked.day}"
+                work_end = f"{last_worked.strftime('%B')} {last_worked.day}, {last_worked.year}"
+            else:
+                work_start = monday.strftime('%B ') + str(monday.day)
+                work_end = friday.strftime('%B ') + str(friday.day) + friday.strftime(', %Y')
+
+            email_subject = f"Invoice & Service Log {inv_num} - {work_start} to {work_end}"
+            email_body = create_weekly_with_logs_email_body(
+                name=config.get('name', 'Provider'),
+                week_start=work_start, week_end=work_end,
+                total_hours=total_hours, total_pay=total_pay
+            )
+
+            try:
+                email_result = send_invoice_email(
+                    recipients=recipients,
+                    subject=email_subject,
+                    body=email_body,
+                    attachments=[
+                        {"bytes": invoice_pdf_bytes, "filename": f"{inv_num}.pdf"},
+                        {"bytes": log_pdf_bytes, "filename": f"{inv_num}-LOG.pdf"},
+                    ]
+                )
+            except Exception as e:
+                logger.exception("Email sending failed: %s", e)
+                email_result = {'success': False, 'error': str(e)}
+
+            if not email_result.get('success'):
+                email_error = email_result.get('error', 'Unknown email error')
+
+        response = {
+            "success": True,
+            "savedInvoice": invoice_pdf_path,
+            "savedLog": log_pdf_path,
+            "sent": recipients if not email_error else [],
+        }
+        if email_error:
+            response["emailError"] = email_error
+
+        return jsonify(response), 200
+
+    except ValueError as e:
+        return jsonify({
+            "success": False,
+            "error": f"Invalid template or config: {e}",
+            "message": str(e)
+        }), 400
+    except Exception as e:
+        logger.exception("Unexpected error in submit_weekly_with_logs: %s", e)
         return jsonify({
             "success": False,
             "error": "Internal server error",
