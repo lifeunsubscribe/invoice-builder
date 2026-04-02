@@ -2406,12 +2406,12 @@ function DailyLogPage({ config, onBack }) {
 
   useEffect(() => () => { flush(); }, []);
 
-  const handleBack = () => { flush(); onBack(); };
-  const prevDay = () => { flush(); setDayOffset(o => o - 1); };
-  const nextDay = () => { flush(); setDayOffset(o => o + 1); };
-  const goToday = () => { if (dayOffset !== 0) { flush(); setDayOffset(0); } };
-  const jumpToDate = (y, m, d) => {
-    flush();
+  const handleBack = async () => { await flush(); onBack(); };
+  const prevDay = async () => { await flush(); setDayOffset(o => o - 1); };
+  const nextDay = async () => { await flush(); setDayOffset(o => o + 1); };
+  const goToday = async () => { if (dayOffset !== 0) { await flush(); setDayOffset(0); } };
+  const jumpToDate = async (y, m, d) => {
+    await flush();
     const target = new Date(y, m, d);
     const today = new Date(); today.setHours(0,0,0,0);
     const diff = Math.round((target - today) / 86400000);
@@ -2765,13 +2765,32 @@ function DailyLogPage({ config, onBack }) {
               <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600}}>{occLabels.vitalsHeader}</div>
               <button onClick={()=>setShowVitalsModal(true)} title={`Edit ${occLabels.vitalsHeader.toLowerCase()}`} style={{fontSize:11,color:acc,background:"none",border:`1px solid ${acc}40`,borderRadius:6,padding:"2px 8px",cursor:"pointer"}}>Edit</button>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:`repeat(${activeVitals.length}, minmax(0, 140px))`,gap:12,justifyContent:"center"}}>
-              {activeVitals.map(({key,label,unit,step})=>(<div key={key} style={{textAlign:"center",position:"relative"}} onMouseEnter={()=>setHoverVital(key)} onMouseLeave={()=>setHoverVital(null)}>
+            <div style={{display:"grid",gridTemplateColumns:`repeat(${activeVitals.filter(v=>v.key!=="bpDiastolic").length}, minmax(0, 140px))`,gap:12,justifyContent:"center"}}>
+              {activeVitals.map(({key,label,unit,step})=>{
+                // Skip bpDiastolic — it's folded into the bpSystolic cell
+                if (key==="bpDiastolic") return null;
+                // Combined BP fraction input
+                if (key==="bpSystolic") {
+                  const hasDia = enabledVitals.includes("bpDiastolic");
+                  return (<div key="bp" style={{textAlign:"center",position:"relative"}} onMouseEnter={()=>setHoverVital("bp")} onMouseLeave={()=>setHoverVital(null)}>
+                    {hoverVital==="bp"&&<button onClick={()=>{removeVitalFromConfig("bpSystolic");removeVitalFromConfig("bpDiastolic");}} title="Remove BP" style={{position:"absolute",top:-6,right:-4,width:18,height:18,borderRadius:"50%",border:"none",background:"#e8ddd4",color:"#8a7060",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1,lineHeight:1}}>×</button>}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:2,border:"1.5px solid #e8ddd8",borderRadius:10,padding:"6px 4px",background:"#fdfaf8"}}>
+                      <input type="number" step="1" value={vitals.bpSystolic===null?"":vitals.bpSystolic} onChange={e=>updateVital("bpSystolic",e.target.value)} placeholder="—"
+                        style={{width:52,fontSize:26,fontWeight:700,textAlign:"center",border:"none",outline:"none",background:"transparent",color:"#2c1810",padding:0}}/>
+                      {hasDia&&<><span style={{fontSize:26,fontWeight:300,color:"#c0b0a0"}}>/</span>
+                      <input type="number" step="1" value={vitals.bpDiastolic===null?"":vitals.bpDiastolic} onChange={e=>updateVital("bpDiastolic",e.target.value)} placeholder="—"
+                        style={{width:52,fontSize:26,fontWeight:700,textAlign:"center",border:"none",outline:"none",background:"transparent",color:"#2c1810",padding:0}}/></>}
+                    </div>
+                    <div style={{fontSize:11,color:"#9a8070",marginTop:4,fontWeight:500}}>BP <span style={{color:"#b0a090"}}>mmHg</span></div>
+                  </div>);
+                }
+                // Normal vital input
+                return (<div key={key} style={{textAlign:"center",position:"relative"}} onMouseEnter={()=>setHoverVital(key)} onMouseLeave={()=>setHoverVital(null)}>
                 {hoverVital===key&&<button onClick={()=>removeVitalFromConfig(key)} title={`Remove ${label}`} style={{position:"absolute",top:-6,right:-4,width:18,height:18,borderRadius:"50%",border:"none",background:"#e8ddd4",color:"#8a7060",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1,lineHeight:1}}>×</button>}
                 <input type="number" step={step||"1"} value={vitals[key]===null?"":vitals[key]} onChange={e=>updateVital(key,e.target.value)} placeholder="—"
                   style={{width:"100%",fontSize:26,fontWeight:700,textAlign:"center",border:"1.5px solid #e8ddd8",borderRadius:10,padding:"10px 4px",color:"#2c1810",outline:"none",background:"#fdfaf8",boxSizing:"border-box"}}/>
                 <div style={{fontSize:11,color:"#9a8070",marginTop:4,fontWeight:500}}>{label} <span style={{color:"#b0a090"}}>{unit}</span></div>
-              </div>))}
+              </div>);})}
             </div>
           </div>}
           {showVitalsModal&&<div style={{position:"fixed",inset:0,background:"rgba(44,24,16,0.45)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:500,padding:16}} onClick={e=>{if(e.target===e.currentTarget)setShowVitalsModal(false);}}>
@@ -2802,7 +2821,7 @@ function DailyLogPage({ config, onBack }) {
             </div></div>}
 
           {/* Medications checklist */}
-          {(medChecklist.length > 0 || (activeClient.meds||[]).length > 0) && (
+          {(medChecklist.length > 0 || (activeClient.meds||[]).length > 0 || activeClient.name) && (
             <div style={{background:"white",borderRadius:14,border:"1px solid #e8ddd4",padding:"14px 20px",flexShrink:0}}>
               <div style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600,marginBottom:10}}>{occLabels.medsHeader}</div>
               {medChecklist.map((med, idx) => {
