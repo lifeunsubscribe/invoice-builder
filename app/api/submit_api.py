@@ -626,7 +626,8 @@ def submit_monthly():
                 month_label=month_label,
                 template_id=template_id,
                 signature_font=signature_font,
-                sign_date=sign_date
+                sign_date=sign_date,
+                mileage=payload.get('mileage', 0)
             )
         except ValueError as e:
             error_str = str(e)

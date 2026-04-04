@@ -31,7 +31,7 @@
     <div style="position: absolute; right: 38px; top: 34px; text-align: right;">
       <div style="font-size: 10px; font-family: sans-serif; letter-spacing: 1.5px; text-transform: uppercase; color: #b76e79;">Invoice</div>
       <div style="font-size: 16px; color: #2c1810; font-weight: 700; font-family: monospace; margin-top: 4px;">{{ week.invNum }}</div>
-      <div style="font-size: 13px; font-family: sans-serif; color: #9a8070; margin-top: 6px;">{{ week.end }}</div>
+      <div style="font-size: 13px; font-family: sans-serif; color: #9a8070; margin-top: 6px;">{{ week.today|default(week.end) }}</div>
     </div>
   </div>
 

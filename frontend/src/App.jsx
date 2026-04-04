@@ -80,7 +80,8 @@ function getWeekRange(weekOffset = 0) {
     const d = new Date(monday); d.setDate(monday.getDate()+i);
     dayDates[name] = d.toLocaleDateString("en-US",{month:"short", day:"numeric"});
   });
-  return { start:fmt(monday), end:fmtFull(sunday), invNum, monday, sunday, dayDates };
+  const today = fmtFull(new Date());
+  return { start:fmt(monday), end:fmtFull(sunday), invNum, monday, sunday, dayDates, today };
 }
 
 function getWeeksForMonth(year, month) {
@@ -448,7 +449,7 @@ function TemplateLightHeader({ config, hours, week, totalHours, totalPay, theme 
         <div style={{position:"absolute",right:38,top:34,textAlign:"right"}}>
           <div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:t.headerAccent}}>Invoice</div>
           <div style={{fontSize:16,color:t.textDark,fontWeight:700,fontFamily:"monospace",marginTop:4}}>{week.invNum}</div>
-          <div style={{fontSize:13,fontFamily:"sans-serif",color:t.textLight,marginTop:6}}>{week.end}</div>
+          <div style={{fontSize:13,fontFamily:"sans-serif",color:t.textLight,marginTop:6}}>{week.today || week.end}</div>
         </div>
       </div>
       <div style={{background:t.infoBg,padding:"26px 38px 22px",borderBottom:`1px solid ${t.infoBorder}`,display:"flex",gap:52}}>
@@ -486,7 +487,7 @@ function TemplateDarkHeader({ config, hours, week, totalHours, totalPay, theme }
         <div style={{position:"absolute",right:38,top:34,textAlign:"right"}}>
           <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.headerAccent}}>Invoice</div>
           <div style={{fontSize:16,color:t.headerName,fontWeight:700,fontFamily:"monospace",marginTop:4}}>{week.invNum}</div>
-          <div style={{fontSize:13,color:t.headerMeta,marginTop:6}}>{week.end}</div>
+          <div style={{fontSize:13,color:t.headerMeta,marginTop:6}}>{week.today || week.end}</div>
         </div>
       </div>
       <div style={{height:4,background:`linear-gradient(90deg,${t.accent},${t.accent}40)`}}/>
@@ -524,7 +525,7 @@ function TemplateBotanical({ config, hours, week, totalHours, totalPay, theme })
         <div style={{position:"absolute",right:38,top:34,background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"13px 20px",textAlign:"right"}}>
           <div style={{fontSize:10,color:t.headerAccent,letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Invoice</div>
           <div style={{fontSize:16,color:"white",fontWeight:700,fontFamily:"monospace"}}>{week.invNum}</div>
-          <div style={{fontSize:13,color:t.headerMeta,marginTop:4}}>{week.end}</div>
+          <div style={{fontSize:13,color:t.headerMeta,marginTop:4}}>{week.today || week.end}</div>
         </div>
       </div>
       <div style={{background:t.dividerBg,padding:"6px 38px",fontSize:11,color:t.dividerText,letterSpacing:4}}>✦ ✦ ✦</div>
@@ -560,7 +561,7 @@ function InvoicePreview({ config, hours, week, totalHours, totalPay, themeId }) 
 }
 
 // ── MONTHLY REPORT PDF ────────────────────────────────────────────────────
-function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont, themeId }) {
+function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont, themeId, mileage }) {
   const t = getTheme(themeId || config.template || "morning-light");
   const totalHours = weekData.reduce((s,w)=>s+w.hours,0);
   const totalPay   = (totalHours*config.rate).toFixed(2);
@@ -623,7 +624,13 @@ function MonthlyReportPDF({ config, weekData, monthLabel, signatureFont, themeId
           <div style={{fontSize:30,fontWeight:700,color:totalAmountColor}}>${totalPay}</div>
         </div>
       </div>
-      <div style={{margin:"0 38px",borderTop:`1px dashed ${t.infoBorder}`}}/>
+      {mileage && parseFloat(mileage) > 0 && (
+        <div style={{margin:"12px 38px 0",padding:"10px 18px",background:t.infoBg,border:`1px solid ${t.infoBorder}`,borderRadius:8,display:"flex",alignItems:"center",gap:12}}>
+          <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:t.accent,fontWeight:700}}>Mileage</div>
+          <div style={{fontSize:15,fontWeight:600,color:t.textDark}}>{mileage} miles</div>
+        </div>
+      )}
+      <div style={{margin:"0 38px",borderTop:`1px dashed ${t.infoBorder}`,marginTop:mileage && parseFloat(mileage) > 0 ? 12 : 0}}/>
       <div style={{flex:1}}/>
       <div style={{margin:"0 38px 20px",paddingTop:16,display:"flex",gap:48}}>
         <div style={{flex:1}}>
@@ -1692,8 +1699,13 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
 // ── MONTHLY PAGE ──────────────────────────────────────────────────────────
 function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSetupCount }) {
   const now = new Date();
-  const [year,  setYear]  = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
+  // Default to the month containing the current week's Monday,
+  // so cross-month weeks (e.g. Mon March 30 when today is April 3) show correctly
+  const currentMonday = (() => {
+    const d = new Date(now); d.setDate(now.getDate() - ((now.getDay()+6)%7)); return d;
+  })();
+  const [year,  setYear]  = useState(currentMonday.getFullYear());
+  const [month, setMonth] = useState(currentMonday.getMonth());
   const [showCalendar, setShowCalendar] = useState(false);
   const calBtnRef = useRef(null);
   const [zoom,  setZoom]  = useState(()=>{const s=localStorage.getItem("invoiceZoom");return s?parseFloat(s):0.9;});
@@ -1705,6 +1717,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
   const [lastScanResults, setLastScanResults] = useState(null); // persists after popup closes
   const [accountantEmail, setAccountantEmail] = useState(config.accountantEmail);
   const [submitting,   setSubmitting]   = useState(false);
+  const [mileage, setMileage] = useState("");
   const signatureFont = config.signatureFont || "Dancing Script";
   const submitInProgressRef = useRef(false);
   const isFirstLoad = useRef(true);
@@ -1713,7 +1726,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
   const weeks     = useMemo(()=>getWeeksForMonth(year,month),[year,month]);
   const [weekHours, setWeekHours] = useState(()=>weeks.map(()=>0));
   const monthLabel  = new Date(year,month,1).toLocaleDateString("en-US",{month:"long",year:"numeric"});
-  const monthOffset = (year - now.getFullYear()) * 12 + (month - now.getMonth());
+  const monthOffset = (year - currentMonday.getFullYear()) * 12 + (month - currentMonday.getMonth());
   const isCurrentMonth = monthOffset === 0;
   const monthNavLabel = isCurrentMonth ? "This month" : monthOffset === -1 ? "1m ago" : monthOffset < 0 ? `${Math.abs(monthOffset)}m ago` : `+${monthOffset}m`;
   const savedPath   = monthlyPath(config.saveFolder, year, month);
@@ -1730,6 +1743,12 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
     setNotification(null); setAlreadySaved(false); setScanPopup(null);
 
     const abortController = new AbortController();
+
+    // Fetch mileage from daily logs
+    fetch(`/api/log-month-mileage?year=${year}&month=${month+1}`, { signal: abortController.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data && data.mileage > 0) setMileage(String(data.mileage)); else setMileage(""); })
+      .catch(() => {});
 
     // Fetch scan results from backend API
     fetch(`/api/scan-month?year=${year}&month=${month+1}&folder=${encodeURIComponent(config.saveFolder)}`, {
@@ -1792,7 +1811,8 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
         year: year,
         month: month + 1, // Backend expects 1-indexed month
         accountantEmail: accountantEmail,
-        signatureFont: signatureFont
+        signatureFont: signatureFont,
+        mileage: mileage ? parseFloat(mileage) : 0
       };
 
       const response = await fetch('/api/submit/monthly', {
@@ -1897,7 +1917,7 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
           <div style={{flex:1,overflowY:"auto",overflowX:"auto",display:"flex",justifyContent:"center",alignItems:"flex-start",padding:"24px 20px",background:chrome.previewBg}}>
             <div style={{width:LETTER_W*zoom,minHeight:LETTER_H*zoom,flexShrink:0,boxShadow:"0 4px 32px rgba(0,0,0,0.25)",background:"white",overflow:"hidden"}}>
               <div style={{transform:`scale(${zoom})`,transformOrigin:"top left",width:LETTER_W}}>
-                <MonthlyReportPDF config={config} weekData={weeksWithData} monthLabel={monthLabel} signatureFont={signatureFont} themeId={config.template}/>
+                <MonthlyReportPDF config={config} weekData={weeksWithData} monthLabel={monthLabel} signatureFont={signatureFont} themeId={config.template} mileage={mileage}/>
               </div>
             </div>
           </div>
@@ -1915,6 +1935,15 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:21,color:"#2c1810",lineHeight:1.1}}>{totalHours}</div></div>
                 <div style={{textAlign:"right"}}><div style={{fontSize:12,letterSpacing:1,textTransform:"uppercase",color:"#9a8070"}}>Total</div>
                   <div style={{fontFamily:"'Playfair Display',serif",fontSize:23,color:acc,fontWeight:700,lineHeight:1.1}}>${totalPay}</div></div>
+              </div>
+            </div>
+            {/* Mileage */}
+            <div style={{marginTop:16}}>
+              <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Mileage</div>
+              <div style={{background:"white",borderRadius:8,padding:"8px 12px",border:`1px solid ${acc}22`,display:"flex",alignItems:"center",gap:8}}>
+                <input type="number" min="0" step="0.1" value={mileage} onChange={e=>setMileage(e.target.value)} placeholder="0"
+                  style={{flex:1,fontSize:15,border:"none",outline:"none",background:"transparent",color:"#2c1810",fontFamily:"'Playfair Display',serif",width:60}}/>
+                <span style={{fontSize:13,color:"#9a8070"}}>miles</span>
               </div>
             </div>
             {/* Saved status pill */}
@@ -2230,8 +2259,10 @@ function DailyLogPage({ config, onBack }) {
   // Structured fields
   const [vitals, setVitals] = useState({...EMPTY_VITALS});
   const [shift, setShift] = useState({start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""});
+  const [logMileage, setLogMileage] = useState("");
   const [medChecklist, setMedChecklist] = useState([]);
   const [showAddMed, setShowAddMed] = useState(false);
+  const [editingMedTime, setEditingMedTime] = useState(null); // {medIdx, timeIdx}
   const [newMed, setNewMed] = useState({name:"",dosage:"",route:"Oral"});
   const [showVitalsModal, setShowVitalsModal] = useState(false);
   const [hoverVital, setHoverVital] = useState(null);
@@ -2271,11 +2302,13 @@ function DailyLogPage({ config, onBack }) {
   const sectionNamesRef = useRef(sectionNames);
   const vitalsRef = useRef(vitals);
   const shiftRef = useRef(shift);
+  const logMileageRef = useRef(logMileage);
   const medChecklistRef = useRef(medChecklist);
   const locallyRemovedRef = useRef(new Set());
   sectionsRef.current = sections;
   vitalsRef.current = vitals;
   shiftRef.current = shift;
+  logMileageRef.current = logMileage;
   medChecklistRef.current = medChecklist;
   sectionNamesRef.current = sectionNames;
 
@@ -2305,7 +2338,8 @@ function DailyLogPage({ config, onBack }) {
     const hasVitals = Object.values(vitalsRef.current).some(v => v !== null);
     const hasMeds = medChecklistRef.current.some(m => m.times && m.times.length > 0);
     const hasShift = shiftRef.current.start || shiftRef.current.end;
-    if (!hasText && !hasVitals && !hasMeds && !hasShift) return Promise.resolve();
+    const hasMileage = logMileageRef.current && parseFloat(logMileageRef.current) > 0;
+    if (!hasText && !hasVitals && !hasMeds && !hasShift && !hasMileage) return Promise.resolve();
     const ds = dirtyDateRef.current || dateInfo.dateStr;
     dirtyDateRef.current = null;
     if (abortRef.current) abortRef.current.abort();
@@ -2315,6 +2349,7 @@ function DailyLogPage({ config, onBack }) {
       sections: secs,
       vitals: vitalsRef.current,
       shift: shiftRef.current,
+      mileage: logMileageRef.current ? parseFloat(logMileageRef.current) : 0,
       meds: medChecklistRef.current,
       clientId: activeClient.id || "",
     };
@@ -2370,6 +2405,7 @@ function DailyLogPage({ config, onBack }) {
       }
       setVitals({...EMPTY_VITALS});
       setShift({start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""});
+      setLogMileage("");
       setMedChecklist((activeClient.meds || []).map(m => ({...m, configuredId: m.id, times: []})));
       loadedDateRef.current = dateInfo.dateStr;
       dirtyRef.current = false;
@@ -2400,6 +2436,7 @@ function DailyLogPage({ config, onBack }) {
         if (isDateChange) {
           setVitals(data.vitals || {...EMPTY_VITALS});
           setShift(data.shift?.start ? data.shift : {start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""});
+          setLogMileage(data.mileage ? String(data.mileage) : "");
           // Seed med checklist from saved data, or from client config if no saved meds
           if (data.meds && data.meds.length > 0) {
             setMedChecklist(data.meds);
@@ -2425,12 +2462,14 @@ function DailyLogPage({ config, onBack }) {
     const hasVitals = Object.values(vitalsRef.current).some(v => v !== null);
     const hasMeds = medChecklistRef.current.some(m => m.times && m.times.length > 0);
     const hasShift = shiftRef.current.start || shiftRef.current.end;
-    if (!hasText && !hasVitals && !hasMeds && !hasShift) return;
+    const hasMileage2 = logMileageRef.current && parseFloat(logMileageRef.current) > 0;
+    if (!hasText && !hasVitals && !hasMeds && !hasShift && !hasMileage2) return;
     const ds = dirtyDateRef.current || dateInfo.dateStr;
     // Use sendBeacon for reliable unmount save (not abortable)
     const body = JSON.stringify({
       date: ds, sections: secs, vitals: vitalsRef.current,
-      shift: shiftRef.current, meds: medChecklistRef.current,
+      shift: shiftRef.current, mileage: logMileageRef.current ? parseFloat(logMileageRef.current) : 0,
+      meds: medChecklistRef.current,
       clientId: activeClient.id || "",
     });
     navigator.sendBeacon("/api/log", new Blob([body], {type: "application/json"}));
@@ -2558,6 +2597,7 @@ function DailyLogPage({ config, onBack }) {
     setSections(clearedSections);
     setVitals(clearedVitals);
     setShift(clearedShift);
+    setLogMileage("");
     setMedChecklist(clearedMeds);
     // Update refs immediately so any pending flush uses cleared data
     sectionsRef.current = clearedSections;
@@ -2603,6 +2643,15 @@ function DailyLogPage({ config, onBack }) {
       if (m.times && m.times.length > 0) return {...m, times: m.times.slice(0,-1)};
       const now = new Date().toLocaleTimeString("en-US", {hour:"numeric", minute:"2-digit"}).toLowerCase();
       return {...m, times: [...(m.times||[]), now]};
+    }));
+    scheduleSave();
+  };
+  const updateMedTime = (medIdx, timeIdx, newTime) => {
+    setMedChecklist(prev => prev.map((m, i) => {
+      if (i !== medIdx) return m;
+      const times = [...(m.times || [])];
+      times[timeIdx] = newTime;
+      return {...m, times};
     }));
     scheduleSave();
   };
@@ -2795,6 +2844,11 @@ function DailyLogPage({ config, onBack }) {
             <input type="time" value={shift.end} onChange={e=>updateShift("end",e.target.value)}
               style={{fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:8,padding:"6px 10px",color:"#2c1810",outline:"none",background:"#fdfaf8"}}/>
             {shiftHours && <span style={{fontSize:14,color:acc,fontWeight:600,marginLeft:4}}>{shiftHours} hrs</span>}
+            <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",fontWeight:600}}>Miles</span>
+              <input type="number" min="0" step="0.1" value={logMileage} onChange={e=>{setLogMileage(e.target.value);scheduleSave();}} placeholder="0"
+                style={{width:60,fontSize:15,border:"1.5px solid #e8ddd8",borderRadius:8,padding:"6px 10px",color:"#2c1810",outline:"none",background:"#fdfaf8",textAlign:"center"}}/>
+            </div>
           </div>
 
           {/* Vitals card */}
@@ -2884,8 +2938,36 @@ function DailyLogPage({ config, onBack }) {
                       </div>
                     </div>
                     {isChecked && (
-                      <div style={{fontSize:12,color:acc,fontWeight:500,flexShrink:0}}>
-                        {med.times.join(", ")}
+                      <div style={{fontSize:12,color:acc,fontWeight:500,flexShrink:0,display:"flex",gap:4,flexWrap:"wrap",alignItems:"center"}}>
+                        {med.times.map((t, ti) => (
+                          editingMedTime?.medIdx === idx && editingMedTime?.timeIdx === ti ? (
+                            <input key={ti} type="time" autoFocus
+                              defaultValue={(() => {
+                                // Convert "1:30 pm" -> "13:30" for input
+                                const m = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+                                if (!m) return "";
+                                let h = parseInt(m[1]); const min = m[2]; const ap = m[3].toLowerCase();
+                                if (ap === "pm" && h !== 12) h += 12;
+                                if (ap === "am" && h === 12) h = 0;
+                                return `${String(h).padStart(2,"0")}:${min}`;
+                              })()}
+                              onBlur={e => {
+                                if (e.target.value) {
+                                  const [h, m] = e.target.value.split(":").map(Number);
+                                  const ap = h >= 12 ? "pm" : "am";
+                                  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                                  updateMedTime(idx, ti, `${h12}:${String(m).padStart(2,"0")} ${ap}`);
+                                }
+                                setEditingMedTime(null);
+                              }}
+                              onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+                              style={{width:100,fontSize:12,border:`1.5px solid ${acc}`,borderRadius:4,padding:"2px 4px",outline:"none",background:"white",color:"#2c1810"}}/>
+                          ) : (
+                            <span key={ti} onClick={() => setEditingMedTime({medIdx: idx, timeIdx: ti})}
+                              style={{cursor:"pointer",borderBottom:`1px dashed ${acc}60`,padding:"1px 2px",borderRadius:2}}
+                              title="Click to edit time">{t}</span>
+                          )
+                        ))}
                       </div>
                     )}
                   </div>

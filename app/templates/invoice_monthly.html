@@ -159,6 +159,12 @@
 
       <!-- Bottom row: signature + footer (pinned to page bottom) -->
       <tr><td>
+    {% if mileage|default(0) > 0 %}
+    <div style="margin: 12px 38px 0; padding: 10px 18px; background: #fdf2f4; border: 1px solid #f0dce0; border-radius: 8px; display: flex; align-items: center;">
+      <div style="font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #b76e79; font-weight: 700; margin-right: 12px;">Mileage</div>
+      <div style="font-size: 15px; font-weight: 600; color: #2c1810;">{{ mileage }} miles</div>
+    </div>
+    {% endif %}
     <!-- Signature lines -->
     <div style="margin: 0 38px 20px; border-top: 1px dashed #c8dce8; padding-top: 16px; display: flex;">
       <div style="flex: 1; margin-right: 48px;">

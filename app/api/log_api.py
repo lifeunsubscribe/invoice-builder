@@ -204,6 +204,9 @@ def save_log():
         if err:
             return jsonify({"error": err}), 400
 
+    if 'mileage' in data and not isinstance(data['mileage'], (int, float)):
+        return jsonify({"error": "mileage must be a number"}), 400
+
     if 'clientId' in data and not isinstance(data['clientId'], str):
         return jsonify({"error": "clientId must be a string"}), 400
 
@@ -480,3 +483,58 @@ def get_log_week():
             has_log[day_name] = False
 
     return jsonify({"hours": hours, "hasLog": has_log}), 200
+
+
+@log_bp.route('/log-month-mileage', methods=['GET'])
+def get_month_mileage():
+    """
+    GET /api/log-month-mileage?year=YYYY&month=M
+
+    Returns total mileage from all daily logs covered by the month's weeks.
+    Uses the Monday rule: a week belongs to whichever month contains its Monday.
+    The date range spans from the first Monday to the last Sunday of those weeks.
+    """
+    from datetime import timedelta
+    from app.api.scan_api import get_weeks_for_month
+
+    year_str = request.args.get('year', '')
+    month_str = request.args.get('month', '')
+
+    try:
+        year = int(year_str)
+        month = int(month_str)
+        if month < 1 or month > 12:
+            return jsonify({"error": "Month must be 1-12"}), 400
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid year or month"}), 400
+
+    config = _load_config()
+    if not config or not config.get('saveFolder'):
+        return jsonify({"mileage": 0}), 200
+
+    save_folder = expand_path(config['saveFolder'])
+
+    # Get the actual date range covered by this month's weeks
+    weeks = get_weeks_for_month(year, month)
+    if not weeks:
+        return jsonify({"mileage": 0}), 200
+
+    start_date = weeks[0]["monday"]
+    end_date = weeks[-1]["sunday"]
+
+    total_mileage = 0
+    current = start_date
+    while current <= end_date:
+        date_str = current.strftime('%Y-%m-%d')
+        try:
+            path = logs_path(save_folder, date_str)
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            m = data.get('mileage', 0)
+            if isinstance(m, (int, float)) and m > 0:
+                total_mileage += m
+        except (FileNotFoundError, json.JSONDecodeError, OSError, ValueError):
+            pass
+        current += timedelta(days=1)
+
+    return jsonify({"mileage": round(total_mileage, 1)}), 200

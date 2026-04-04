@@ -51,7 +51,8 @@ function getWeekRange(weekOffset = 0) {
     const d = new Date(monday); d.setDate(monday.getDate()+i);
     dayDates[name] = d.toLocaleDateString("en-US",{month:"short", day:"numeric"});
   });
-  return { start:fmt(monday), end:fmtFull(sunday), invNum, monday, sunday, dayDates };
+  const today = fmtFull(new Date());
+  return { start:fmt(monday), end:fmtFull(sunday), invNum, monday, sunday, dayDates, today };
 }
 
 function getWeeksForMonth(year, month) {
@@ -225,7 +226,7 @@ function TemplateMorningLight({ config, hours, week, totalHours, totalPay }) {
         <div style={{position:"absolute",right:38,top:34,textAlign:"right"}}>
           <div style={{fontSize:10,fontFamily:"sans-serif",letterSpacing:1.5,textTransform:"uppercase",color:ML_ACC}}>Invoice</div>
           <div style={{fontSize:16,color:"#2c1810",fontWeight:700,fontFamily:"monospace",marginTop:4}}>{week.invNum}</div>
-          <div style={{fontSize:13,fontFamily:"sans-serif",color:"#9a8070",marginTop:6}}>{week.end}</div>
+          <div style={{fontSize:13,fontFamily:"sans-serif",color:"#9a8070",marginTop:6}}>{week.today || week.end}</div>
         </div>
       </div>
       <div style={{background:`${ML_ACC}0a`,padding:"26px 38px 22px",borderBottom:`1px solid ${ML_ACC}22`,display:"flex",gap:52}}>
@@ -260,7 +261,7 @@ function TemplateCaringHands({ config, hours, week, totalHours, totalPay }) {
         <div style={{position:"absolute",right:38,top:34,textAlign:"right"}}>
           <div style={{fontSize:10,letterSpacing:1.5,textTransform:"uppercase",color:CH_ACC}}>Invoice</div>
           <div style={{fontSize:16,color:"white",fontWeight:700,fontFamily:"monospace",marginTop:4}}>{week.invNum}</div>
-          <div style={{fontSize:13,color:"#8aacaa",marginTop:6}}>{week.end}</div>
+          <div style={{fontSize:13,color:"#8aacaa",marginTop:6}}>{week.today || week.end}</div>
         </div>
       </div>
       <div style={{height:4,background:`linear-gradient(90deg,${CH_ACC},${CH_ACC}66)`}}/>
@@ -295,7 +296,7 @@ function TemplateGarden({ config, hours, week, totalHours, totalPay }) {
         <div style={{position:"absolute",right:38,top:34,background:"rgba(255,255,255,0.1)",borderRadius:10,padding:"13px 20px",textAlign:"right"}}>
           <div style={{fontSize:10,color:"#a8d8a0",letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>Invoice</div>
           <div style={{fontSize:16,color:"white",fontWeight:700,fontFamily:"monospace"}}>{week.invNum}</div>
-          <div style={{fontSize:13,color:"#a8c8a0",marginTop:4}}>{week.end}</div>
+          <div style={{fontSize:13,color:"#a8c8a0",marginTop:4}}>{week.today || week.end}</div>
         </div>
       </div>
       <div style={{background:"#5a8a5a",padding:"6px 38px",fontSize:11,color:"#c8e8c0",letterSpacing:4}}>✦ ✦ ✦</div>

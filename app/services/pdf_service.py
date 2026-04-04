@@ -187,7 +187,8 @@ def render_weekly_pdf(config, hours, week, template_id):
 
 def render_monthly_pdf(config, week_data, month_label,
                        template_id='caring-hands',
-                       signature_font='', sign_date=''):
+                       signature_font='', sign_date='',
+                       mileage=0):
     """
     Render a monthly hours summary PDF.
 
@@ -227,6 +228,7 @@ def render_monthly_pdf(config, week_data, month_label,
         'weeks_worked': weeks_worked,
         'signature_font': signature_font,
         'sign_date': sign_date,
+        'mileage': mileage,
     }
 
     try:
