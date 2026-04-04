@@ -814,6 +814,7 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
     // Ensure clients array exists in draft
     const d = {...config};
     if (!d.clients) d.clients = [];
+    if (!d.activeClientId && d.clients.length > 0) d.activeClientId = d.clients[0].id;
     if (!d.activeClientId) d.activeClientId = "";
     if (!d.signatureFont) d.signatureFont = "";
     return d;
@@ -839,8 +840,10 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
 
   const updateClient = (field, value) => {
     setDraft(d => {
-      const clients = (d.clients||[]).map(c =>
-        c.id === d.activeClientId ? {...c, [field]: value} : c
+      const cls = d.clients || [];
+      const targetId = d.activeClientId || (cls[0] && cls[0].id) || "";
+      const clients = cls.map(c =>
+        c.id === targetId ? {...c, [field]: value} : c
       );
       return {...d, clients};
     });
@@ -848,8 +851,10 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
 
   const updateClientShift = (field, value) => {
     setDraft(d => {
-      const clients = (d.clients||[]).map(c =>
-        c.id === d.activeClientId ? {...c, defaultShift: {...(c.defaultShift||{}), [field]: value}} : c
+      const cls = d.clients || [];
+      const targetId = d.activeClientId || (cls[0] && cls[0].id) || "";
+      const clients = cls.map(c =>
+        c.id === targetId ? {...c, defaultShift: {...(c.defaultShift||{}), [field]: value}} : c
       );
       return {...d, clients};
     });
@@ -875,9 +880,11 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
   // Medication CRUD
   const addMed = () => {
     setDraft(d => {
+      const cls = d.clients || [];
+      const targetId = d.activeClientId || (cls[0] && cls[0].id) || "";
       const newMed = {id: makeMedId(), name:"", dosage:"", frequency:"", route:"Oral"};
-      const clients = (d.clients||[]).map(c =>
-        c.id === d.activeClientId ? {...c, meds: [...(c.meds||[]), newMed]} : c
+      const clients = cls.map(c =>
+        c.id === targetId ? {...c, meds: [...(c.meds||[]), newMed]} : c
       );
       return {...d, clients};
     });
@@ -885,8 +892,10 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
 
   const updateMed = (medId, field, value) => {
     setDraft(d => {
-      const clients = (d.clients||[]).map(c =>
-        c.id === d.activeClientId
+      const cls = d.clients || [];
+      const targetId = d.activeClientId || (cls[0] && cls[0].id) || "";
+      const clients = cls.map(c =>
+        c.id === targetId
           ? {...c, meds: (c.meds||[]).map(m => m.id === medId ? {...m, [field]: value} : m)}
           : c
       );
@@ -896,8 +905,10 @@ function ProfilePage({ config, onSave, onBack, scrollToFolder, emailConfigured, 
 
   const removeMed = (medId) => {
     setDraft(d => {
-      const clients = (d.clients||[]).map(c =>
-        c.id === d.activeClientId
+      const cls = d.clients || [];
+      const targetId = d.activeClientId || (cls[0] && cls[0].id) || "";
+      const clients = cls.map(c =>
+        c.id === targetId
           ? {...c, meds: (c.meds||[]).filter(m => m.id !== medId)}
           : c
       );
@@ -2352,6 +2363,7 @@ function DailyLogPage({ config, onBack }) {
       mileage: logMileageRef.current ? parseFloat(logMileageRef.current) : 0,
       meds: medChecklistRef.current,
       clientId: activeClient.id || "",
+      client: { name: activeClient.name || "", address: activeClient.address || "", objective: activeClient.objective || "" },
     };
     return fetch("/api/log", {
       method: "POST",
@@ -2471,6 +2483,7 @@ function DailyLogPage({ config, onBack }) {
       shift: shiftRef.current, mileage: logMileageRef.current ? parseFloat(logMileageRef.current) : 0,
       meds: medChecklistRef.current,
       clientId: activeClient.id || "",
+      client: { name: activeClient.name || "", address: activeClient.address || "", objective: activeClient.objective || "" },
     });
     navigator.sendBeacon("/api/log", new Blob([body], {type: "application/json"}));
   }, []);

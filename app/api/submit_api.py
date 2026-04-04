@@ -749,6 +749,8 @@ def _load_daily_logs_for_week(save_folder, monday_str):
     if not client and clients:
         client = clients[0]
     client = client or {'name': '', 'address': '', 'objective': ''}
+    if 'objective' not in client:
+        client['objective'] = ''
 
     for i, day_name in enumerate(day_names):
         date = monday + timedelta(days=i)
@@ -759,6 +761,14 @@ def _load_daily_logs_for_week(save_folder, monday_str):
             path = logs_path(save_folder, date_str)
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+
+            # Use client snapshot from daily log if available (overrides config)
+            log_client = data.get('client')
+            if log_client and isinstance(log_client, dict):
+                for field in ('name', 'address', 'objective'):
+                    if log_client.get(field) and not client.get(field):
+                        client[field] = log_client[field]
+
             daily_logs.append({
                 'date_label': date_label,
                 'shift': data.get('shift', {}),
