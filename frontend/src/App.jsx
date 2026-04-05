@@ -2444,8 +2444,8 @@ function DailyLogPage({ config, onBack }) {
           setSections(loaded);
         }
 
-        // Load structured fields (only on date change)
-        if (isDateChange) {
+        // Load structured fields on date change, or on first load
+        if (isDateChange || !loadedDateRef.current) {
           setVitals(data.vitals || {...EMPTY_VITALS});
           setShift(data.shift?.start ? data.shift : {start: activeClient.defaultShift?.start || "", end: activeClient.defaultShift?.end || ""});
           setLogMileage(data.mileage ? String(data.mileage) : "");
