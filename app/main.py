@@ -592,6 +592,14 @@ if __name__ == "__main__":
     _check_crash_report()
     _verify_static_assets_or_exit()
 
+    # Drain any crash reports that were spooled while offline. Runs in
+    # the background so a slow SMTP server can't delay startup.
+    try:
+        from app.services.report_service import _drain_pending_reports
+        threading.Thread(target=_drain_pending_reports, daemon=True).start()
+    except Exception:
+        pass
+
     # Check if this app is already running on port 5000
     if not is_port_available(5001):
         if is_this_app_running_on_port(5001):
