@@ -191,38 +191,33 @@ def _index_meds_by_id(config_data):
     return by_id
 
 
-def _diff_meds(old_data, new_data):
+def _sync_log_meds_to_config(config_data, save_folder):
     """
-    Return {med_id: {field: new_value}} for meds whose propagatable fields
-    changed between old and new config. Only fields in PROPAGATABLE_MED_FIELDS
-    are considered.
-    """
-    old_by_id = _index_meds_by_id(old_data)
-    new_by_id = _index_meds_by_id(new_data)
-    changes = {}
-    for mid, new_med in new_by_id.items():
-        old_med = old_by_id.get(mid)
-        if old_med is None:
-            continue  # newly added med — don't backfill into old logs
-        diff = {}
-        for field in PROPAGATABLE_MED_FIELDS:
-            if old_med.get(field, '') != new_med.get(field, ''):
-                diff[field] = new_med.get(field, '')
-        if diff:
-            changes[mid] = diff
-    return changes
+    Convergent sync: walk every daily log JSON in {save_folder}/logs/ and
+    update each in-log med so its propagatable fields (name, dosage,
+    frequency, route) match the CURRENT config. Files are only rewritten
+    when at least one field actually differs.
 
+    Why convergent rather than diff-based:
+        Originally this was a diff (old config vs new config). That worked
+        when the user edited a med in the same save that introduced the
+        propagator. But Lisa fixed her med typo BEFORE the propagator
+        existed; the on-disk config already matched the corrected name,
+        so a subsequent save saw no diff and never touched the stale logs.
+        A convergent sync reconciles drift on every save and is a no-op
+        when everything's already in sync — same end-state, no-write fast
+        path when nothing changed.
 
-def _propagate_med_edits_to_logs(med_changes, save_folder):
-    """
-    Walk every daily log JSON file in {save_folder}/logs/ and update meds
-    whose id is in `med_changes` so the propagatable fields match the new
-    config. Per-day fields like `times` are left alone.
+    Per-day fields (`times`, etc.) are NEVER touched. We only update meds
+    whose `id` (or `configuredId`) matches a med currently in the config —
+    a med that's been removed from the profile is left as-is in old logs
+    (it was administered then; historical accuracy wins).
 
-    Returns the number of log files actually modified. Best-effort:
+    Returns the number of log files actually rewritten. Best-effort:
     individual file errors are logged and skipped, never raised.
     """
-    if not med_changes:
+    config_meds_by_id = _index_meds_by_id(config_data)
+    if not config_meds_by_id:
         return 0
 
     logs_dir = os.path.join(os.path.expanduser(save_folder), 'logs')
@@ -250,11 +245,15 @@ def _propagate_med_edits_to_logs(med_changes, save_folder):
             if not isinstance(med, dict):
                 continue
             mid = med.get('id') or med.get('configuredId')
-            if not mid or mid not in med_changes:
+            if not mid:
                 continue
-            for field, new_val in med_changes[mid].items():
-                if med.get(field, '') != new_val:
-                    med[field] = new_val
+            config_med = config_meds_by_id.get(mid)
+            if config_med is None:
+                continue  # med was deleted from profile — leave history alone
+            for field in PROPAGATABLE_MED_FIELDS:
+                target = config_med.get(field, '')
+                if med.get(field, '') != target:
+                    med[field] = target
                     modified = True
 
         if not modified:
@@ -269,8 +268,8 @@ def _propagate_med_edits_to_logs(med_changes, save_folder):
 
     if files_changed:
         logger.info(
-            "Propagated med edits (%d med id(s)) to %d existing log file(s)",
-            len(med_changes), files_changed,
+            "Synced %d existing log file(s) to current config med values",
+            files_changed,
         )
     return files_changed
 
@@ -415,10 +414,8 @@ def update_config():
         if occ in OCC_DEFAULT_SECTIONS and not config_data.get("logSections"):
             config_data["logSections"] = OCC_DEFAULT_SECTIONS[occ]
 
-        # Load the previous config (if any) so we can detect:
-        #   1. save folder moves (delete old location)
-        #   2. med edits that need to propagate into existing daily logs
-        old_data = {}
+        # Load the previous save folder (if any) so we can detect a move
+        # and clean up the old location.
         old_save_folder = ''
         try:
             old_config_path = get_config_path()
@@ -427,12 +424,6 @@ def update_config():
             old_save_folder = old_data.get('saveFolder', '')
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             pass
-
-        # Detect med edits BEFORE writing the new config so we can propagate
-        # the diff to existing daily-log JSON files. Lisa fixed a typo in a
-        # med name and was confused that old logs still showed the typo —
-        # this closes that loop.
-        med_changes = _diff_meds(old_data, config_data)
 
         # Write config to the save folder
         save_folder = config_data.get('saveFolder', '')
@@ -453,17 +444,22 @@ def update_config():
                 except OSError:
                     pass  # Best effort — don't fail the save
 
-        # Propagate med edits to existing daily logs (best-effort, never
-        # raises). Scoped to the CURRENT save folder; if the save folder
-        # just moved, we operate on the new location only.
+        # Convergent sync: walk every daily log under {saveFolder}/logs/
+        # and reconcile each in-log med to match the current config's
+        # propagatable fields (name/dosage/frequency/route). No-op when
+        # everything is already in sync; only writes when a real diff is
+        # found. This is what gives us "fix the typo in profile, all old
+        # logs reflect the fix" — including for typos that were fixed
+        # before this propagator existed (Lisa's case on 2026-04-11).
+        # Best-effort, never raises.
         propagated_count = 0
-        if save_folder and med_changes:
+        if save_folder:
             try:
-                propagated_count = _propagate_med_edits_to_logs(
-                    med_changes, save_folder
+                propagated_count = _sync_log_meds_to_config(
+                    config_data, save_folder
                 )
             except Exception as e:
-                logger.exception("Med propagation failed (non-critical): %s", e)
+                logger.exception("Med sync failed (non-critical): %s", e)
 
         # Write pointer to app data so the app can find the save folder
         if save_folder and getattr(sys, 'frozen', False):
