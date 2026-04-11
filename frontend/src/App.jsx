@@ -3229,11 +3229,19 @@ export default function App() {
     };
   }, []);
 
-  // Check for updates on mount
+  // Check for updates on mount and every 2 hours after.
+  // Skip the poll while an update is in progress so we don't blow away
+  // the install banner mid-flight.
   useEffect(() => {
-    fetch('/api/check-update').then(r=>r.json()).then(data => {
-      if (data.updateAvailable) setUpdateInfo(data);
-    }).catch(()=>{});
+    const checkForUpdate = () => {
+      fetch('/api/check-update').then(r=>r.json()).then(data => {
+        if (data.updateAvailable) setUpdateInfo(prev => prev || data);
+      }).catch(()=>{});
+    };
+    checkForUpdate();
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    const interval = setInterval(checkForUpdate, TWO_HOURS_MS);
+    return () => clearInterval(interval);
   }, []);
 
   // Fetch config and email status on app mount

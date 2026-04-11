@@ -141,6 +141,29 @@ def _build_sms_text(user_description="", error_info=None):
     return f"{prefix}{detail}{suffix}"
 
 
+def report_exception_async(exc):
+    """
+    Fire-and-forget crash report for an exception. Never raises, never blocks.
+
+    Use this from route handlers that catch their own exceptions and return
+    a custom 500 response — Flask's @errorhandler(500) does NOT fire in that
+    case, so the crash would otherwise be silent.
+    """
+    try:
+        import threading
+        import traceback as tb
+        err_info = {
+            "type": type(exc).__name__,
+            "message": str(exc),
+            "traceback": tb.format_exc(),
+        }
+        threading.Thread(
+            target=send_report, kwargs={"error_info": err_info}, daemon=True
+        ).start()
+    except Exception:
+        pass  # Crash reporting must never break the response path
+
+
 def send_report(user_description="", error_info=None):
     """
     Collect diagnostics and send the report email + SMS notification.

@@ -32,6 +32,7 @@ from app.services.folder_service import (
     logs_path,
     write_sidecar
 )
+from app.services.report_service import report_exception_async
 from app.middleware.rate_limiter import limiter, SUBMIT_RATE_LIMIT
 from app.middleware.request_validator import validate_array_size
 
@@ -416,6 +417,7 @@ def submit_weekly():
 
     except Exception as e:
         logger.exception("Unexpected error in submit_weekly: %s", e)
+        report_exception_async(e)
         return jsonify({
             "success": False,
             "error": "Internal server error",
@@ -715,6 +717,7 @@ def submit_monthly():
 
     except Exception as e:
         logger.exception("Unexpected error in submit_monthly: %s", e)
+        report_exception_async(e)
         return jsonify({
             "success": False,
             "error": "Internal server error",
@@ -731,8 +734,7 @@ def _load_daily_logs_for_week(save_folder, monday_str):
     from app.api.config_api import get_config_path, get_or_create_config
     config_path = get_config_path()
     get_or_create_config(config_path)
-    with open(config_path, 'r', encoding='utf-8') as f:
-        config = json.load(f)
+    config = load_config()
 
     day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
     monday = datetime.strptime(monday_str, '%Y%m%d')
@@ -807,12 +809,11 @@ def preview_weekly_log():
         if not inv_num or not re.match(r'^INV-\d{8}$', inv_num):
             return jsonify({"error": "Invalid invoice number"}), 400
 
-        # Load config
+        # Load config (coerces rate to float)
         from app.api.config_api import get_config_path, get_or_create_config
         config_path = get_config_path()
         get_or_create_config(config_path)
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
+        config = load_config()
 
         save_folder = expand_path(config.get('saveFolder', ''))
         if not save_folder:
@@ -844,6 +845,7 @@ def preview_weekly_log():
         return jsonify({"error": f"Invalid template or config: {e}"}), 400
     except Exception as e:
         logger.exception("Error generating log preview: %s", e)
+        report_exception_async(e)
         return jsonify({"error": str(e)}), 500
 
 
@@ -872,12 +874,11 @@ def submit_weekly_with_logs():
         if not inv_num or not re.match(r'^INV-\d{8}$', inv_num):
             return jsonify({"error": "Invalid invoice number"}), 400
 
-        # Load config
+        # Load config (coerces rate to float)
         from app.api.config_api import get_config_path, get_or_create_config
         config_path = get_config_path()
         get_or_create_config(config_path)
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
+        config = load_config()
 
         save_folder = expand_path(config.get('saveFolder', ''))
         if not save_folder:
@@ -983,6 +984,7 @@ def submit_weekly_with_logs():
         }), 400
     except Exception as e:
         logger.exception("Unexpected error in submit_weekly_with_logs: %s", e)
+        report_exception_async(e)
         return jsonify({
             "success": False,
             "error": "Internal server error",

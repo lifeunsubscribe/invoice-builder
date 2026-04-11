@@ -743,3 +743,298 @@ class TestSubmitArraySizeValidation:
                     assert response.status_code == 200
                     data = response.get_json()
                     assert data['success'] is True
+
+
+@pytest.fixture
+def temp_config_string_rate():
+    """
+    Like temp_config but with rate stored as a string.
+
+    Reproduces the production state where the profile form saves rate as
+    a string. The submit endpoints used to crash with
+    "can't multiply sequence by non-int of type 'float'" in this case
+    because the email-body math did `total_hours * config.get('rate', 0)`
+    without coercing.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config_data = {
+            "name": "Test User",
+            "address": "123 Test St",
+            "personalEmail": "test@example.com",
+            "rate": "25",  # string, not numeric
+            "clientName": "Test Client",
+            "clientEmail": "client@example.com",
+            "accountantEmail": "accountant@example.com",
+            "accent": "#c47a86",
+            "invoiceNote": "Thank you!",
+            "saveFolder": tmpdir,
+            "clients": [
+                {
+                    "id": "client-1",
+                    "name": "Test Patient",
+                    "address": "456 Patient St",
+                    "objective": "Care plan",
+                    "meds": [],
+                    "defaultShift": {"start": "09:00", "end": "17:00"},
+                }
+            ],
+            "activeClientId": "client-1",
+        }
+
+        config_path = os.path.join(tmpdir, 'config.json')
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config_data, f)
+
+        yield tmpdir, config_path, config_data
+
+
+class TestRateAsStringRegression:
+    """
+    Regression tests for the bug where config rate is saved as a string.
+
+    Profile form input saves rate as e.g. "25" instead of 25.0. The submit
+    endpoints used `total_hours * config.get('rate', 0)` directly, which
+    raises TypeError on string rate. The fix routes all config loads
+    through load_config() which coerces rate to float.
+    """
+
+    def test_load_config_coerces_string_rate(self, temp_config_string_rate):
+        """load_config() must coerce string rate to float."""
+        _, config_path, _ = temp_config_string_rate
+        from app.api import submit_api
+
+        with patch.object(submit_api, 'get_config_path', return_value=config_path):
+            cfg = submit_api.load_config()
+            assert isinstance(cfg['rate'], float)
+            assert cfg['rate'] == 25.0
+
+    def test_load_config_handles_garbage_rate(self):
+        """load_config() must default to 0.0 on bad rate values."""
+        from app.api import submit_api
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = os.path.join(tmpdir, 'config.json')
+            with open(config_path, 'w') as f:
+                json.dump({"rate": "not a number", "saveFolder": tmpdir}, f)
+
+            with patch.object(submit_api, 'get_config_path', return_value=config_path):
+                cfg = submit_api.load_config()
+                assert cfg['rate'] == 0.0
+
+    def test_submit_weekly_with_string_rate(self, client, temp_config_string_rate):
+        """/api/submit/weekly must succeed when rate is stored as a string."""
+        _, config_path, _ = temp_config_string_rate
+
+        payload = {
+            "hours": {"Monday": 8, "Tuesday": 8, "Wednesday": 8, "Thursday": 8,
+                      "Friday": 8, "Saturday": 0, "Sunday": 0},
+            "clientEmail": "client@example.com",
+            "accountantEmail": "accountant@example.com",
+            "week": {
+                "start": "March 24",
+                "end": "March 30, 2026",
+                "invNum": "INV-20260324",
+                "dayDates": {}
+            },
+            "template": "morning-light"
+        }
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_weekly_pdf') as mock_pdf:
+                with patch('app.api.submit_api.send_invoice_email') as mock_email:
+                    mock_pdf.return_value = b'%PDF-1.4'
+                    mock_email.return_value = {"success": True}
+
+                    response = client.post(
+                        '/api/submit/weekly',
+                        json=payload,
+                        content_type='application/json'
+                    )
+
+                    assert response.status_code == 200, response.get_json()
+                    assert response.get_json()['success'] is True
+
+    def test_submit_monthly_with_string_rate(self, client, temp_config_string_rate):
+        """/api/submit/monthly must succeed when rate is stored as a string."""
+        _, config_path, _ = temp_config_string_rate
+
+        payload = {
+            "weekData": [
+                {"label": "Mar 3 – Mar 9, 2026", "hours": 40},
+                {"label": "Mar 10 – Mar 16, 2026", "hours": 40},
+            ],
+            "year": 2026,
+            "month": 3,
+            "accountantEmail": "accountant@example.com"
+        }
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_monthly_pdf') as mock_pdf:
+                with patch('app.api.submit_api.send_invoice_email') as mock_email:
+                    mock_pdf.return_value = b'%PDF-1.4'
+                    mock_email.return_value = {"success": True}
+
+                    response = client.post(
+                        '/api/submit/monthly',
+                        json=payload,
+                        content_type='application/json'
+                    )
+
+                    assert response.status_code == 200, response.get_json()
+                    assert response.get_json()['success'] is True
+
+
+class TestSubmitWeeklyWithLogsEndpoint:
+    """
+    Tests for POST /api/submit/weekly-with-logs.
+
+    This endpoint reads an already-saved invoice PDF, generates the weekly
+    log PDF, and emails both as attachments. Previously had no test
+    coverage at all — the rate-as-string bug shipped to production because
+    of that gap.
+    """
+
+    @staticmethod
+    def _make_invoice_pdf_on_disk(tmpdir, inv_num="INV-20260323"):
+        weekly_dir = os.path.join(tmpdir, 'weekly')
+        os.makedirs(weekly_dir, exist_ok=True)
+        path = os.path.join(weekly_dir, f"{inv_num}.pdf")
+        Path(path).write_bytes(b'%PDF-1.4 existing invoice')
+        return path
+
+    def test_weekly_with_logs_success(self, client, temp_config):
+        """Happy path: invoice exists, log renders, both emailed."""
+        tmpdir, config_path, _ = temp_config
+        self._make_invoice_pdf_on_disk(tmpdir, "INV-20260323")
+
+        payload = {
+            "invNum": "INV-20260323",
+            "clientEmail": "client@example.com",
+            "accountantEmail": "accountant@example.com",
+            "hours": {"Monday": 8, "Tuesday": 8, "Wednesday": 8,
+                      "Thursday": 8, "Friday": 8},
+        }
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_weekly_log_pdf') as mock_pdf:
+                with patch('app.api.submit_api.send_invoice_email') as mock_email:
+                    mock_pdf.return_value = b'%PDF-1.4 log content'
+                    mock_email.return_value = {"success": True}
+
+                    response = client.post(
+                        '/api/submit/weekly-with-logs',
+                        json=payload,
+                        content_type='application/json'
+                    )
+
+                    assert response.status_code == 200, response.get_json()
+                    data = response.get_json()
+                    assert data['success'] is True
+                    assert data['sent'] == ["client@example.com", "accountant@example.com"]
+                    call_kwargs = mock_email.call_args[1]
+                    attachments = call_kwargs['attachments']
+                    assert len(attachments) == 2
+                    assert any('LOG' in a['filename'] for a in attachments)
+
+    def test_weekly_with_logs_string_rate_regression(self, client, temp_config_string_rate):
+        """
+        REGRESSION: this is the exact bug Lisa hit on 2026-04-11.
+
+        The endpoint loaded config raw (without coercing rate to float)
+        and then computed `total_hours * config.get('rate', 0)`. With
+        rate stored as the string "25" this raised
+        "can't multiply sequence by non-int of type 'float'" and the
+        invoice never got sent.
+        """
+        tmpdir, config_path, _ = temp_config_string_rate
+        self._make_invoice_pdf_on_disk(tmpdir, "INV-20260323")
+
+        payload = {
+            "invNum": "INV-20260323",
+            "clientEmail": "client@example.com",
+            "accountantEmail": "accountant@example.com",
+            "hours": {"Monday": 8, "Tuesday": 8, "Wednesday": 8,
+                      "Thursday": 8, "Friday": 8},
+        }
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_weekly_log_pdf') as mock_pdf:
+                with patch('app.api.submit_api.send_invoice_email') as mock_email:
+                    mock_pdf.return_value = b'%PDF-1.4 log content'
+                    mock_email.return_value = {"success": True}
+
+                    response = client.post(
+                        '/api/submit/weekly-with-logs',
+                        json=payload,
+                        content_type='application/json'
+                    )
+
+                    # Before the fix this returned 500 with
+                    # "Internal server error".
+                    assert response.status_code == 200, response.get_json()
+                    assert response.get_json()['success'] is True
+
+    def test_weekly_with_logs_invoice_missing(self, client, temp_config):
+        """Returns 400 with a clear message when invoice PDF doesn't exist."""
+        _, config_path, _ = temp_config
+
+        payload = {
+            "invNum": "INV-20260323",
+            "clientEmail": "client@example.com",
+            "hours": {"Monday": 8},
+        }
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            response = client.post(
+                '/api/submit/weekly-with-logs',
+                json=payload,
+                content_type='application/json'
+            )
+
+            assert response.status_code == 400
+            assert "Invoice PDF not found" in response.get_json()['error']
+
+    def test_weekly_with_logs_invalid_inv_num(self, client, temp_config):
+        """Rejects malformed invoice numbers."""
+        _, config_path, _ = temp_config
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            response = client.post(
+                '/api/submit/weekly-with-logs',
+                json={"invNum": "not-an-invoice-number"},
+                content_type='application/json'
+            )
+
+            assert response.status_code == 400
+
+
+class TestStaticAssetsStartupCheck:
+    """
+    Tests for the startup self-test that prevents broken bundles from
+    leaving users stranded on a JSON error page.
+    """
+
+    def test_verify_static_assets_exits_when_index_missing(self, monkeypatch, tmp_path):
+        """_verify_static_assets_or_exit must sys.exit when index.html is missing."""
+        from app import main as main_mod
+
+        # Point DIST_FOLDER at an empty directory (no index.html).
+        empty = tmp_path / "empty_dist"
+        empty.mkdir()
+        monkeypatch.setattr(main_mod, "DIST_FOLDER", str(empty))
+
+        with pytest.raises(SystemExit) as exc_info:
+            main_mod._verify_static_assets_or_exit()
+        assert exc_info.value.code == 2
+
+    def test_verify_static_assets_passes_when_index_present(self, monkeypatch, tmp_path):
+        """_verify_static_assets_or_exit must NOT exit when index.html exists."""
+        from app import main as main_mod
+
+        good = tmp_path / "good_dist"
+        good.mkdir()
+        (good / "index.html").write_text("<html>ok</html>")
+        monkeypatch.setattr(main_mod, "DIST_FOLDER", str(good))
+
+        # Should not raise
+        main_mod._verify_static_assets_or_exit()
