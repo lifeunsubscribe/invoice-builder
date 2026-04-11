@@ -59,6 +59,30 @@ def is_valid_email(email):
     return EMAIL_PATTERN.match(email) is not None
 
 
+def _extract_email_field(payload, field_name):
+    """
+    Extract an optional email field from the payload.
+
+    Empty / missing values are treated as "no email — skip this recipient".
+    Returns the trimmed string on success, or raises ValueError if the
+    value is the wrong type. Bare .strip() on payload.get() crashes on
+    None / int / dict, which used to bubble up as a 500.
+
+    Returns:
+        str: trimmed email, or "" if missing/empty
+    Raises:
+        ValueError: if the field is present but not a string
+    """
+    if field_name not in payload:
+        return ""
+    raw = payload[field_name]
+    if raw is None:
+        return ""
+    if not isinstance(raw, str):
+        raise ValueError(f"{field_name} must be a string")
+    return raw.strip()
+
+
 def sanitize_filename(filename):
     """
     Sanitize filename to prevent path traversal attacks.
@@ -187,8 +211,15 @@ def submit_weekly():
             }), 400
 
         # Validate email addresses (only if provided and non-empty)
-        client_email = payload.get('clientEmail', '').strip()
-        accountant_email = payload.get('accountantEmail', '').strip()
+        try:
+            client_email = _extract_email_field(payload, 'clientEmail')
+            accountant_email = _extract_email_field(payload, 'accountantEmail')
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "error": "Invalid email",
+                "message": str(e)
+            }), 400
 
         if client_email and not is_valid_email(client_email):
             return jsonify({
@@ -480,7 +511,14 @@ def submit_monthly():
             }), 400
 
         # Validate email address (only if provided and non-empty)
-        accountant_email = payload.get('accountantEmail', '').strip()
+        try:
+            accountant_email = _extract_email_field(payload, 'accountantEmail')
+        except ValueError as e:
+            return jsonify({
+                "success": False,
+                "error": "Invalid email",
+                "message": str(e)
+            }), 400
 
         if accountant_email and not is_valid_email(accountant_email):
             return jsonify({

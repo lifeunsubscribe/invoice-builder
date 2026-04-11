@@ -145,6 +145,7 @@ LisaInvoice.spec            ← PyInstaller spec file (gitignored)
 - **"Static files not found" error:**
   - Build issue: `frontend/dist/` not properly bundled
   - Solution: Re-run `build.bat`, ensure Vite build succeeds
+  - **Note (2026-04-11):** as of `app/main.py:_verify_static_assets_or_exit()`, the exe will no longer start and serve a JSON 500 in this state — it now exits immediately with code 2 and prints `FATAL: bundled frontend assets are missing.` to the console. This is intentional so the GitHub Actions self-update bat-script healthcheck rolls back fast on a corrupt bundle. If your local build hits this on launch, the dist folder genuinely wasn't bundled.
 
 ---
 
@@ -623,3 +624,17 @@ test_windows_build.bat
 ```
 
 Output: `test_results.log` with pass/fail status for each test
+
+---
+
+## Appendix: GitHub Actions CI Smoke Test (added 2026-04-11)
+
+`.github/workflows/build.yml` now includes a smoke test step (`Verify exe starts and serves frontend`) that runs against the built exe before publishing the release:
+
+1. Sets `NO_BROWSER=1` so the auto-launch doesn't fight CI.
+2. Starts the exe and waits 8 seconds.
+3. If the process has already exited, fails the build (catches the case where the exe died on `_verify_static_assets_or_exit` or any other startup crash).
+4. Issues `Invoke-WebRequest http://127.0.0.1:5001/` and asserts the response body contains `id="root"`.
+5. Stops the exe.
+
+If the bundled `dist/` folder is missing or `index.html` was lost during packaging, this step will fail and the GitHub release will not be created — preventing a broken auto-update from reaching users. Without this step, the previous CI only verified that the process didn't exit within 5 seconds, which let a bundle missing `dist/` ship to production once before being caught.

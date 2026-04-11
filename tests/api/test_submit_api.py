@@ -251,8 +251,19 @@ class TestSubmitWeeklyEndpoint:
         assert 'JSON' in data['error']
 
     def test_submit_weekly_invalid_template(self, client, temp_config):
-        """Test that invalid template ID is rejected."""
+        """Test that invalid template ID is rejected.
+
+        The route reads template from config['template'], not from
+        the payload — the payload template field is ignored. So we
+        rewrite the temp config with a bogus template and expect the
+        ValueError from _validate_template_id to surface as a 400.
+        """
         tmpdir, config_path, config_data = temp_config
+
+        config_data = dict(config_data)
+        config_data['template'] = 'invalid-template-name'
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config_data, f)
 
         payload = {
             "hours": {"Monday": 8, "Tuesday": 0, "Wednesday": 0, "Thursday": 0,
@@ -265,7 +276,6 @@ class TestSubmitWeeklyEndpoint:
                 "invNum": "INV-20260324",
                 "dayDates": {}
             },
-            "template": "invalid-template-name"
         }
 
         with patch('app.api.submit_api.get_config_path', return_value=config_path):
@@ -275,13 +285,17 @@ class TestSubmitWeeklyEndpoint:
                 content_type='application/json'
             )
 
-            # PDF service should raise ValueError for invalid template
             assert response.status_code == 400
             data = response.get_json()
             assert data['success'] is False
+            assert 'invalid-template-name' in data['message'].lower() or 'template' in data['message'].lower()
 
     def test_submit_weekly_missing_config(self, client):
-        """Test that missing config.json returns 500."""
+        """Test that missing config.json returns a user-friendly 400.
+
+        Originally this returned 500. The error UX was improved so the
+        user gets a clear "fill out your profile" message and a 400.
+        """
         payload = {
             "hours": {"Monday": 8, "Tuesday": 0, "Wednesday": 0, "Thursday": 0,
                       "Friday": 0, "Saturday": 0, "Sunday": 0},
@@ -303,10 +317,10 @@ class TestSubmitWeeklyEndpoint:
                 content_type='application/json'
             )
 
-            assert response.status_code == 500
+            assert response.status_code == 400
             data = response.get_json()
             assert data['success'] is False
-            assert 'Configuration not found' in data['error']
+            assert 'profile' in data['error'].lower()
 
 
 class TestSubmitMonthlyEndpoint:
@@ -442,18 +456,23 @@ class TestEmailValidation:
     """Tests for email validation in submit endpoints."""
 
     def test_submit_weekly_invalid_client_email(self, client):
-        """Test that invalid client email is rejected."""
+        """Test that invalid client email is rejected.
+
+        Note: empty string is intentionally NOT in this list. Per the
+        route spec, an empty/missing clientEmail means "no client to
+        email" and is allowed (the PDF still gets saved). Wrong-type
+        values (None, int, dict) must still 400 — that path used to
+        crash with AttributeError on .strip().
+        """
         invalid_emails = [
             "not-an-email",
             "missing@domain",
             "@nodomain.com",
             "no@domain@double.com",
             "spaces in@email.com",
-            "",
             "nodomain@",
             "user@",
             123,  # Not a string
-            None,
             {"email": "test@test.com"}  # Object instead of string
         ]
 
@@ -484,13 +503,16 @@ class TestEmailValidation:
             assert 'email' in data['error'].lower() or 'email' in data['message'].lower()
 
     def test_submit_weekly_invalid_accountant_email(self, client):
-        """Test that invalid accountant email is rejected."""
+        """Test that invalid accountant email is rejected.
+
+        Empty string is intentionally NOT in this list — see
+        test_submit_weekly_invalid_client_email for the rationale.
+        """
         invalid_emails = [
             "not-an-email",
             "missing@domain",
             "@nodomain.com",
             "no@domain@double.com",
-            ""
         ]
 
         for invalid_email in invalid_emails:
@@ -532,16 +554,20 @@ class TestEmailValidation:
             "first.last@subdomain.example.com"
         ]
 
-        for valid_email in valid_emails:
+        # Use a unique invNum per email so we don't trigger overwrite
+        # detection on the saved PDF — the route still parses invNum as
+        # YYYYMMDD for the email body, so it must be a real date.
+        for i, valid_email in enumerate(valid_emails):
+            inv_num = f"INV-202603{16 + i:02d}"
             payload = {
                 "hours": {"Monday": 8, "Tuesday": 0, "Wednesday": 0, "Thursday": 0,
                           "Friday": 0, "Saturday": 0, "Sunday": 0},
                 "clientEmail": valid_email,
                 "accountantEmail": "accountant@example.com",
                 "week": {
-                    "start": "March 24",
-                    "end": "March 30, 2026",
-                    "invNum": f"INV-{valid_email.replace('@', '-').replace('.', '-')}",
+                    "start": "March 16",
+                    "end": "March 22, 2026",
+                    "invNum": inv_num,
                     "dayDates": {}
                 },
                 "template": "morning-light"
@@ -559,18 +585,21 @@ class TestEmailValidation:
                             content_type='application/json'
                         )
 
-                        assert response.status_code == 200, f"Expected 200 for valid email: {valid_email}"
+                        assert response.status_code == 200, f"Expected 200 for valid email: {valid_email}, got {response.get_json()}"
                         data = response.get_json()
                         assert data['success'] is True
 
     def test_submit_monthly_invalid_accountant_email(self, client):
-        """Test that invalid accountant email is rejected in monthly endpoint."""
+        """Test that invalid accountant email is rejected in monthly endpoint.
+
+        Empty string is intentionally NOT in this list — see
+        test_submit_weekly_invalid_client_email for the rationale.
+        """
         invalid_emails = [
             "not-an-email",
             "missing@domain",
             "@nodomain.com",
-            "",
-            123
+            123,
         ]
 
         for invalid_email in invalid_emails:

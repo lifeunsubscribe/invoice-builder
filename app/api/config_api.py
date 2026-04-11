@@ -286,6 +286,18 @@ def update_config():
         if template and template not in THEME_ORDER:
             config_data['template'] = 'morning-light'
 
+        # Coerce rate to a number on save. The profile form sends rate
+        # as a string from a text input; storing it on disk as a string
+        # has bitten us before (TypeError in email-body math).
+        # Normalizing here means new saves are always clean and the
+        # read-side coercion in load_config becomes a safety net rather
+        # than the primary defense.
+        if 'rate' in config_data:
+            try:
+                config_data['rate'] = float(config_data['rate'])
+            except (TypeError, ValueError):
+                config_data['rate'] = 0.0
+
         # Sync flat patient fields from active client for template compat
         _sync_flat_patient_fields(config_data)
 
