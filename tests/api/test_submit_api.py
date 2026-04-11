@@ -913,6 +913,90 @@ class TestRateAsStringRegression:
                     assert response.get_json()['success'] is True
 
 
+class TestSaveOnlySkipsEmailValidation:
+    """
+    REGRESSION (Lisa, 2026-04-11 evening): she got trapped on the
+    weekly invoice page when her stored config.clientEmail had a typo.
+    Step 1's "Save & Continue" button POSTs `/api/submit/weekly` with
+    `saveOnly=true`. The route used to validate emails unconditionally,
+    even though no email is sent in saveOnly mode, so a stale typo
+    rejected the save with no UI affordance to fix it (the email input
+    only appears on step 2). Skipping email validation in saveOnly mode
+    closes the trap.
+    """
+
+    def _payload(self, **overrides):
+        base = {
+            "hours": {"Monday": 8, "Tuesday": 8, "Wednesday": 8,
+                      "Thursday": 8, "Friday": 8, "Saturday": 0, "Sunday": 0},
+            "week": {
+                "start": "March 24",
+                "end": "March 30, 2026",
+                "invNum": "INV-20260324",
+                "dayDates": {},
+            },
+            "template": "morning-light",
+            "saveOnly": True,
+        }
+        base.update(overrides)
+        return base
+
+    def test_save_only_tolerates_invalid_client_email(self, client, temp_config):
+        _, config_path, _ = temp_config
+        payload = self._payload(clientEmail="not-an-email", accountantEmail="ok@example.com")
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_weekly_pdf') as mock_pdf:
+                mock_pdf.return_value = b'%PDF-1.4'
+                resp = client.post('/api/submit/weekly', json=payload)
+
+        assert resp.status_code == 200, resp.get_json()
+        assert resp.get_json()['success'] is True
+        # No emails sent in save-only mode
+        assert resp.get_json()['sent'] == []
+
+    def test_save_only_tolerates_invalid_accountant_email(self, client, temp_config):
+        _, config_path, _ = temp_config
+        payload = self._payload(clientEmail="", accountantEmail="garbage")
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_weekly_pdf') as mock_pdf:
+                mock_pdf.return_value = b'%PDF-1.4'
+                resp = client.post('/api/submit/weekly', json=payload)
+
+        assert resp.status_code == 200, resp.get_json()
+
+    def test_save_only_tolerates_wrong_type_email(self, client, temp_config):
+        """None / int / dict for an email field is allowed in saveOnly mode.
+
+        Without saveOnly, _extract_email_field raises ValueError → 400. With
+        saveOnly, we fall back to "no recipient" since we won't email anyone.
+        """
+        _, config_path, _ = temp_config
+        payload = self._payload(clientEmail=None, accountantEmail=123)
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            with patch('app.api.submit_api.render_weekly_pdf') as mock_pdf:
+                mock_pdf.return_value = b'%PDF-1.4'
+                resp = client.post('/api/submit/weekly', json=payload)
+
+        assert resp.status_code == 200, resp.get_json()
+
+    def test_non_save_only_still_rejects_invalid_email(self, client, temp_config):
+        """Real send mode (saveOnly omitted) still rejects bad emails — the
+        Lisa-fix is scoped to saveOnly only.
+        """
+        _, config_path, _ = temp_config
+        payload = self._payload(clientEmail="not-an-email", accountantEmail="ok@example.com")
+        del payload['saveOnly']
+
+        with patch('app.api.submit_api.get_config_path', return_value=config_path):
+            resp = client.post('/api/submit/weekly', json=payload)
+
+        assert resp.status_code == 400
+        assert 'email' in resp.get_json()['error'].lower()
+
+
 class TestSubmitWeeklyWithLogsEndpoint:
     """
     Tests for POST /api/submit/weekly-with-logs.
