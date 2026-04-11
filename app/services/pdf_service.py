@@ -72,18 +72,29 @@ def _validate_template_id(template_id, template_map):
         )
 
 
+def _coerce_rate(rate):
+    """Coerce rate to float, defaulting to 0.0 on bad input.
+
+    Defensive: rate is sometimes saved as a string from form input.
+    """
+    try:
+        return float(rate)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _calculate_weekly_totals(hours, rate):
     """
     Return (total_hours: int, total_pay: str) for a weekly hours dict.
 
     Args:
         hours: dict mapping day name -> hour count
-        rate: float
+        rate: float (or string-like that can be coerced)
     Returns:
         tuple[int, str]
     """
     total_hours = sum(hours.values())
-    return total_hours, f"{total_hours * rate:.2f}"
+    return total_hours, f"{total_hours * _coerce_rate(rate):.2f}"
 
 
 def _calculate_monthly_totals(week_data, rate):
@@ -92,13 +103,13 @@ def _calculate_monthly_totals(week_data, rate):
 
     Args:
         week_data: list of dicts with 'hours' key
-        rate: float
+        rate: float (or string-like that can be coerced)
     Returns:
         tuple[int, str, int]
     """
     total_hours = sum(w.get('hours', 0) for w in week_data)
     weeks_worked = sum(1 for w in week_data if w.get('hours', 0) > 0)
-    return total_hours, f"{total_hours * rate:.2f}", weeks_worked
+    return total_hours, f"{total_hours * _coerce_rate(rate):.2f}", weeks_worked
 
 
 def _render_to_pdf(html_content):

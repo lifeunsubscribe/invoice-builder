@@ -149,19 +149,8 @@ def internal_error(e):
     """Handle 500 errors with JSON response."""
     logger.error("500: %s", e)
     # Auto-send crash report in background (best-effort, don't block response)
-    try:
-        import traceback as tb
-        from app.services.report_service import send_report
-        err_info = {
-            "type": type(e).__name__,
-            "message": str(e),
-            "traceback": tb.format_exc(),
-        }
-        threading.Thread(
-            target=send_report, kwargs={"error_info": err_info}, daemon=True
-        ).start()
-    except Exception:
-        pass  # Never let report sending break the error response
+    from app.services.report_service import report_exception_async
+    report_exception_async(e)
     return jsonify({"error": "Server error", "message": "An internal server error occurred"}), 500
 
 @app.errorhandler(429)
@@ -176,20 +165,9 @@ def rate_limit_exceeded(e):
 @app.errorhandler(Exception)
 def unhandled_exception(e):
     """Catch-all for unhandled exceptions — auto-send crash report."""
-    import traceback as tb
     logger.exception("Unhandled exception: %s", e)
-    try:
-        from app.services.report_service import send_report
-        err_info = {
-            "type": type(e).__name__,
-            "message": str(e),
-            "traceback": tb.format_exc(),
-        }
-        threading.Thread(
-            target=send_report, kwargs={"error_info": err_info}, daemon=True
-        ).start()
-    except Exception:
-        pass
+    from app.services.report_service import report_exception_async
+    report_exception_async(e)
     return jsonify({"error": "Server error", "message": "An unexpected error occurred"}), 500
 
 @app.errorhandler(413)
@@ -543,7 +521,7 @@ app.register_blueprint(log_bp)
 app.register_blueprint(report_bp)
 
 def _check_crash_report():
-    """If a previous update crashed, log it and clean up marker files."""
+    """If a previous update crashed, log it, email the dev, and clean up markers."""
     if not getattr(sys, 'frozen', False):
         return
     exe_dir = os.path.dirname(sys.executable)
@@ -552,9 +530,35 @@ def _check_crash_report():
     if not os.path.exists(marker):
         return
     logger.warning("Previous update crashed and was rolled back")
+    crash_log_text = ""
     if os.path.exists(crash_log_path):
-        with open(crash_log_path, 'r') as f:
-            logger.warning("Crash log:\n%s", f.read())
+        try:
+            with open(crash_log_path, 'r', errors='replace') as f:
+                crash_log_text = f.read()
+            logger.warning("Crash log:\n%s", crash_log_text)
+        except Exception as e:
+            logger.warning("Failed to read crash log: %s", e)
+
+    # Email the developer that a self-update failed and was rolled back.
+    # Best-effort, fire-and-forget — never block startup.
+    try:
+        from app.services.report_service import send_report
+        err_info = {
+            "type": "SelfUpdateRollback",
+            "message": "Self-update healthcheck failed; rolled back to previous exe.",
+            "traceback": crash_log_text or "(no crash log captured)",
+        }
+        threading.Thread(
+            target=send_report,
+            kwargs={
+                "user_description": "Self-update was attempted but the new exe failed its post-install healthcheck. The old exe was restored automatically.",
+                "error_info": err_info,
+            },
+            daemon=True,
+        ).start()
+    except Exception as e:
+        logger.warning("Failed to dispatch rollback crash report: %s", e)
+
     try:
         os.remove(marker)
         if os.path.exists(crash_log_path):
@@ -562,8 +566,31 @@ def _check_crash_report():
     except Exception:
         pass
 
+def _verify_static_assets_or_exit():
+    """
+    Sanity-check that bundled frontend assets exist before binding to a port.
+
+    Returning a 500 from / once the server is up is too late: the bat-script
+    rollback healthcheck only knows the server is "up" or "down". Exiting
+    here makes the healthcheck fail fast, triggering rollback on a broken
+    build instead of leaving the user stranded on a JSON error page.
+    """
+    index_path = os.path.join(str(DIST_FOLDER), "index.html")
+    if not os.path.exists(DIST_FOLDER) or not os.path.exists(index_path):
+        msg = (
+            f"FATAL: bundled frontend assets are missing.\n"
+            f"  DIST_FOLDER={DIST_FOLDER} exists={os.path.exists(DIST_FOLDER)}\n"
+            f"  index.html={index_path} exists={os.path.exists(index_path)}\n"
+            f"  frozen={getattr(sys, 'frozen', False)}"
+        )
+        logger.error(msg)
+        print(msg)
+        sys.exit(2)
+
+
 if __name__ == "__main__":
     _check_crash_report()
+    _verify_static_assets_or_exit()
 
     # Check if this app is already running on port 5000
     if not is_port_available(5001):

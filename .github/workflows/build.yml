@@ -95,16 +95,33 @@ jobs:
 
           subprocess.run(cmd, check=True)
 
-      - name: Verify exe starts
+      - name: Verify exe starts and serves frontend
         run: |
+          # NO_BROWSER stops the auto browser launch in CI.
+          $env:NO_BROWSER = "1"
           $proc = Start-Process -FilePath "dist\Invoice Builder.exe" -PassThru
-          Start-Sleep -Seconds 5
+          Start-Sleep -Seconds 8
           if ($proc.HasExited) {
             Write-Error "Exe crashed on startup (exit code $($proc.ExitCode))"
             exit 1
           }
-          Stop-Process -Id $proc.Id -Force
-          Write-Host "Exe started successfully"
+          try {
+            # Hit / and verify we get React's index.html, NOT the
+            # "Static files not found" JSON error. This catches the
+            # broken-bundle case that stranded a user in production.
+            $resp = Invoke-WebRequest -Uri "http://127.0.0.1:5001/" -UseBasicParsing -TimeoutSec 10
+            if ($resp.StatusCode -ne 200) {
+              Write-Error "GET / returned $($resp.StatusCode)"
+              exit 1
+            }
+            if ($resp.Content -notmatch 'id="root"') {
+              Write-Error "GET / did not return index.html (got: $($resp.Content.Substring(0, [Math]::Min(200, $resp.Content.Length))))"
+              exit 1
+            }
+            Write-Host "Exe started successfully and served frontend"
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
