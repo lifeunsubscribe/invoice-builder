@@ -1,14 +1,24 @@
 # Clean Machine Testing Procedure
 
-**Date:** 2026-03-26
-**Purpose:** Validate that LisaInvoice.exe runs on a Windows machine without Python installed
+**Originally written:** 2026-03-26
+**Last reviewed:** 2026-04-11
+**Purpose:** Validate that `Invoice Builder.exe` runs on a Windows machine without Python installed
 **Acceptance Criterion:** Exe works on a clean Windows machine or issues are documented with workarounds
+
+> **Status note (2026-04-11):** Most of this procedure predates the GitHub Actions build pipeline and the in-app email setup modal. Several literal references have been updated, but the original spec was written when:
+> - The exe was named `LisaInvoice.exe` (now `Invoice Builder.exe`)
+> - The default port was 5000 (now 5001)
+> - SMTP credentials were hand-edited into a `.env` file next to the exe (now: stored in `{saveFolder}/.env` and managed via the in-app "Set up email" modal which posts to `/api/email-config`)
+> - `config.json` was assumed to live in the exe's directory (now: lives at `{saveFolder}/config.json`, with a `pointer.json` in `%APPDATA%\.invoicebuilder\` so the exe can find the save folder)
+> - There was no auto-update mechanism (now: in-app self-update via GitHub Releases, polled every 2 hours)
+>
+> Treat any contradiction in this doc as the doc being out of date relative to the code, not the other way around.
 
 ---
 
 ## Overview
 
-This document provides a step-by-step procedure for testing LisaInvoice.exe on a "clean" Windows machine - a computer that has never had Python or developer tools installed. This simulates the actual end-user environment (Lisa's laptop) and validates that the PyInstaller bundle is truly self-contained.
+This document provides a step-by-step procedure for testing Invoice Builder.exe on a "clean" Windows machine - a computer that has never had Python or developer tools installed. This simulates the actual end-user environment (Lisa's laptop) and validates that the PyInstaller bundle is truly self-contained.
 
 ---
 
@@ -134,13 +144,13 @@ On your development machine, gather the following files:
 
 ```
 LisaInvoiceTest/
-├── LisaInvoice.exe           ← Copy from dist/ after successful build
+├── Invoice Builder.exe           ← Copy from dist/ after successful build
 ├── config.example.json       ← Copy from project root (optional)
 ├── .env.example             ← Copy from project root (optional)
 └── README_TEST.txt          ← Create with test instructions
 ```
 
-**config.example.json** (optional, for pre-configuration):
+**config.example.json** (optional, for pre-configuration — drop this inside the save folder, not next to the exe):
 ```json
 {
   "name": "Test User",
@@ -150,31 +160,49 @@ LisaInvoiceTest/
   "clientName": "Test Client Agency",
   "clientEmail": "client@example.com",
   "accountantEmail": "accountant@example.com",
-  "accent": "#b76e79",
+  "template": "morning-light",
+  "accent": "#c47a86",
   "invoiceNote": "Thank you for your business.",
-  "saveFolder": "C:\\Users\\Public\\Documents\\test-invoices"
+  "saveFolder": "C:\\Users\\Public\\Documents\\test-invoices",
+  "occupation": "home-health-aide",
+  "agency": "",
+  "logSections": ["Food", "Activities", "Travel", "Visitors", "Comments"],
+  "enabledVitals": ["temperature", "bpSystolic", "bpDiastolic", "weight", "pulse", "o2sat"],
+  "signatureFont": "",
+  "clients": [
+    {
+      "id": "client-1",
+      "name": "Test Patient",
+      "address": "456 Patient Ave",
+      "objective": "Care plan goals",
+      "meds": [],
+      "defaultShift": {"start": "09:00", "end": "17:00"}
+    }
+  ],
+  "activeClientId": "client-1"
 }
 ```
 
 **README_TEST.txt:**
 ```
-Lisa Invoice Builder - Test Instructions
+Invoice Builder - Test Instructions
 
-1. Double-click LisaInvoice.exe to launch
+1. Double-click Invoice Builder.exe to launch
 2. If Windows SmartScreen appears:
    - Click "More info"
    - Click "Run anyway"
 3. Wait for browser to open (may take 5-10 seconds first time)
-4. Application should open at http://localhost:5000
+4. Application should open at http://localhost:5001
 
 For testing with email:
-- Rename .env.example to .env
-- Add your Gmail address and app password
+- Use the in-app "Set up email" button (top-right corner)
+- Enter your Gmail address and a Gmail app password
 - Gmail app password: https://myaccount.google.com/apppasswords
+- This writes a .env file to {saveFolder}/.env automatically
 
 For testing with pre-filled profile:
-- Rename config.example.json to config.json
-- Edit values as needed
+- Place config.json inside the save folder (e.g. C:\Users\Public\Documents\test-invoices\config.json)
+- The app discovers it via a pointer file in %APPDATA%\.invoicebuilder\pointer.json
 ```
 
 ### 2. Transfer Files to Test Machine
@@ -224,8 +252,8 @@ If any of these commands succeed or return Python-related paths, the machine is 
 **Objective:** Verify exe launches and opens browser without errors
 
 **Steps:**
-1. Navigate to folder containing `LisaInvoice.exe`
-2. Double-click `LisaInvoice.exe`
+1. Navigate to folder containing `Invoice Builder.exe`
+2. Double-click `Invoice Builder.exe`
 3. Observe Windows SmartScreen warning (expected first time)
 4. Click "More info" → "Run anyway"
 5. Wait 5-10 seconds
@@ -234,8 +262,8 @@ If any of these commands succeed or return Python-related paths, the machine is 
 **Expected Results:**
 - ✓ No error dialog appears
 - ✓ No console window appears (windowed mode)
-- ✓ Default browser opens to `http://localhost:5000`
-- ✓ React app loads showing "Lisa Invoice Builder" interface
+- ✓ Default browser opens to `http://localhost:5001`
+- ✓ React app loads showing "Invoice Builder" interface
 - ✓ Landing page displays with three menu options:
   - Weekly Invoice
   - Monthly Report
@@ -282,24 +310,27 @@ If any of these commands succeed or return Python-related paths, the machine is 
 
 **Expected Results:**
 - ✓ All fields accept input without errors
-- ✓ Save folder auto-derives correctly (e.g., "test-u-invoices")
+- ✓ Save folder auto-derives correctly (e.g., `~/Documents/test-u-invoices`)
 - ✓ "Profile saved" confirmation appears
 - ✓ Values persist after navigation
-- ✓ `config.json` created in same directory as exe
+- ✓ `config.json` created **inside the save folder** (not next to the exe)
+- ✓ A `pointer.json` is written to `%APPDATA%\.invoicebuilder\` so the exe can locate the save folder on next launch
 
 **Possible Issues:**
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
-| "Cannot write config.json" | Permission error | Run exe from user-writable location (not C:\Program Files) |
+| "Cannot write config.json" | Permission error on save folder | Pick a save folder under `~/Documents/` (or any user-writable path) |
 | Save folder path invalid | Windows path parsing | Use backslashes or forward slashes consistently |
-| Data doesn't persist | config.json not in correct location | Check exe directory for config.json file |
+| Data doesn't persist | `pointer.json` missing from `%APPDATA%\.invoicebuilder\` | Re-save profile; verify the pointer file gets created |
+| Old config.json next to exe is being read | Pre-multi-client behavior | Delete the stray exe-adjacent `config.json` — the canonical location is `{saveFolder}/config.json` |
 
 **Verification:**
 - Open File Explorer
-- Navigate to LisaInvoice.exe location
-- Verify `config.json` exists
-- Open config.json in Notepad, verify contents match entered data
+- Navigate to the save folder shown in the Profile (e.g., `C:\Users\<user>\Documents\test-u-invoices\`)
+- Verify `config.json` exists there
+- Open `config.json` in Notepad, verify contents match entered data
+- Verify `%APPDATA%\.invoicebuilder\pointer.json` exists and points at the save folder
 
 **Test Result:** ☐ PASS ☐ FAIL
 
@@ -381,30 +412,30 @@ ImportError: No module named 'cairocffi'
 
 ---
 
-### Test 4: Email Sending (Optional - Requires .env)
+### Test 4: Email Sending (Optional)
 
 **Objective:** Verify email functionality works from bundled exe
 
 **Prerequisites:**
-- Gmail account with App Password generated
-- Create `.env` file in same directory as exe:
-  ```
-  GMAIL_ADDRESS=your-test-email@gmail.com
-  GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
-  ```
-- Valid recipient email addresses in config.json
+- Gmail account with App Password generated (https://myaccount.google.com/apppasswords, requires 2FA)
+- Save folder configured in Profile (Test 2)
+- Valid recipient email addresses in `config.json`
 
 **Steps:**
-1. Ensure `.env` and `config.json` are configured
-2. From Weekly Invoice page, enter test hours
-3. Click "Save & Submit"
-4. Observe "Sending email..." status
-5. Wait for success notification
-6. Check Gmail "Sent" folder
-7. Check recipient inbox (if using your own email)
-8. Verify email contents and attachment
+1. In the top-right corner of the app, click the **"Set up email"** button (yellow). This opens a modal that posts to `POST /api/email-config` and writes `{saveFolder}/.env` with `GMAIL_ADDRESS` + `GMAIL_APP_PASSWORD`.
+2. Enter the Gmail address and App Password, click Save.
+3. Confirm the button now shows the green check mark (`emailConfigured === true`).
+4. From Weekly Invoice page, enter test hours.
+5. Click "Save & Submit".
+6. Observe "Sending email..." status.
+7. Wait for success notification.
+8. Check Gmail "Sent" folder.
+9. Check recipient inbox (if using your own email).
+10. Verify email contents and attachment.
 
 **Expected Results:**
+- ✓ "Set up email" modal saves credentials successfully (no error)
+- ✓ `{saveFolder}/.env` file exists with `GMAIL_ADDRESS=` and `GMAIL_APP_PASSWORD=` lines
 - ✓ No SMTP connection errors
 - ✓ No authentication errors
 - ✓ Success notification: "Invoice saved and sent!"
@@ -420,11 +451,11 @@ ImportError: No module named 'cairocffi'
 |-------|-------|----------|
 | "SMTP authentication failed" (535) | Wrong password or not using App Password | Generate App Password at https://myaccount.google.com/apppasswords |
 | "SMTP connection failed" (timeout) | Firewall/network blocking port 587 | Check firewall, try different network |
-| ".env not found" | Wrong file location | Place .env in same dir as exe (not project root) |
+| "GMAIL_ADDRESS not found in .env" | `.env` is in the wrong location (e.g. next to exe instead of save folder) | Move it to `{saveFolder}/.env`, or re-run the "Set up email" modal |
 | Email sent but no attachment | PDF generation failed silently | Check Test 3 first |
 | Email in Spam | Expected for test accounts | Check recipient Spam folder |
 
-**Test Result:** ☐ PASS ☐ FAIL ☐ SKIPPED (no .env)
+**Test Result:** ☐ PASS ☐ FAIL ☐ SKIPPED (no email config)
 
 **Notes:**
 ```
@@ -484,7 +515,7 @@ ImportError: No module named 'cairocffi'
 1. Close browser tab
 2. Close application (if console visible, or just close browser)
 3. Wait 5 seconds
-4. Launch `LisaInvoice.exe` again
+4. Launch `Invoice Builder.exe` again
 5. Verify browser opens to app
 6. Navigate to Edit Profile
 7. Verify all previously entered data still present
@@ -526,16 +557,15 @@ ImportError: No module named 'cairocffi'
 
 **Expected:** ✓ Error about email configuration, PDF still saved locally
 
-**Test 7C: Port 5000 Already Occupied**
+**Test 7C: Port 5001 Already Occupied**
 1. Keep app running
-2. Launch `LisaInvoice.exe` again (second instance)
+2. Launch `Invoice Builder.exe` again (second instance)
 3. Verify behavior
 
 **Expected:**
-- ✓ Second instance detects first is running
-- ✓ Second instance opens browser to existing app
-- ✓ Second instance exits gracefully
-- ✓ OR: Second instance uses port 5001-5010
+- ✓ Second instance detects first is running on 5001 via `is_this_app_running_on_port()`
+- ✓ Second instance opens browser to existing app and exits gracefully
+- ✓ OR (if port 5001 is occupied by something else): second instance uses port 5002-5010
 
 **Test 7D: Invalid Email Address**
 1. Edit Profile → Client Email: `not-an-email`
@@ -624,7 +654,7 @@ Use this checklist to ensure all tests completed:
 Per task requirements, verify:
 
 - [ ] **build.bat completes without errors on Windows** (from test_windows_build.bat)
-- [ ] **LisaInvoice.exe created in dist/** (from test_windows_build.bat)
+- [ ] **Invoice Builder.exe created in dist/** (from test_windows_build.bat)
 - [ ] **Exe launches and opens browser** (Test 1)
 - [ ] **PDF generation works from bundled exe** (Test 3)
 - [ ] **Email sending works from bundled exe** (Test 4, if .env provided)
@@ -671,16 +701,16 @@ Per task requirements, verify:
 - **Cause:** WeasyPrint GTK bundling failed
 - **Solution:** Switch to ReportLab fallback (see PACKAGING_NOTES.md)
 
-### "Static files not found"
-- **Cause:** Frontend dist not bundled correctly
-- **Solution:** Verify `--add-data "frontend/dist;dist"` in build.bat
+### "Static files not found" (legacy — should not happen as of 2026-04-11)
+- **Cause:** Frontend dist not bundled correctly. Vite builds to project-root `dist/`, so the PyInstaller arg should be `--add-data "dist;dist"` (matching `.github/workflows/build.yml`). The legacy `build.bat` uses `--add-data "frontend/dist;dist"` which is incorrect — Vite's `outDir` is `../dist`.
+- **Current behavior:** the exe will exit immediately with code 2 instead of serving a JSON 500. CI's smoke test (`Verify exe starts and serves frontend`) catches this before release.
 
 ### "SMTP authentication failed"
 - **Cause:** Using regular password instead of App Password
 - **Solution:** Generate Gmail App Password
 
-### "Port 5000 occupied"
-- **Expected:** App auto-detects and uses port 5001-5010
+### "Port 5001 occupied"
+- **Expected:** App auto-detects and uses port 5002-5010
 - **Verify:** Check console output for actual port
 
 ### "Windows protected your PC"
@@ -706,7 +736,7 @@ For repetitive testing (e.g., after rebuilds), consider:
 2. **PowerShell test script** (partial automation):
    ```powershell
    # Launch app
-   Start-Process "LisaInvoice.exe"
+   Start-Process "Invoice Builder.exe"
 
    # Wait for browser
    Start-Sleep -Seconds 10
@@ -715,7 +745,7 @@ For repetitive testing (e.g., after rebuilds), consider:
    Test-NetConnection -ComputerName localhost -Port 5000
 
    # Open browser (if not auto-opened)
-   Start-Process "http://localhost:5000"
+   Start-Process "http://localhost:5001"
    ```
 
 3. **Selenium/Playwright** (advanced):

@@ -1,14 +1,29 @@
 # Windows PyInstaller Packaging Notes
 
-**Date:** 2026-03-26
-**Task:** [Phase 4] Test Windows PyInstaller bundling
-**Status:** Documentation complete, awaiting Windows testing
+**Originally written:** 2026-03-26
+**Last reviewed:** 2026-04-11
+**Status:** In production. The canonical build is now `.github/workflows/build.yml` (GitHub Actions on push to `main`). The local `build.bat` script is kept for offline development but is not the source of truth — see "Source of Truth" below.
+
+---
+
+## Source of Truth (added 2026-04-11)
+
+The released exe is built and signed by GitHub Actions on every push to `main`:
+
+- **Workflow:** `.github/workflows/build.yml`
+- **Output:** `Invoice Builder.exe` (note the space; renamed from the original `Invoice Builder.exe`)
+- **Release tag:** `latest` on `lifeunsubscribe/invoice-builder`
+- **Auto-update:** end users receive updates via the in-app self-update flow (`POST /api/self-update`), which polls `api.github.com/.../releases/latest` every 2 hours and on launch.
+
+The original `build.bat` in the repo root targets the older single-file local workflow and currently has at least one path bug (`--add-data "frontend/dist;dist"` — Vite's `outDir` is `../dist`, so the project-root `dist/` folder is what should be bundled, matching the workflow's `--add-data "dist;dist"`). Treat `build.bat` as historical until that's reconciled.
+
+References to `Invoice Builder.exe` in the rest of this doc are pre-rename and have been left alone where they describe the historical local build flow. The canonical artifact name is **`Invoice Builder.exe`**.
 
 ---
 
 ## Overview
 
-This document provides comprehensive testing procedures, known issues, and workarounds for packaging the Lisa Invoice Builder application as a Windows `.exe` using PyInstaller with WeasyPrint.
+This document provides comprehensive testing procedures, known issues, and workarounds for packaging Invoice Builder as a Windows `.exe` using PyInstaller with WeasyPrint. Most of the procedures here predate the GitHub Actions workflow and assume a manual local build; they remain useful for ad-hoc testing.
 
 ---
 
@@ -78,7 +93,7 @@ Packaging executable...
 [PyInstaller output...]
 INFO: Building EXE from EXE-00.toc completed successfully.
 
-Done. Executable is in dist/LisaInvoice.exe
+Done. Executable is in dist/Invoice Builder.exe
 Press any key to continue...
 ```
 
@@ -87,7 +102,7 @@ Press any key to continue...
 After successful build:
 ```
 dist/
-├── LisaInvoice.exe          ← Main executable (50-150MB)
+├── Invoice Builder.exe          ← Main executable (50-150MB)
 └── (no other files needed)
 
 build/                       ← PyInstaller working directory (can be deleted)
@@ -105,7 +120,7 @@ LisaInvoice.spec            ← PyInstaller spec file (gitignored)
 **Procedure:**
 1. Run `build.bat` from project root
 2. Verify no error messages in console output
-3. Check that `dist/LisaInvoice.exe` exists
+3. Check that `dist/Invoice Builder.exe` exists
 4. Verify file size is reasonable (50-150MB range)
 
 **Expected Result:** ✓ Build completes, exe file created
@@ -123,11 +138,11 @@ LisaInvoice.spec            ← PyInstaller spec file (gitignored)
 **Acceptance Criterion:** Exe launches and opens browser
 
 **Procedure:**
-1. Double-click `dist/LisaInvoice.exe`
+1. Double-click `dist/Invoice Builder.exe`
 2. Wait 2-3 seconds
 3. Verify default browser opens automatically
-4. Verify browser navigates to `http://localhost:5000` (or alternative port 5001-5010)
-5. Verify React application loads (shows "Lisa Invoice Builder" interface)
+4. Verify browser navigates to `http://localhost:5001` (or alternative port up to 5010)
+5. Verify React application loads (shows "Invoice Builder" interface)
 
 **Expected Result:** ✓ Browser opens, app UI visible
 
@@ -135,12 +150,12 @@ LisaInvoice.spec            ← PyInstaller spec file (gitignored)
 - **Windows SmartScreen warning:** "Windows protected your PC"
   - **Solution:** Click "More info" → "Run anyway" (one-time only)
   - **Why it happens:** Unsigned executable, expected for non-commercial apps
-- **Port 5000 already in use:**
-  - **Solution:** App auto-detects and uses next available port (5001-5010)
-  - **Validation:** Console shows "Starting Lisa Invoice Builder on port 500X..."
+- **Port 5001 already in use:**
+  - **Solution:** App auto-detects and uses next available port (5002-5010)
+  - **Validation:** Console shows "Starting Invoice Builder on port 500X..."
 - **Browser doesn't open:**
   - Check if browser opens but navigates to wrong URL
-  - Try manually navigating to `http://localhost:5000`
+  - Try manually navigating to `http://localhost:5001`
   - Check Windows Firewall isn't blocking localhost connections
 - **"Static files not found" error:**
   - Build issue: `frontend/dist/` not properly bundled
@@ -154,7 +169,7 @@ LisaInvoice.spec            ← PyInstaller spec file (gitignored)
 **Acceptance Criterion:** PDF generation works from bundled exe
 
 **Procedure:**
-1. Launch LisaInvoice.exe
+1. Launch Invoice Builder.exe
 2. Navigate to Profile page, configure name and save folder
 3. Navigate to Weekly Invoice page
 4. Enter hours for a week (e.g., Mon: 8, Tue: 8, etc.)
@@ -210,51 +225,47 @@ LisaInvoice.spec            ← PyInstaller spec file (gitignored)
 
 **Acceptance Criterion:** Email sending works from bundled exe
 
-**Procedure:**
-1. Configure `.env` file with Gmail credentials:
-   ```
-   GMAIL_ADDRESS=your-email@gmail.com
-   GMAIL_APP_PASSWORD=xxxx-xxxx-xxxx-xxxx
-   ```
-   - Place `.env` next to `LisaInvoice.exe` (same directory)
-   - Use Gmail App Password (not regular password): https://myaccount.google.com/apppasswords
+**Procedure (current 2026-04-11):**
+1. Launch `Invoice Builder.exe` and configure your Profile (name + save folder).
+2. In the top-right corner of any page, click **"Set up email"** (yellow button shown when email is unconfigured).
+3. Enter your Gmail address and a Gmail App Password and click **Save**. The handler `POST /api/email-config` writes a `.env` file to the save folder (next to `config.json`), not next to the exe.
+4. Configure Profile with valid client and accountant emails.
+5. Submit a weekly invoice.
+6. Verify email is sent successfully (check "Sent" folder in Gmail).
+7. Verify email has PDF attachment.
+8. Verify email body contains correct week and totals.
 
-   **SECURITY WARNING:** The `.env` file contains sensitive credentials. Follow these security practices:
-   - Never commit `.env` to version control (already in `.gitignore`)
-   - Store `.env` in a secure location with restricted file permissions
-   - Do not share `.env` via email, cloud storage, or messaging apps
-   - Use Gmail App Passwords (limited scope) instead of your main account password
-   - If credentials are compromised, immediately revoke the App Password at https://myaccount.google.com/apppasswords
-   - Consider encrypting the folder containing `LisaInvoice.exe` and `.env` if on a shared computer
-2. Launch LisaInvoice.exe
-3. Configure Profile with valid client and accountant emails
-4. Submit a weekly invoice
-5. Verify email is sent successfully (check "Sent" folder in Gmail)
-6. Verify email has PDF attachment
-7. Verify email body contains correct week and totals
+**Where credentials live (current):**
+- `.env` is at `{saveFolder}/.env` (e.g. `~/Documents/lisa-w-invoices/.env`).
+- It is NOT placed next to the exe. The save folder is the canonical location for both `config.json` and `.env`.
+- `mail_service._get_env_path()` resolves it via `os.path.dirname(get_config_path())`.
+- The in-app email setup modal is the recommended way to manage the file. Hand-editing still works.
 
-**Expected Result:** ✓ Email sent, PDF attached, recipient receives email
+**Security notes:**
+- `.env` contains a Gmail App Password. Treat it like any credential file.
+- Use App Passwords (limited scope), not your main Google password. Generate at https://myaccount.google.com/apppasswords (requires 2FA).
+- If compromised, revoke the App Password at the same URL.
+- The save folder is typically under `~/Documents/`, which is per-user — fine on Lisa's personal laptop. On a shared computer, consider moving the save folder somewhere user-restricted.
 
 **Common Issues:**
-- **".env file not found":**
-  - Place `.env` in same directory as `LisaInvoice.exe`
-  - In bundled mode: `sys.executable` directory (where exe lives)
-  - Verify `python-dotenv` loads from correct location
+- **"GMAIL_ADDRESS not found in .env":**
+  - The save folder is set in Profile but `.env` was never created — open the Set up email modal.
+  - Or: `.env` exists but is in the wrong location (e.g. next to the exe). Move it to the save folder.
 
 - **"Authentication failed" (535 error):**
-  - Using regular Gmail password instead of App Password
-  - Solution: Generate App Password at https://myaccount.google.com/apppasswords
-  - Must have 2-Factor Authentication enabled on Gmail account
+  - Using regular Gmail password instead of App Password.
+  - Solution: Generate App Password at https://myaccount.google.com/apppasswords.
+  - Must have 2-Factor Authentication enabled on Gmail account.
 
 - **"SMTP connection failed" (timeout):**
-  - Firewall blocking SMTP port 587
-  - Corporate network blocking outbound SMTP
-  - Solution: Test on different network (home WiFi, hotspot)
+  - Firewall blocking SMTP port 587.
+  - Corporate network blocking outbound SMTP.
+  - Solution: Test on different network (home WiFi, hotspot).
 
 - **Email sent but PDF not attached:**
-  - Check PDF was created successfully first (Test 3)
-  - Verify file path in `mail_service.py` is correct
-  - Check email size limits (Gmail: 25MB per email)
+  - Check PDF was created successfully first (Test 3).
+  - Verify file path in `mail_service.py` is correct.
+  - Check email size limits (Gmail: 25MB per email).
 
 ---
 
@@ -266,9 +277,9 @@ LisaInvoice.spec            ← PyInstaller spec file (gitignored)
 1. Set up a clean Windows 10/11 VM or physical machine:
    - Fresh Windows installation OR
    - Windows machine that has never had Python installed
-2. Copy only `LisaInvoice.exe` to the test machine (e.g., USB drive, network share)
-3. Copy `config.json` and `.env` to same directory as exe (if pre-configured)
-4. Double-click `LisaInvoice.exe`
+2. Copy only `Invoice Builder.exe` to the test machine (e.g., USB drive, network share)
+3. Pre-configure (optional): create the save folder (e.g. `~/Documents/test-invoices/`), drop `config.json` and `.env` inside it. The exe reads both from the save folder, NOT from its own directory. The save folder location is remembered via a `pointer.json` in `%APPDATA%\.invoicebuilder\`.
+4. Double-click `Invoice Builder.exe`
 5. Navigate through SmartScreen warning if prompted
 6. Verify all functionality works:
    - App opens in browser
@@ -344,7 +355,7 @@ LisaInvoice.spec            ← PyInstaller spec file (gitignored)
 
 ### Issue 2: Large Executable Size
 
-**Symptom:** `LisaInvoice.exe` is 100-200MB
+**Symptom:** `Invoice Builder.exe` is 100-200MB
 
 **Root Cause:** PyInstaller bundles entire Python runtime + all dependencies + GTK libraries if using WeasyPrint
 
@@ -429,13 +440,13 @@ Use this checklist when testing on Windows:
   - [ ] `build.bat` runs without errors
   - [ ] Frontend build succeeds (Vite output shows "built in Xms")
   - [ ] PyInstaller packaging succeeds
-  - [ ] `dist/LisaInvoice.exe` created
+  - [ ] `dist/Invoice Builder.exe` created
   - [ ] Exe file size is 50-200MB
 
 - [ ] **Development Machine Testing**
   - [ ] Exe launches without console window (--windowed mode)
   - [ ] Browser opens automatically after 1-2 seconds
-  - [ ] React app loads at `http://localhost:5000` (or alt port)
+  - [ ] React app loads at `http://localhost:5001` (or alt port)
   - [ ] Profile page loads, settings can be saved
   - [ ] Weekly invoice page loads, hours can be entered
   - [ ] PDF generation works (test with "Save" without email)
@@ -447,8 +458,8 @@ Use this checklist when testing on Windows:
 - [ ] **Clean Machine Testing**
   - [ ] VM or clean Windows machine prepared
   - [ ] No Python installed on test machine
-  - [ ] Only `LisaInvoice.exe` copied to test machine
-  - [ ] `config.json` and `.env` copied (if pre-configured)
+  - [ ] Only `Invoice Builder.exe` copied to test machine
+  - [ ] `config.json` and `.env` placed inside the save folder (NOT next to the exe)
   - [ ] SmartScreen warning can be bypassed ("More info" → "Run anyway")
   - [ ] All functionality works on clean machine:
     - [ ] App launches and opens browser
@@ -458,11 +469,12 @@ Use this checklist when testing on Windows:
   - [ ] No errors related to missing Python or dependencies
 
 - [ ] **Edge Cases**
-  - [ ] Port 5000 occupied → app uses alternative port (5001-5010)
+  - [ ] Port 5001 occupied → app uses alternative port (5002-5010)
   - [ ] Invalid save folder path → app shows error, doesn't crash
-  - [ ] Missing .env file → app shows error when trying to send email
-  - [ ] Network disconnected → email fails gracefully, PDF still saved
+  - [ ] Missing .env file → "Set up email" button stays visible; submit returns a clear error when sending
+  - [ ] Network disconnected → email fails gracefully, PDF still saved, crash report spooled to `<tempdir>/invoice-builder-pending-reports/` for retry
   - [ ] Multiple simultaneous launches → only one instance runs, others open browser to existing instance
+  - [ ] Self-update with broken bundle → exe exits with code 2 via `_verify_static_assets_or_exit()`, bat-script healthcheck fails, rollback restores previous exe, dev gets a `[CRASH] SelfUpdateRollback` email on next launch
 
 ---
 
