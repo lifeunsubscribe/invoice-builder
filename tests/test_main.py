@@ -120,6 +120,52 @@ class TestIndexRoute:
             assert data['error'] == 'Server error'
             assert 'error occurred while serving' in data['message']
 
+    @patch('app.main.DIST_FOLDER')
+    def test_index_missing_dist_fires_crash_report(self, mock_dist_folder, client):
+        """
+        REGRESSION (2026-04-11 Lisa update race): when DIST_FOLDER is missing
+        at request time, we MUST fire a crash report. Previously the index()
+        handler returned `jsonify(...), 500` directly, which bypasses Flask's
+        @errorhandler(500), so the auto-reporter never ran. The dist-vanished
+        race during a self-update went silent and the dev never got an email.
+        """
+        mock_dist_folder.__str__ = lambda self: '/nonexistent/dist'
+        mock_dist_folder.__fspath__ = lambda self: '/nonexistent/dist'
+
+        with patch('app.main.os.path.exists', return_value=False):
+            with patch('app.services.report_service.report_exception_async') as mock_report:
+                response = client.get('/')
+
+                assert response.status_code == 500
+                # Crash reporter must have been called with a useful exception
+                mock_report.assert_called_once()
+                exc = mock_report.call_args[0][0]
+                assert isinstance(exc, RuntimeError)
+                assert 'Dist folder missing' in str(exc)
+
+    @patch('app.main.DIST_FOLDER')
+    def test_index_missing_index_html_fires_crash_report(self, mock_dist_folder, client):
+        """Same regression for the missing-index.html branch of index()."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mock_dist_folder.__str__ = lambda self: tmpdir
+            mock_dist_folder.__fspath__ = lambda self: tmpdir
+
+            def exists_side_effect(path):
+                path_str = str(path)
+                if path_str == tmpdir or path == mock_dist_folder:
+                    return True
+                return False
+
+            with patch('app.main.os.path.exists', side_effect=exists_side_effect):
+                with patch('app.services.report_service.report_exception_async') as mock_report:
+                    response = client.get('/')
+
+                    assert response.status_code == 500
+                    mock_report.assert_called_once()
+                    exc = mock_report.call_args[0][0]
+                    assert isinstance(exc, RuntimeError)
+                    assert 'index.html missing' in str(exc)
+
 
 class TestErrorHandlers:
     """Tests for Flask error handlers."""

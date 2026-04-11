@@ -402,8 +402,16 @@ if exist "{exe_path}" (
     goto retry_rename
 )
 echo Old exe renamed to .old >> "{log_path}"
-echo Cleaning up old _MEI temp folders... >> "{log_path}"
-for /d %%D in ("%TEMP%\\_MEI*") do rmdir /s /q "%%D" >nul 2>&1
+REM DO NOT manually cleanup _MEI* temp folders here.
+REM PyInstaller's onefile bootloader manages its own _MEI<PID> directory:
+REM it extracts at startup and removes it on exit. If we rmdir _MEI* in
+REM parallel with the new exe extracting (or while the old exe's bootloader
+REM is still finalizing its own cleanup after os._exit), we can race against
+REM the new exe's still-extracting files and end up deleting parts of the
+REM new bundle. Lisa hit this on 2026-04-11: the new exe started cleanly,
+REM served two heartbeats, then GET / returned 500 "Dist folder missing"
+REM because _MEI<N>\dist had been wiped between startup and the first
+REM page request. Letting PyInstaller manage its own temp dir is safer.
 echo Launching new exe from temp... >> "{log_path}"
 start /b "" "{new_exe}"
 echo Waiting for new exe to start... >> "{log_path}"
@@ -460,9 +468,27 @@ def _heartbeat_watchdog():
 
 @app.route("/")
 def index():
-    """Serve the React app's index.html as the entry point."""
+    """Serve the React app's index.html as the entry point.
+
+    This is the most critical route — the frontend can't load if it 500s.
+    We fire a crash report on every 500 path because Flask's @errorhandler(500)
+    does NOT run for handled responses (jsonify(...), 500). Without these
+    explicit calls the dist-folder-vanished race that bit Lisa on 2026-04-11
+    would silently return 500 and never email home.
+    """
+    from app.services.report_service import report_exception_async
+
     if not os.path.exists(DIST_FOLDER):
         logger.error("Dist folder missing: %s", DIST_FOLDER)
+        # Synthesize an exception so the crash report has a useful traceback.
+        try:
+            raise RuntimeError(
+                f"Dist folder missing at request time: {DIST_FOLDER}. "
+                f"The PyInstaller _MEI temp dir has been wiped or never extracted. "
+                f"Frozen={getattr(sys, 'frozen', False)}, exe={sys.executable}"
+            )
+        except RuntimeError as exc:
+            report_exception_async(exc)
         return jsonify({
             "error": "Static files not found",
             "message": "The frontend build directory does not exist. Run 'npm run build' in frontend/."
@@ -471,6 +497,14 @@ def index():
     index_path = os.path.join(str(DIST_FOLDER), "index.html")
     if not os.path.exists(index_path):
         logger.error("index.html not found in %s", DIST_FOLDER)
+        try:
+            raise RuntimeError(
+                f"index.html missing at request time: {index_path}. "
+                f"DIST_FOLDER exists but index.html does not. "
+                f"Frozen={getattr(sys, 'frozen', False)}, exe={sys.executable}"
+            )
+        except RuntimeError as exc:
+            report_exception_async(exc)
         return jsonify({
             "error": "Static file not found",
             "message": "index.html not found in the build directory. Run 'npm run build' in frontend/."
@@ -482,24 +516,28 @@ def index():
         raise
     except FileNotFoundError as e:
         logger.exception("index.html not found: %s", e)
+        report_exception_async(e)
         return jsonify({
             "error": "Static file not found",
             "message": "index.html is missing from the build directory"
         }), 500
     except PermissionError as e:
         logger.exception("Permission denied serving index.html: %s", e)
+        report_exception_async(e)
         return jsonify({
             "error": "Permission denied",
             "message": "Cannot read index.html due to insufficient permissions"
         }), 500
     except OSError as e:
         logger.exception("OS error serving index.html: %s", e)
+        report_exception_async(e)
         return jsonify({
             "error": "File system error",
             "message": "An error occurred reading the application files"
         }), 500
     except Exception as e:
         logger.exception("Unexpected error serving index.html: %s", e)
+        report_exception_async(e)
         return jsonify({
             "error": "Server error",
             "message": "An unexpected error occurred while serving the application"
