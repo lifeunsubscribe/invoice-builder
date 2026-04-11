@@ -210,30 +210,43 @@ def submit_weekly():
                 "message": f"Missing week fields: {', '.join(missing_week_fields)}"
             }), 400
 
-        # Validate email addresses (only if provided and non-empty)
+        # Validate email addresses (only if provided and non-empty).
+        # Skipped entirely when saveOnly=true: no email is being sent in
+        # that mode, so a stale typo in clientEmail/accountantEmail would
+        # otherwise trap the user on a screen that doesn't expose the
+        # field for editing. (Defense in depth — the frontend now omits
+        # the email fields from saveOnly payloads anyway.)
+        save_only = bool(payload.get('saveOnly'))
         try:
             client_email = _extract_email_field(payload, 'clientEmail')
             accountant_email = _extract_email_field(payload, 'accountantEmail')
         except ValueError as e:
-            return jsonify({
-                "success": False,
-                "error": "Invalid email",
-                "message": str(e)
-            }), 400
+            if save_only:
+                # Even wrong-type emails are tolerated in save-only mode —
+                # just fall back to "no recipients" since we won't email anyone.
+                client_email = ""
+                accountant_email = ""
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid email",
+                    "message": str(e)
+                }), 400
 
-        if client_email and not is_valid_email(client_email):
-            return jsonify({
-                "success": False,
-                "error": "Invalid email",
-                "message": "clientEmail must be a valid email address"
-            }), 400
+        if not save_only:
+            if client_email and not is_valid_email(client_email):
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid email",
+                    "message": "clientEmail must be a valid email address"
+                }), 400
 
-        if accountant_email and not is_valid_email(accountant_email):
-            return jsonify({
-                "success": False,
-                "error": "Invalid email",
-                "message": "accountantEmail must be a valid email address"
-            }), 400
+            if accountant_email and not is_valid_email(accountant_email):
+                return jsonify({
+                    "success": False,
+                    "error": "Invalid email",
+                    "message": "accountantEmail must be a valid email address"
+                }), 400
 
         # Validate hours values are numeric
         if not isinstance(payload['hours'], dict):

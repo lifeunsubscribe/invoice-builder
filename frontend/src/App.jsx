@@ -52,6 +52,17 @@ function tint(hex, alpha) {
 }
 function pad(n) { return String(n).padStart(2,"0"); }
 
+// Mirrors the backend's EMAIL_PATTERN in app/api/submit_api.py so we
+// can fail fast in the UI before the server has to. Empty/missing is
+// intentionally valid (means "skip this recipient").
+const EMAIL_RE = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+function isValidEmailOrEmpty(s) {
+  if (s == null) return true;
+  const trimmed = String(s).trim();
+  if (!trimmed) return true;
+  return EMAIL_RE.test(trimmed);
+}
+
 function deriveSaveFolder(fullName) {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   if (parts.length < 2) return `~/Documents/${(parts[0]||"user").toLowerCase()}-invoices`;
@@ -1338,7 +1349,13 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
   const totalPay   = (totalHours*config.rate).toFixed(2);
   const setHour    = (day,v) => { hoursChangedRef.current = true; setHours(h=>({...h,[day]:v})); };
 
-  // Step 1: Save invoice only (no email), then transition to log review
+  // Step 1: Save invoice only (no email), then transition to log review.
+  // Email fields are intentionally omitted: this is a save-only call so
+  // no email is being sent, and including them would let a stale typo in
+  // config.clientEmail / config.accountantEmail trip the backend's email
+  // validator on a screen that has no UI for fixing the typo. Lisa got
+  // stuck this way (2026-04-11) and had to abandon the workflow to fix
+  // the email in Profile.
   const doSaveInvoice = async () => {
     if (submitInProgressRef.current) return;
     submitInProgressRef.current = true;
@@ -1349,8 +1366,6 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
     try {
       const payload = {
         hours,
-        clientEmail,
-        accountantEmail,
         week: { start: week.start, end: week.end, invNum: week.invNum },
         saveOnly: true
       };
@@ -1652,15 +1667,24 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
 
               <div style={{flexShrink:0,marginBottom:32}}>
                 <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
-                {[{label:"Client",value:clientEmail,set:setClientEmail},{label:"Accountant",value:accountantEmail,set:setAccountantEmail}].map(({label,value,set})=>(
+                {[{label:"Client",value:clientEmail,set:setClientEmail},{label:"Accountant",value:accountantEmail,set:setAccountantEmail}].map(({label,value,set})=>{
+                  const valid = isValidEmailOrEmpty(value);
+                  const borderColor = valid ? `${acc}30` : "#d96a4a";
+                  return (
                   <div key={label} style={{marginBottom:7}}>
                     <div style={{fontSize:13,color:"#b0988a",marginBottom:3}}>{label}</div>
                     <input value={value} onChange={e=>set(e.target.value)}
-                        style={{width:"100%",fontSize:15,border:`1.5px solid ${acc}30`,borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
-                        onFocus={e=>{e.target.style.borderColor=acc;e.target.style.boxShadow=`0 0 0 2px ${tint(acc,0.12)}`;}}
-                        onBlur={e=>{e.target.style.borderColor=`${acc}30`;e.target.style.boxShadow="none";}}/>
+                        style={{width:"100%",fontSize:15,border:`1.5px solid ${borderColor}`,borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
+                        onFocus={e=>{e.target.style.borderColor=valid?acc:"#d96a4a";e.target.style.boxShadow=`0 0 0 2px ${valid?tint(acc,0.12):"rgba(217,106,74,0.18)"}`;}}
+                        onBlur={e=>{e.target.style.borderColor=borderColor;e.target.style.boxShadow="none";}}/>
+                    {!valid && (
+                      <div style={{fontSize:12,color:"#c4714f",marginTop:4,lineHeight:1.3}}>
+                        Doesn't look like a valid email — fix or clear it.
+                      </div>
+                    )}
                     </div>
-                  ))}
+                  );
+                })}
               </div>
             </>)}
 
@@ -1679,7 +1703,10 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
                 </button>
               </>) : (
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {(()=>{const cantSend=submitting||!config.signatureFont||!savedInvoicePath;return(<>
+                  {(()=>{
+                    const emailsValid = isValidEmailOrEmpty(clientEmail) && isValidEmailOrEmpty(accountantEmail);
+                    const cantSend = submitting||!config.signatureFont||!savedInvoicePath||!emailsValid;
+                    return(<>
                   <button onClick={doSendWithLogs} disabled={cantSend} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:cantSend?"not-allowed":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:cantSend?0.5:1}}>
                     {submitting ? "Sending..." : "Send Invoice & Logs"}
                   </button>
@@ -1693,10 +1720,21 @@ function WeeklyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailSe
                       Save the invoice first to enable sending.
                     </div>
                   )}
+                  {savedInvoicePath && config.signatureFont && !emailsValid && (
+                    <div style={{fontSize:12,color:"#c4714f",textAlign:"center",lineHeight:1.3}}>
+                      Fix the email above before sending.
+                    </div>
+                  )}
                   </>);})()}
-                  <button onClick={doSendInvoiceOnly} disabled={submitting||!savedInvoicePath} style={{width:"100%",fontSize:14,fontWeight:600,padding:"10px 0",borderRadius:9,border:`1.5px solid ${acc}30`,background:"white",color:acc,cursor:(submitting||!savedInvoicePath)?"not-allowed":"pointer",opacity:(submitting||!savedInvoicePath)?0.5:1}}>
+                  {(()=>{
+                    const emailsValid = isValidEmailOrEmpty(clientEmail) && isValidEmailOrEmpty(accountantEmail);
+                    const cantSend = submitting||!savedInvoicePath||!emailsValid;
+                    return (
+                  <button onClick={doSendInvoiceOnly} disabled={cantSend} style={{width:"100%",fontSize:14,fontWeight:600,padding:"10px 0",borderRadius:9,border:`1.5px solid ${acc}30`,background:"white",color:acc,cursor:cantSend?"not-allowed":"pointer",opacity:cantSend?0.5:1}}>
                     Send Invoice Only
                   </button>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -1982,10 +2020,21 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
                 <div style={{fontSize:12,letterSpacing:2,textTransform:"uppercase",color:"#9a8070",marginBottom:6}}>Send To</div>
                 <div style={{marginBottom:7}}>
                   <div style={{fontSize:13,color:"#b0988a",marginBottom:3}}>Accountant</div>
+                  {(()=>{
+                    const valid = isValidEmailOrEmpty(accountantEmail);
+                    const borderColor = valid ? `${acc}30` : "#d96a4a";
+                    return (<>
                   <input value={accountantEmail} onChange={e=>setAccountantEmail(e.target.value)}
-                    style={{width:"100%",fontSize:15,border:`1.5px solid ${acc}30`,borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
-                    onFocus={e=>{e.target.style.borderColor=acc;e.target.style.boxShadow=`0 0 0 2px ${tint(acc,0.12)}`;}}
-                    onBlur={e=>{e.target.style.borderColor=`${acc}30`;e.target.style.boxShadow="none";}}/>
+                    style={{width:"100%",fontSize:15,border:`1.5px solid ${borderColor}`,borderRadius:6,padding:"7px 10px",color:"#2c1810",outline:"none",background:"white"}}
+                    onFocus={e=>{e.target.style.borderColor=valid?acc:"#d96a4a";e.target.style.boxShadow=`0 0 0 2px ${valid?tint(acc,0.12):"rgba(217,106,74,0.18)"}`;}}
+                    onBlur={e=>{e.target.style.borderColor=borderColor;e.target.style.boxShadow="none";}}/>
+                  {!valid && (
+                    <div style={{fontSize:12,color:"#c4714f",marginTop:4,lineHeight:1.3}}>
+                      Doesn't look like a valid email — fix or clear it.
+                    </div>
+                  )}
+                    </>);
+                  })()}
                 </div>
                 <div style={{fontSize:13,color:"#c0a898",fontStyle:"italic"}}>Monthly reports go to your accountant only.</div>
               </div>
@@ -1995,9 +2044,20 @@ function MonthlyPage({ config, onBack, emailConfigured, onOpenEmailSetup, emailS
           <div style={{flexShrink:0,borderTop:`1px solid ${acc}18`,background:"#fdf8f4"}}>
             {notification && <div style={{padding:"10px 16px 0"}}><NotifCard notification={notification} onDismiss={()=>setNotification(null)} onOpenEmailSetup={onOpenEmailSetup} accent={acc}/></div>}
             <div style={{padding:"10px 16px 14px"}}>
-              <button onClick={handleSubmit} disabled={submitting} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:submitting?"wait":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:submitting?0.7:1}}>
+              {(()=>{
+                const emailValid = isValidEmailOrEmpty(accountantEmail);
+                const cantSend = submitting || !emailValid;
+                return (<>
+              <button onClick={handleSubmit} disabled={cantSend} style={{width:"100%",fontSize:16,fontWeight:700,padding:"12px 0",borderRadius:9,border:"none",background:`linear-gradient(135deg,${acc},${acc}bb)`,color:"white",cursor:cantSend?"not-allowed":"pointer",boxShadow:`0 3px 14px ${tint(acc,0.35)}`,opacity:cantSend?0.5:(submitting?0.7:1)}}>
                 {submitting ? "Sending Report..." : "Generate & Send Report 📊"}
               </button>
+              {!emailValid && (
+                <div style={{fontSize:12,color:"#c4714f",textAlign:"center",lineHeight:1.3,marginTop:6}}>
+                  Fix the accountant email above before sending.
+                </div>
+              )}
+                </>);
+              })()}
             </div>
           </div>
         </div>
