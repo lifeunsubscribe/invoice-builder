@@ -410,7 +410,7 @@ REM is still finalizing its own cleanup after os._exit), we can race against
 REM the new exe's still-extracting files and end up deleting parts of the
 REM new bundle. Lisa hit this on 2026-04-11: the new exe started cleanly,
 REM served two heartbeats, then GET / returned 500 "Dist folder missing"
-REM because _MEI<N>\dist had been wiped between startup and the first
+REM because _MEI(N)/dist had been wiped between startup and the first
 REM page request. Letting PyInstaller manage its own temp dir is safer.
 echo Launching new exe from temp... >> "{log_path}"
 start /b "" "{new_exe}"

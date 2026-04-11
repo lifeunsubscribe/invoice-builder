@@ -1,7 +1,50 @@
 # ADR: lisa-invoice-app
-**Status:** Approved  
-**Date:** 2026-03-26  
+**Status:** Approved (Phase 1) — see "Drift from original ADR" section below for what has evolved since
+**Date:** 2026-03-26
+**Last reviewed:** 2026-04-11
 **Author:** Sarah (developer), for Lisa Wadley (end user)
+
+---
+
+## Drift from original ADR (added 2026-04-11)
+
+This ADR captures the **original spec from 2026-03-26**. The app has been in production for several weeks and has evolved beyond what's documented below. The sections marked here are known to have drifted; the rest of the ADR is still broadly accurate as historical/architectural context.
+
+**Naming**
+- Exe is `Invoice Builder.exe` (not `LisaInvoice.exe`). The CI workflow at `.github/workflows/build.yml` is the canonical build; the legacy `build.bat` still references the old name.
+
+**Port**
+- Default port is **5001**, not 5000 (with auto-fallback up to 5010).
+
+**Configuration schema**
+- Many fields have been added to support multi-client home-health-aide use: `clients[]` (array of `{id, name, address, objective, meds[], defaultShift}`), `activeClientId`, `template`, `signatureFont`, `enabledVitals[]`, `logSections[]`, `occupation`, `agency`, `patientName` / `patientAddress` (legacy single-client compat). See `app/api/config_api.py:DEFAULT_CONFIG` for the current full schema.
+- The `rate` field is stored on disk as a `float`. Form input sends a string; both `update_config` (write side) and `load_config` (read side) coerce to `float` with a `0.0` fallback.
+
+**Configuration location**
+- `config.json` lives at `{saveFolder}/config.json`, NOT at the project root or next to the exe. The exe finds the save folder via `pointer.json` in `%APPDATA%\.invoicebuilder\` (Windows) or `~/.invoicebuilder/` (other platforms).
+- `.env` (Gmail credentials) lives at `{saveFolder}/.env`, alongside config.json. NOT next to the exe. Managed via the in-app "Set up email" modal that posts to `POST /api/email-config`. Hand-editing still works.
+
+**API surface**
+- The current endpoint inventory is much larger than the four originally listed. See `.rite/docs/api.md` for the full list. Highlights:
+  - `GET /api/themes` — list available templates
+  - `GET /api/email-status`, `POST /api/email-config` — manage SMTP credentials in-app
+  - `POST /api/submit/preview-weekly-log`, `POST /api/submit/weekly-with-logs` — daily-service-log preview and combined invoice+log send
+  - `GET /api/log`, `POST /api/log`, `DELETE /api/log`, `GET /api/log-week`, `GET /api/log-dates`, `GET /api/log-month-mileage`, `GET /api/log-sections`, `POST /api/log-sections`, `POST /api/log-sections/purge` — daily service log CRUD and metadata
+  - `POST /api/scan/open-folder` — Windows shell folder open
+  - `POST /api/heartbeat`, `POST /api/shutdown` — frontend keepalive and graceful exit
+  - `GET /api/check-update`, `POST /api/self-update` — auto-update via GitHub Releases (frontend polls every 2 hours and on launch)
+  - `POST /api/report` — user-initiated diagnostic/feedback report
+
+**Self-update + auto-distribution**
+- Not in the original spec. Builds are now produced automatically by GitHub Actions on push to `main` and published as the `latest` release. The frontend polls `/api/check-update` and offers an in-app "Install Update" banner. The exe rewrites itself via a temp-dir bat-script swap with a healthcheck rollback. See `app/main.py:self_update()` and `_check_crash_report()` for details.
+
+**Crash reporting**
+- Not in the original spec. `app/services/report_service.py` collects diagnostics (sanitized config + log tail + traceback) and sends them via Gmail SMTP to the developer. Failed sends are spooled to `<tempdir>/invoice-builder-pending-reports/` and drained on the next successful live send (or at startup in a background thread).
+
+**Daily service log + multi-client**
+- Not in the original spec. The "lisa-invoice-app" is now also a daily service log app for home health aides — multi-client, vitals, meds, daily sections, weekly log PDF generation. See `frontend/src/App.jsx` page components and `app/api/log_api.py`.
+
+The rest of this ADR is preserved as the original Phase 1 spec.
 
 ---
 

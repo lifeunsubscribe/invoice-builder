@@ -169,6 +169,112 @@ def _migrate_config(config_data):
     return changed
 
 
+# Med fields that propagate from the profile config to existing daily logs.
+# `id` and `configuredId` identify the med, `times` and any per-day fields are
+# the user's daily-log entries (NOT something we want to overwrite).
+PROPAGATABLE_MED_FIELDS = ('name', 'dosage', 'frequency', 'route')
+
+
+def _index_meds_by_id(config_data):
+    """
+    Build {med_id: med_dict} from every med across every client.
+
+    Med ids are generated client-side with timestamps and are unique
+    in practice across clients, so we don't need to scope by clientId.
+    """
+    by_id = {}
+    for client in config_data.get('clients', []) or []:
+        for med in client.get('meds', []) or []:
+            mid = med.get('id')
+            if mid:
+                by_id[mid] = med
+    return by_id
+
+
+def _diff_meds(old_data, new_data):
+    """
+    Return {med_id: {field: new_value}} for meds whose propagatable fields
+    changed between old and new config. Only fields in PROPAGATABLE_MED_FIELDS
+    are considered.
+    """
+    old_by_id = _index_meds_by_id(old_data)
+    new_by_id = _index_meds_by_id(new_data)
+    changes = {}
+    for mid, new_med in new_by_id.items():
+        old_med = old_by_id.get(mid)
+        if old_med is None:
+            continue  # newly added med — don't backfill into old logs
+        diff = {}
+        for field in PROPAGATABLE_MED_FIELDS:
+            if old_med.get(field, '') != new_med.get(field, ''):
+                diff[field] = new_med.get(field, '')
+        if diff:
+            changes[mid] = diff
+    return changes
+
+
+def _propagate_med_edits_to_logs(med_changes, save_folder):
+    """
+    Walk every daily log JSON file in {save_folder}/logs/ and update meds
+    whose id is in `med_changes` so the propagatable fields match the new
+    config. Per-day fields like `times` are left alone.
+
+    Returns the number of log files actually modified. Best-effort:
+    individual file errors are logged and skipped, never raised.
+    """
+    if not med_changes:
+        return 0
+
+    logs_dir = os.path.join(os.path.expanduser(save_folder), 'logs')
+    if not os.path.isdir(logs_dir):
+        return 0
+
+    files_changed = 0
+    for fname in os.listdir(logs_dir):
+        if not (fname.startswith('LOG-') and fname.endswith('.json')):
+            continue
+        fpath = os.path.join(logs_dir, fname)
+        try:
+            with open(fpath, 'r', encoding='utf-8') as f:
+                log_data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError, OSError) as e:
+            logger.warning("Skipping unreadable log file %s: %s", fname, e)
+            continue
+
+        log_meds = log_data.get('meds')
+        if not isinstance(log_meds, list):
+            continue
+
+        modified = False
+        for med in log_meds:
+            if not isinstance(med, dict):
+                continue
+            mid = med.get('id') or med.get('configuredId')
+            if not mid or mid not in med_changes:
+                continue
+            for field, new_val in med_changes[mid].items():
+                if med.get(field, '') != new_val:
+                    med[field] = new_val
+                    modified = True
+
+        if not modified:
+            continue
+
+        try:
+            with open(fpath, 'w', encoding='utf-8') as f:
+                json.dump(log_data, f, indent=2, ensure_ascii=False)
+            files_changed += 1
+        except OSError as e:
+            logger.warning("Failed to write updated log %s: %s", fname, e)
+
+    if files_changed:
+        logger.info(
+            "Propagated med edits (%d med id(s)) to %d existing log file(s)",
+            len(med_changes), files_changed,
+        )
+    return files_changed
+
+
 def _sync_flat_patient_fields(config_data):
     """
     Sync flat patientName/patientAddress from the active client so that
@@ -309,7 +415,10 @@ def update_config():
         if occ in OCC_DEFAULT_SECTIONS and not config_data.get("logSections"):
             config_data["logSections"] = OCC_DEFAULT_SECTIONS[occ]
 
-        # Find the old save folder (before this save) so we can detect moves
+        # Load the previous config (if any) so we can detect:
+        #   1. save folder moves (delete old location)
+        #   2. med edits that need to propagate into existing daily logs
+        old_data = {}
         old_save_folder = ''
         try:
             old_config_path = get_config_path()
@@ -318,6 +427,12 @@ def update_config():
             old_save_folder = old_data.get('saveFolder', '')
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             pass
+
+        # Detect med edits BEFORE writing the new config so we can propagate
+        # the diff to existing daily-log JSON files. Lisa fixed a typo in a
+        # med name and was confused that old logs still showed the typo —
+        # this closes that loop.
+        med_changes = _diff_meds(old_data, config_data)
 
         # Write config to the save folder
         save_folder = config_data.get('saveFolder', '')
@@ -338,6 +453,18 @@ def update_config():
                 except OSError:
                     pass  # Best effort — don't fail the save
 
+        # Propagate med edits to existing daily logs (best-effort, never
+        # raises). Scoped to the CURRENT save folder; if the save folder
+        # just moved, we operate on the new location only.
+        propagated_count = 0
+        if save_folder and med_changes:
+            try:
+                propagated_count = _propagate_med_edits_to_logs(
+                    med_changes, save_folder
+                )
+            except Exception as e:
+                logger.exception("Med propagation failed (non-critical): %s", e)
+
         # Write pointer to app data so the app can find the save folder
         if save_folder and getattr(sys, 'frozen', False):
             pointer_path = os.path.join(_appdata_dir(), 'pointer.json')
@@ -349,10 +476,13 @@ def update_config():
             with open(dev_config, 'w', encoding='utf-8') as f:
                 json.dump(config_data, f, indent=2, ensure_ascii=False)
 
-        return jsonify({
+        response_body = {
             "success": True,
             "message": "Configuration saved successfully"
-        }), 200
+        }
+        if propagated_count:
+            response_body["medLogsUpdated"] = propagated_count
+        return jsonify(response_body), 200
 
     except PermissionError as e:
         logger.exception("Permission denied writing config file: %s", e)
