@@ -367,6 +367,71 @@ class TestMedEditPropagation:
                 log = json.load(f)
             assert log['meds'][0]['name'] == 'new name'
 
+    def test_stale_logs_get_fixed_on_unrelated_save(self, client, temp_save_folder):
+        """
+        REGRESSION (Lisa, 2026-04-11 evening): she fixed a med typo in
+        Profile BEFORE the propagator existed, so the on-disk config
+        already had the corrected name but old logs still showed the typo.
+        On the first version with the propagator, saving the same config
+        again with no diff was a no-op (the diff-based propagator only
+        fired on actual changes between old and new config).
+
+        The convergent sync makes any subsequent save reconcile log meds
+        to the current config — even when there's no diff, even when the
+        save is unrelated (e.g. just updating the rate or address).
+        """
+        # Config already has the corrected name
+        _seed_initial_config(temp_save_folder, [
+            {"id": "med-1", "name": "Memantine", "dosage": "10mg",
+             "frequency": "daily", "route": "Oral"},
+        ])
+        # But the old log still has the typo (wasn't propagated when fix happened)
+        log_path = _write_log(temp_save_folder, "2026-04-08", [
+            {"id": "med-1", "name": "Memantnie", "dosage": "10mg",
+             "frequency": "daily", "route": "Oral", "times": ["08:00"]},
+        ])
+
+        # User saves an unrelated change (e.g. updates address)
+        with open(os.path.join(temp_save_folder, 'config.json'), 'r') as f:
+            payload = json.load(f)
+        payload['address'] = 'New Street 123'
+
+        resp = _post_config(client, payload, temp_save_folder)
+        assert resp.status_code == 200
+        body = resp.get_json()
+        # The convergent sync should still find the stale log and fix it
+        assert body.get('medLogsUpdated') == 1
+
+        with open(log_path, 'r') as f:
+            updated = json.load(f)
+        assert updated['meds'][0]['name'] == 'Memantine'  # typo finally fixed
+        assert updated['meds'][0]['times'] == ["08:00"]  # times preserved
+
+    def test_already_synced_save_is_noop(self, client, temp_save_folder):
+        """
+        Saving when logs are already in sync with config must NOT rewrite
+        any files. Verifies the convergent sync's no-op fast path.
+        """
+        _seed_initial_config(temp_save_folder, [
+            {"id": "med-1", "name": "Memantine", "dosage": "10mg",
+             "frequency": "daily", "route": "Oral"},
+        ])
+        log_path = _write_log(temp_save_folder, "2026-04-09", [
+            {"id": "med-1", "name": "Memantine", "dosage": "10mg",
+             "frequency": "daily", "route": "Oral", "times": ["08:00"]},
+        ])
+        original_mtime = os.path.getmtime(log_path)
+
+        with open(os.path.join(temp_save_folder, 'config.json'), 'r') as f:
+            payload = json.load(f)
+        payload['address'] = 'Whatever Drive 99'  # unrelated change
+
+        resp = _post_config(client, payload, temp_save_folder)
+        assert resp.status_code == 200
+        # Convergent sync ran but had nothing to do — no files rewritten
+        assert 'medLogsUpdated' not in resp.get_json()
+        assert os.path.getmtime(log_path) == original_mtime
+
     def test_log_with_only_configuredId_still_matches(self, client, temp_save_folder):
         """
         Older logs may have stored meds with `configuredId` instead of `id`.

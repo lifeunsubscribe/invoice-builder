@@ -3196,13 +3196,33 @@ export default function App() {
   const [updateComplete, setUpdateComplete] = useState(false);
   const [showReport, setShowReport] = useState(false);
 
-  // Show "Update complete" toast if redirected after update
+  // Show "Update complete" toast after a self-update.
+  //
+  // Two signals, either of which fires the toast:
+  //   1. ?updated=1 in the URL (frontend sets this after polling the
+  //      new server back to life — see doSelfUpdate below)
+  //   2. localStorage 'updateInProgress' flag (set on Install Update
+  //      click; survives any URL weirdness or wrong-port navigation)
+  //
+  // Lisa hit a case on 2026-04-11 where the update succeeded but the
+  // toast never showed. Adding the localStorage fallback means the
+  // toast fires reliably even if the ?updated=1 navigation lands on
+  // an unexpected port or gets stripped somewhere.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('updated')) {
+    const urlSignal = params.get('updated');
+    const storageSignal = (() => {
+      try { return localStorage.getItem('invoiceBuilderUpdateInProgress'); }
+      catch { return null; }
+    })();
+    if (urlSignal || storageSignal) {
       setUpdateComplete(true);
-      window.history.replaceState({}, '', '/');
-      setTimeout(() => setUpdateComplete(false), 5000);
+      try { localStorage.removeItem('invoiceBuilderUpdateInProgress'); } catch {}
+      if (urlSignal) {
+        window.history.replaceState({}, '', '/');
+      }
+      // 8s instead of 5s — the previous duration was easy to miss
+      setTimeout(() => setUpdateComplete(false), 8000);
     }
   }, []);
 
@@ -3314,6 +3334,10 @@ export default function App() {
 
   const doSelfUpdate = async () => {
     setUpdating(true);
+    // Persist a flag so the post-update toast fires even if the
+    // ?updated=1 URL signal gets lost (wrong port, navigation oddities,
+    // etc). Cleared on the next mount when the toast actually shows.
+    try { localStorage.setItem('invoiceBuilderUpdateInProgress', '1'); } catch {}
     try {
       const resp = await fetch('/api/self-update', {
         method: 'POST',
@@ -3324,6 +3348,7 @@ export default function App() {
         const err = await resp.json().catch(()=>({}));
         alert(err.error || 'Update failed');
         setUpdating(false);
+        try { localStorage.removeItem('invoiceBuilderUpdateInProgress'); } catch {}
       }
     } catch {
       // Server exited (expected) — poll until the new server is up, then reload
