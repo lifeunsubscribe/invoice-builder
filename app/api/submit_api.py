@@ -778,16 +778,18 @@ def submit_monthly():
 
 def _load_daily_logs_for_week(save_folder, monday_str):
     """
-    Load Mon-Fri daily logs for a given week.
+    Load daily logs for a given week.
 
-    Returns list of 5 dicts (Mon-Fri), each enriched with date_label and has_data.
+    Always includes Mon-Fri (with has_data=False placeholders for missing days).
+    Saturday and Sunday are included only when a daily log file exists for them,
+    so weekday-only weeks don't get empty weekend sections in the PDF.
     """
     from app.api.config_api import get_config_path, get_or_create_config
     config_path = get_config_path()
     get_or_create_config(config_path)
     config = load_config()
 
-    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     monday = datetime.strptime(monday_str, '%Y%m%d')
     daily_logs = []
 
@@ -837,6 +839,10 @@ def _load_daily_logs_for_week(save_folder, monday_str):
                 'has_data': False,
             })
 
+    # Trim trailing weekend days that have no data; keep Mon-Fri always.
+    while len(daily_logs) > 5 and not daily_logs[-1]['has_data']:
+        daily_logs.pop()
+
     return daily_logs, client
 
 
@@ -875,9 +881,9 @@ def preview_weekly_log():
 
         # Compute week label
         monday = datetime.strptime(monday_str, '%Y%m%d')
-        friday = monday + timedelta(days=4)
+        end_day = monday + timedelta(days=max(len(daily_logs) - 1, 4))
         week_label = (f"{monday.strftime('%B')} {monday.day} – "
-                      f"{friday.strftime('%B')} {friday.day}, {friday.year}")
+                      f"{end_day.strftime('%B')} {end_day.day}, {end_day.year}")
 
         signature_font = config.get('signatureFont', '')
         sign_date = datetime.now().strftime('%B ') + str(datetime.now().day) + datetime.now().strftime(', %Y')
@@ -950,9 +956,9 @@ def submit_weekly_with_logs():
         daily_logs, client = _load_daily_logs_for_week(save_folder, monday_str)
 
         monday = datetime.strptime(monday_str, '%Y%m%d')
-        friday = monday + timedelta(days=4)
+        end_day = monday + timedelta(days=max(len(daily_logs) - 1, 4))
         week_label = (f"{monday.strftime('%B')} {monday.day} – "
-                      f"{friday.strftime('%B')} {friday.day}, {friday.year}")
+                      f"{end_day.strftime('%B')} {end_day.day}, {end_day.year}")
 
         signature_font = config.get('signatureFont', '')
         sign_date = datetime.now().strftime('%B ') + str(datetime.now().day) + datetime.now().strftime(', %Y')
